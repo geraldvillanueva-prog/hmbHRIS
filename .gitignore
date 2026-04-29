@@ -1,0 +1,5 @@
+node_modules/
+db/hris.db
+*.db-shm
+*.db-wal
+.env
