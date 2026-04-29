@@ -162,6 +162,7 @@ tr:hover td{background:#fafcff}
 <!-- TAB NAV -->
 <div class="tab-nav">
   <button class="tab-btn on" onclick="goTab('leaves',this)">🌴 Leave Approvals <span class="tab-notif" id="pending-count" style="display:none">0</span></button>
+  <button class="tab-btn" onclick="goTab('leavefile',this)">📝 File My Leave</button>
   <button class="tab-btn" onclick="goTab('team',this)">👥 My Team</button>
   <button class="tab-btn" onclick="goTab('timeinout',this)">🕐 My Time In/Out</button>
   <button class="tab-btn" onclick="goTab('payslips',this)">💰 My Payslips</button>
@@ -192,7 +193,70 @@ tr:hover td{background:#fafcff}
   </div>
 </div>
 
-<!-- ════════ TAB 2: MY TEAM ════════ -->
+<!-- ════════ TAB 2: FILE MY LEAVE ════════ -->
+<div class="tab-content" id="tab-leavefile">
+  <div class="panel" style="max-width:500px">
+    <div class="panel-title"><div class="panel-title-left">📝 File My Leave Request</div></div>
+    <div style="background:#e3f2fd;color:#0d47a1;border:1px solid #90caf9;border-radius:8px;padding:11px 16px;font-size:12.5px;margin-bottom:12px">
+      As a supervisor, your leave requests are submitted as <strong>Pending</strong> and must be approved by HR Admin. You can cancel a pending request before it is reviewed.
+    </div>
+    <div class="alert alert-ok" id="sup-leave-ok"></div>
+    <div class="alert alert-err" id="sup-leave-err"></div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Leave Type</label>
+      <select id="sup-lv-type" style="font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;width:100%;font-family:'IBM Plex Sans',sans-serif">
+        <option>Vacation Leave (VL)</option>
+        <option>Sick Leave (SL)</option>
+        <option>Emergency Leave</option>
+        <option>Maternity Leave</option>
+        <option>Paternity Leave</option>
+        <option>Solo Parent Leave</option>
+        <option>VAWC Leave</option>
+        <option>Others</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;flex:1">
+        <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Date From</label>
+        <input type="date" id="sup-lv-from" onchange="supComputeDays()" style="font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);width:100%;font-family:'IBM Plex Sans',sans-serif">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;flex:1">
+        <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Date To</label>
+        <input type="date" id="sup-lv-to" onchange="supComputeDays()" style="font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);width:100%;font-family:'IBM Plex Sans',sans-serif">
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Number of Days</label>
+      <input type="number" id="sup-lv-days" min="0.5" step="0.5" readonly style="font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:#f8fafc;color:var(--muted);width:100%;font-family:'IBM Plex Sans',sans-serif">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Reason / Remarks</label>
+      <textarea id="sup-lv-reason" placeholder="Briefly explain the reason for your leave…" style="font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);width:100%;font-family:'IBM Plex Sans',sans-serif;min-height:72px;resize:vertical"></textarea>
+    </div>
+    <button onclick="supFileLeave()" id="sup-btn-file" style="padding:10px 18px;font-size:13px;border-radius:6px;border:none;cursor:pointer;font-weight:700;font-family:'IBM Plex Sans',sans-serif;background:var(--blue);color:#fff;display:inline-flex;align-items:center;gap:6px">📤 Submit Leave Request</button>
+  </div>
+
+  <!-- My own leave balance -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:500px;width:100%;margin-bottom:1rem">
+    <div style="background:var(--card);border:1px solid var(--border);border-top:4px solid var(--green);border-radius:12px;padding:1.25rem 1rem;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🌿 Vacation Leave</div>
+      <div style="font-size:38px;font-weight:700;color:var(--navy);font-family:'IBM Plex Mono',monospace;line-height:1" id="sup-vl-bal">—</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">days remaining</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-top:4px solid var(--blue);border-radius:12px;padding:1.25rem 1rem;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🏥 Sick Leave</div>
+      <div style="font-size:38px;font-weight:700;color:var(--navy);font-family:'IBM Plex Mono',monospace;line-height:1" id="sup-sl-bal">—</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">days remaining</div>
+    </div>
+  </div>
+
+  <div class="panel" style="max-width:500px">
+    <div class="panel-title"><div class="panel-title-left">📋 My Leave Requests</div></div>
+    <div id="sup-my-leaves-wrap"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
+<!-- ════════ TAB 3: MY TEAM ════════ -->
 <div class="tab-content" id="tab-team">
   <div class="panel wide">
     <div class="panel-title"><div class="panel-title-left">👥 My Subordinates</div></div>
@@ -303,6 +367,13 @@ async function init(){
     user=data;
     document.getElementById('sup-name-display').textContent=data.username;
     document.getElementById('sup-initials').textContent=data.username.slice(0,2).toUpperCase();
+    // Set default dates for leave filing
+    var today=new Date().toISOString().slice(0,10);
+    var fromEl=document.getElementById('sup-lv-from');
+    var toEl=document.getElementById('sup-lv-to');
+    if(fromEl)fromEl.value=today;
+    if(toEl)toEl.value=today;
+    supComputeDays();
     await loadLeaves();
     if(data.employee_id){await loadStatus();await loadHistory();}
   }catch(e){window.location.href='/';}
@@ -316,6 +387,79 @@ function goTab(name,el){
   document.getElementById('tab-'+name).classList.add('on');
   if(name==='team')loadTeam();
   if(name==='payslips')loadPayslips();
+  if(name==='leavefile'){supLoadMyLeaves();supLoadBalance();}
+}
+
+// ── SUPERVISOR: FILE OWN LEAVE ─────────────────────────────────────────────────
+function supComputeDays(){
+  var from=document.getElementById('sup-lv-from').value;
+  var to=document.getElementById('sup-lv-to').value;
+  if(!from||!to)return;
+  var a=new Date(from),b=new Date(to);
+  if(b<a){document.getElementById('sup-lv-to').value=from;b=new Date(from);}
+  document.getElementById('sup-lv-days').value=Math.round((b-a)/(1000*60*60*24))+1;
+}
+async function supFileLeave(){
+  var from=document.getElementById('sup-lv-from').value;
+  var to=document.getElementById('sup-lv-to').value;
+  var days=parseFloat(document.getElementById('sup-lv-days').value)||0;
+  var reason=document.getElementById('sup-lv-reason').value.trim();
+  var type=document.getElementById('sup-lv-type').value;
+  if(!from||!to){supShowLeaveMsg('Please set the leave dates.',false);return;}
+  if(days<=0){supShowLeaveMsg('Invalid number of days.',false);return;}
+  if(!reason){supShowLeaveMsg('Please enter a reason for your leave.',false);return;}
+  var btn=document.getElementById('sup-btn-file');
+  btn.disabled=true;btn.textContent='Submitting…';
+  var res=await fetch('/api/leave/file',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,from,to,days,reason})});
+  var data=await res.json();
+  btn.disabled=false;btn.innerHTML='📤 Submit Leave Request';
+  if(data.success){
+    supShowLeaveMsg('✅ Leave request submitted! Waiting for HR Admin approval.',true);
+    document.getElementById('sup-lv-reason').value='';
+    var today=new Date().toISOString().slice(0,10);
+    document.getElementById('sup-lv-from').value=today;
+    document.getElementById('sup-lv-to').value=today;
+    supComputeDays();
+    await supLoadMyLeaves();
+    await supLoadBalance();
+  }else{supShowLeaveMsg('❌ '+(data.error||'Failed to submit.'),false);}
+}
+async function supCancelLeave(id){
+  if(!confirm('Cancel this leave request?'))return;
+  var res=await fetch('/api/leave/mine/'+id,{method:'DELETE'});
+  var data=await res.json();
+  if(data.success){supShowLeaveMsg('Leave request cancelled.',true);await supLoadMyLeaves();}
+  else{supShowLeaveMsg('❌ '+(data.error||'Could not cancel.'),false);}
+}
+async function supLoadMyLeaves(){
+  var res=await fetch('/api/leave');
+  var rows=await res.json();
+  var w=document.getElementById('sup-my-leaves-wrap');
+  if(!rows.length){w.innerHTML='<div class="empty">No leave requests yet.</div>';return;}
+  w.innerHTML='<table><thead><tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status</th><th></th></tr></thead><tbody>'
+    +rows.slice(0,20).map(r=>{
+      var bc=r.status==='Approved'?'badge-green':r.status==='Denied'?'badge-red':'badge-yellow';
+      return'<tr><td style="font-size:11.5px">'+r.type+'</td>'
+        +'<td class="mono" style="font-size:11px">'+fmtDate(r.from)+'</td>'
+        +'<td class="mono" style="font-size:11px">'+fmtDate(r.to)+'</td>'
+        +'<td class="mono" style="text-align:center">'+r.days+'</td>'
+        +'<td><span class="badge '+bc+'">'+r.status+'</span></td>'
+        +'<td>'+(r.status==='Pending'?'<button class="filter-btn" style="color:var(--red);border-color:#ef9a9a;font-size:11px;padding:3px 10px" onclick="supCancelLeave('+r.id+')">Cancel</button>':'')+'</td></tr>';
+    }).join('')+'</tbody></table>';
+}
+async function supLoadBalance(){
+  var res=await fetch('/api/leave/balance');
+  var data=await res.json();
+  var vl=document.getElementById('sup-vl-bal');
+  var sl=document.getElementById('sup-sl-bal');
+  if(vl)vl.textContent=data.vlBal??'—';
+  if(sl)sl.textContent=data.slBal??'—';
+}
+function supShowLeaveMsg(msg,ok){
+  var el=document.getElementById(ok?'sup-leave-ok':'sup-leave-err');
+  var other=document.getElementById(ok?'sup-leave-err':'sup-leave-ok');
+  other.style.display='none';el.textContent=msg;el.style.display='block';
+  setTimeout(()=>el.style.display='none',5000);
 }
 
 // ── LEAVE APPROVALS ────────────────────────────────────────────────────────────

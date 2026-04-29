@@ -1390,14 +1390,24 @@ async function loadTimeLogs(){
   allTimeLogs=rows||[];
   var w=document.getElementById('tl-wrap');
   if(!rows.length){w.innerHTML='<div class="empty">No time log records found.</div>';return;}
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Date</th><th>Time In</th><th>Time Out</th></tr></thead><tbody>'
-  +rows.map(r=>'<tr><td><strong>'+r.emp_name+'</strong></td><td>'+fmtDate(r.log_date)+'</td><td style="color:var(--green);font-family:\'IBM Plex Mono\',monospace">'+(r.time_in||'—')+'</td><td style="font-family:\'IBM Plex Mono\',monospace">'+(r.time_out||'<em style="color:var(--orange)">Still in</em>')+'</td></tr>').join('')
+  w.innerHTML='<div style="overflow-x:auto"><table style="min-width:700px"><thead><tr><th>Employee</th><th>Date</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th></tr></thead><tbody>'
+  +rows.map(r=>'<tr><td><strong>'+r.emp_name+'</strong></td><td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
+    +tlCell(r.time_in,'var(--green)')
+    +tlCell(r.lunch_out,'var(--orange)')
+    +tlCell(r.lunch_in,'#0277bd')
+    +tlCell(r.merienda_out,'var(--orange)')
+    +tlCell(r.merienda_in,'#0277bd')
+    +tlCell(r.time_out,'var(--muted)')
+    +'</tr>').join('')
   +'</tbody></table></div>';
+}
+function tlCell(val,color){
+  return '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:'+(val?color:'#dce3ec')+';font-weight:'+(val?'700':'400')+'">'+(val||'—')+'</td>';
 }
 function exportTimeLogsCSV(){
   if(!allTimeLogs.length){alert('Load time logs first.');return;}
-  var rows=[['Employee','Date','Time In','Time Out']];
-  allTimeLogs.forEach(r=>rows.push([r.emp_name,r.log_date,r.time_in||'',r.time_out||'']));
+  var rows=[['Employee','Date','Time In','Lunch Out','Lunch In','Merienda Out','Merienda In','Time Out']];
+  allTimeLogs.forEach(r=>rows.push([r.emp_name,r.log_date,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'']));
   downloadCSV('HMB_TimeLogs_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
 

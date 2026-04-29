@@ -431,16 +431,22 @@ app.post('/api/attendance', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
-// ─── TIME LOGS (Employee self-service) ────────────────────────────────────────
-
-// Migration: add break columns if they don't exist yet (safe to run on existing DB)
+// Migrate existing time_logs table — add break columns if missing
 try {
   db.exec(`ALTER TABLE time_logs ADD COLUMN lunch_out TEXT`);
+} catch(e) {}
+try {
   db.exec(`ALTER TABLE time_logs ADD COLUMN lunch_in TEXT`);
+} catch(e) {}
+try {
   db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_out TEXT`);
+} catch(e) {}
+try {
   db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in TEXT`);
-} catch(e) { /* columns already exist */ }
+} catch(e) {}
 
+// ─── TIME LOGS ────────────────────────────────────────────────────────────────
+// Get logs — admin gets all with filters, employees/supervisors get their own
 app.get('/api/timelogs', requireAuth, (req, res) => {
   let rows;
   if (req.session.user.role === 'admin') {
@@ -450,108 +456,114 @@ app.get('/api/timelogs', requireAuth, (req, res) => {
     if (employee_id) { q += ' AND t.employee_id=?'; params.push(employee_id); }
     if (from) { q += ' AND t.log_date>=?'; params.push(from); }
     if (to) { q += ' AND t.log_date<=?'; params.push(to); }
-    q += ' ORDER BY t.log_date DESC, t.time_in ASC';
+    q += ' ORDER BY t.log_date DESC, t.id ASC';
     rows = db.prepare(q).all(...params);
   } else {
     const empId = req.session.user.employee_id;
     if (!empId) return res.json([]);
-    rows = db.prepare('SELECT t.*, e.name as emp_name FROM time_logs t JOIN employees e ON t.employee_id=e.id WHERE t.employee_id=? ORDER BY t.log_date DESC, t.time_in ASC LIMIT 60').all(empId);
+    rows = db.prepare('SELECT t.*, e.name as emp_name FROM time_logs t JOIN employees e ON t.employee_id=e.id WHERE t.employee_id=? ORDER BY t.log_date DESC, t.id ASC LIMIT 60').all(empId);
   }
   res.json(rows);
 });
 
-// Helper: get today's active log (has time_in, no time_out)
-function getTodayLog(empId) {
+// Helper: get today's active punch row (no time_out yet)
+function getTodayRow(empId) {
   const today = new Date().toISOString().slice(0, 10);
-  return db.prepare('SELECT * FROM time_logs WHERE employee_id=? AND log_date=? ORDER BY id DESC LIMIT 1').get(empId, today);
+  return { today, row: db.prepare('SELECT * FROM time_logs WHERE employee_id=? AND log_date=? ORDER BY id DESC LIMIT 1').get(empId, today) };
 }
 function nowPH() {
   return new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 }
 
+// TIME IN — always creates a new row for the day
 app.post('/api/timelogs/timein', requireAuth, (req, res) => {
   const empId = req.session.user.employee_id;
   if (!empId) return res.json({ success: false, error: 'No employee linked to account' });
-  const today = new Date().toISOString().slice(0, 10);
-  const now = nowPH();
-  const existing = getTodayLog(empId);
-  if (existing && !existing.time_out) {
+  const { today, row } = getTodayRow(empId);
+  // If there's already an unfinished row, block
+  if (row && !row.time_out) {
     return res.json({ success: false, error: 'Already timed in. Please time out first.' });
   }
+  const now = nowPH();
   db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in) VALUES (?,?,?)').run(empId, today, now);
-  res.json({ success: true, time: now, action: 'time_in' });
+  res.json({ success: true, time: now });
 });
 
+// LUNCH OUT
 app.post('/api/timelogs/lunch-out', requireAuth, (req, res) => {
   const empId = req.session.user.employee_id;
   if (!empId) return res.json({ success: false, error: 'No employee linked to account' });
-  const log = getTodayLog(empId);
-  if (!log || !log.time_in) return res.json({ success: false, error: 'Please time in first.' });
-  if (log.time_out) return res.json({ success: false, error: 'You have already timed out for today.' });
-  if (log.lunch_out) return res.json({ success: false, error: 'Lunch Out already recorded.' });
+  const { row } = getTodayRow(empId);
+  if (!row || !row.time_in || row.time_out) return res.json({ success: false, error: 'No active shift found.' });
+  if (row.lunch_out) return res.json({ success: false, error: 'Lunch Out already recorded.' });
   const now = nowPH();
-  db.prepare('UPDATE time_logs SET lunch_out=? WHERE id=?').run(now, log.id);
-  res.json({ success: true, time: now, action: 'lunch_out' });
+  db.prepare('UPDATE time_logs SET lunch_out=? WHERE id=?').run(now, row.id);
+  res.json({ success: true, time: now });
 });
 
+// LUNCH IN
 app.post('/api/timelogs/lunch-in', requireAuth, (req, res) => {
   const empId = req.session.user.employee_id;
   if (!empId) return res.json({ success: false, error: 'No employee linked to account' });
-  const log = getTodayLog(empId);
-  if (!log || !log.lunch_out) return res.json({ success: false, error: 'Please record Lunch Out first.' });
-  if (log.lunch_in) return res.json({ success: false, error: 'Lunch In already recorded.' });
+  const { row } = getTodayRow(empId);
+  if (!row || !row.lunch_out) return res.json({ success: false, error: 'No Lunch Out recorded yet.' });
+  if (row.lunch_in) return res.json({ success: false, error: 'Lunch In already recorded.' });
   const now = nowPH();
-  db.prepare('UPDATE time_logs SET lunch_in=? WHERE id=?').run(now, log.id);
-  res.json({ success: true, time: now, action: 'lunch_in' });
+  db.prepare('UPDATE time_logs SET lunch_in=? WHERE id=?').run(now, row.id);
+  res.json({ success: true, time: now });
 });
 
+// MERIENDA OUT
 app.post('/api/timelogs/merienda-out', requireAuth, (req, res) => {
   const empId = req.session.user.employee_id;
   if (!empId) return res.json({ success: false, error: 'No employee linked to account' });
-  const log = getTodayLog(empId);
-  if (!log || !log.time_in) return res.json({ success: false, error: 'Please time in first.' });
-  if (log.time_out) return res.json({ success: false, error: 'You have already timed out for today.' });
-  if (log.merienda_out) return res.json({ success: false, error: 'Merienda Out already recorded.' });
+  const { row } = getTodayRow(empId);
+  if (!row || !row.time_in || row.time_out) return res.json({ success: false, error: 'No active shift found.' });
+  if (row.merienda_out) return res.json({ success: false, error: 'Merienda Out already recorded.' });
   const now = nowPH();
-  db.prepare('UPDATE time_logs SET merienda_out=? WHERE id=?').run(now, log.id);
-  res.json({ success: true, time: now, action: 'merienda_out' });
+  db.prepare('UPDATE time_logs SET merienda_out=? WHERE id=?').run(now, row.id);
+  res.json({ success: true, time: now });
 });
 
+// MERIENDA IN
 app.post('/api/timelogs/merienda-in', requireAuth, (req, res) => {
   const empId = req.session.user.employee_id;
   if (!empId) return res.json({ success: false, error: 'No employee linked to account' });
-  const log = getTodayLog(empId);
-  if (!log || !log.merienda_out) return res.json({ success: false, error: 'Please record Merienda Out first.' });
-  if (log.merienda_in) return res.json({ success: false, error: 'Merienda In already recorded.' });
+  const { row } = getTodayRow(empId);
+  if (!row || !row.merienda_out) return res.json({ success: false, error: 'No Merienda Out recorded yet.' });
+  if (row.merienda_in) return res.json({ success: false, error: 'Merienda In already recorded.' });
   const now = nowPH();
-  db.prepare('UPDATE time_logs SET merienda_in=? WHERE id=?').run(now, log.id);
-  res.json({ success: true, time: now, action: 'merienda_in' });
+  db.prepare('UPDATE time_logs SET merienda_in=? WHERE id=?').run(now, row.id);
+  res.json({ success: true, time: now });
 });
 
+// TIME OUT
 app.post('/api/timelogs/timeout', requireAuth, (req, res) => {
   const empId = req.session.user.employee_id;
   if (!empId) return res.json({ success: false, error: 'No employee linked to account' });
-  const log = getTodayLog(empId);
-  if (!log || !log.time_in) return res.json({ success: false, error: 'No active time-in found for today.' });
-  if (log.time_out) return res.json({ success: false, error: 'Already timed out for today.' });
+  const { row } = getTodayRow(empId);
+  if (!row || !row.time_in) return res.json({ success: false, error: 'No active time-in found for today.' });
+  if (row.time_out) return res.json({ success: false, error: 'Already timed out for today.' });
   const now = nowPH();
-  db.prepare('UPDATE time_logs SET time_out=? WHERE id=?').run(now, log.id);
-  res.json({ success: true, time: now, action: 'time_out' });
+  db.prepare('UPDATE time_logs SET time_out=? WHERE id=?').run(now, row.id);
+  res.json({ success: true, time: now });
 });
 
+// STATUS — returns full punch state for today
 app.get('/api/timelogs/status', requireAuth, (req, res) => {
   const empId = req.session.user.employee_id;
-  if (!empId) return res.json({ timedIn: false });
-  const log = getTodayLog(empId);
-  if (!log || !log.time_in) return res.json({ timedIn: false });
+  if (!empId) return res.json({ timeIn: null, lunchOut: null, lunchIn: null, meriendaOut: null, meriendaIn: null, timeOut: null });
+  const today = new Date().toISOString().slice(0, 10);
+  // Get the LATEST row for today
+  const row = db.prepare('SELECT * FROM time_logs WHERE employee_id=? AND log_date=? ORDER BY id DESC LIMIT 1').get(empId, today);
+  if (!row) return res.json({ timeIn: null, lunchOut: null, lunchIn: null, meriendaOut: null, meriendaIn: null, timeOut: null });
   res.json({
-    timedIn: !log.time_out,
-    timeIn: log.time_in,
-    lunchOut: log.lunch_out || null,
-    lunchIn: log.lunch_in || null,
-    meriendaOut: log.merienda_out || null,
-    meriendaIn: log.merienda_in || null,
-    timeOut: log.time_out || null
+    timeIn:      row.time_in      || null,
+    lunchOut:    row.lunch_out    || null,
+    lunchIn:     row.lunch_in     || null,
+    meriendaOut: row.merienda_out || null,
+    meriendaIn:  row.merienda_in  || null,
+    timeOut:     row.time_out     || null
   });
 });
 
@@ -688,25 +700,25 @@ app.get('/api/payslips', requireAdmin, (req, res) => {
   })));
 });
 
+// Employee: view own payslips
+app.get('/api/payslips/mine', requireAuth, (req, res) => {
+  const empId = req.session.user.employee_id;
+  if (!empId) return res.json([]);
+  const rows = db.prepare('SELECT * FROM payslip_history WHERE employee_id=? ORDER BY sent_at DESC').all(empId);
+  res.json(rows.map(r => ({
+    id: r.id, empId: r.employee_id,
+    period: r.period, pdate: r.pdate, sentAt: r.sent_at,
+    basicPay: r.basic_pay, totalEarnings: r.total_earnings, totalDeductions: r.total_deductions, netPay: r.net_pay,
+    attendance: JSON.parse(r.attendance_snapshot||'{}'), employeeSnapshot: JSON.parse(r.employee_snapshot||'{}')
+  })));
+});
+
 app.post('/api/payslips', requireAdmin, (req, res) => {
   const h = req.body;
   db.prepare(`INSERT INTO payslip_history (employee_id, period, pdate, sent_at, email_sent_to, basic_pay, total_earnings, total_deductions, net_pay, attendance_snapshot, employee_snapshot)
     VALUES (?,?,?,datetime('now'),?,?,?,?,?,?,?)
     ON CONFLICT DO NOTHING`).run(h.empId, h.period, h.pdate, h.emailSentTo, h.basicPay, h.totalEarnings, h.totalDeductions, h.netPay, JSON.stringify(h.attendance), JSON.stringify(h.employeeSnapshot));
   res.json({ success: true });
-});
-
-// Employee/Supervisor self-service: view own payslip history
-app.get('/api/payslips/mine', requireAuth, (req, res) => {
-  const empId = req.session.user.employee_id;
-  if (!empId) return res.json([]);
-  const rows = db.prepare('SELECT * FROM payslip_history WHERE employee_id = ? ORDER BY sent_at DESC').all(empId);
-  res.json(rows.map(r => ({
-    id: r.id, period: r.period, pdate: r.pdate, sentAt: r.sent_at,
-    basicPay: r.basic_pay, totalEarnings: r.total_earnings, totalDeductions: r.total_deductions, netPay: r.net_pay,
-    attendance: JSON.parse(r.attendance_snapshot || '{}'),
-    employeeSnapshot: JSON.parse(r.employee_snapshot || '{}')
-  })));
 });
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
