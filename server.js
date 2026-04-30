@@ -466,13 +466,17 @@ app.get('/api/timelogs', requireAuth, (req, res) => {
   res.json(rows);
 });
 
+// Helper: get today's date in Philippine Time (UTC+8)
+function todayPH() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // returns YYYY-MM-DD
+}
 // Helper: get today's active punch row (no time_out yet)
 function getTodayRow(empId) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayPH();
   return { today, row: db.prepare('SELECT * FROM time_logs WHERE employee_id=? AND log_date=? ORDER BY id DESC LIMIT 1').get(empId, today) };
 }
 function nowPH() {
-  return new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  return new Date().toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 }
 
 // TIME IN — always creates a new row for the day
@@ -553,7 +557,7 @@ app.post('/api/timelogs/timeout', requireAuth, (req, res) => {
 app.get('/api/timelogs/status', requireAuth, (req, res) => {
   const empId = req.session.user.employee_id;
   if (!empId) return res.json({ timeIn: null, lunchOut: null, lunchIn: null, meriendaOut: null, meriendaIn: null, timeOut: null });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayPH();
   // Get the LATEST row for today
   const row = db.prepare('SELECT * FROM time_logs WHERE employee_id=? AND log_date=? ORDER BY id DESC LIMIT 1').get(empId, today);
   if (!row) return res.json({ timeIn: null, lunchOut: null, lunchIn: null, meriendaOut: null, meriendaIn: null, timeOut: null });
