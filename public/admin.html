@@ -282,6 +282,61 @@ tr:hover td{background:#fafcff}
     <div id="emp-wrap"><div class="empty">No employees added yet.</div></div>
   </div>
 
+  <!-- EDIT EMPLOYEE MODAL -->
+  <div id="edit-emp-modal" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,0.55);z-index:300;align-items:center;justify-content:center;padding:16px;overflow-y:auto">
+    <div style="background:#fff;border-radius:14px;max-width:700px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(10,22,40,0.18);margin:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;z-index:1">
+        <div style="font-size:15px;font-weight:700;color:var(--navy)">✏️ Edit Employee</div>
+        <button onclick="closeEditEmp()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1">×</button>
+      </div>
+      <div style="padding:1.5rem">
+        <input type="hidden" id="edit-emp-id">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>Full Name</label><input id="edit-en" placeholder="Last, First MI"></div>
+          <div class="f"><label>Position</label><input id="edit-epos"></div>
+          <div class="f"><label>Department</label><input id="edit-edept"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>Employment Type</label>
+            <select id="edit-etype">
+              <option>Regular</option><option>Probationary</option><option>Contractual</option><option>Part-time</option>
+            </select>
+          </div>
+          <div class="f"><label>Start Date</label><input id="edit-estart" type="date"></div>
+          <div class="f"><label>Bank Account</label><input id="edit-ebank"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>Personal Email</label><input id="edit-eemail" type="email"></div>
+          <div class="f"><label>Mobile Number</label><input id="edit-emobile"></div>
+          <div class="f"><label>Emergency Contact</label><input id="edit-eemergency" placeholder="Name / Number"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>Semi-monthly Pay (₱)</label><input id="edit-esmb" type="number" step="0.01"></div>
+          <div class="f"><label>SSS (₱/period)</label><input id="edit-esss" type="number" step="0.01"></div>
+          <div class="f"><label>PHIC (₱/period)</label><input id="edit-ephic" type="number" step="0.01"></div>
+          <div class="f"><label>HDMF (₱/period)</label><input id="edit-ehdmf" type="number" step="0.01"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>HDMF MPL/mo (₱)</label><input id="edit-empl" type="number" step="0.01"></div>
+          <div class="f"><label>Deminimis (₱)</label><input id="edit-edm" type="number" step="0.01"></div>
+          <div class="f"><label>Load Allowance (₱)</label><input id="edit-eload" type="number" step="0.01"></div>
+          <div class="f"><label>WHT Tax (₱)</label><input id="edit-ewht" type="number" step="0.01"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>VL Balance (days)</label><input id="edit-evl" type="number" step="0.5"></div>
+          <div class="f"><label>SL Balance (days)</label><input id="edit-esl" type="number" step="0.5"></div>
+          <div class="f"><label>TIN</label><input id="edit-etin"></div>
+          <div class="f"><label>Address</label><input id="edit-eaddress"></div>
+        </div>
+        <div id="edit-emp-err" style="display:none;background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:10px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+          <button onclick="closeEditEmp()" style="padding:10px 18px;font-size:13px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:600;font-family:'IBM Plex Sans',sans-serif">Cancel</button>
+          <button id="edit-emp-save-btn" onclick="saveEditEmp()" style="padding:10px 20px;font-size:13px;border-radius:6px;border:none;background:var(--blue);color:#fff;cursor:pointer;font-weight:700;font-family:'IBM Plex Sans',sans-serif">💾 Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 201 FILES -->
   <div id="sec-201" class="sec">
     <div class="page-title">201 Employee Files</div>
@@ -926,6 +981,78 @@ async function addEmp(){
   }else{alert('Error saving employee.');}
 }
 async function removeEmp(id){if(!confirm('Remove this employee?'))return;await api('DELETE','/api/employees/'+id);await reloadEmployees();renderEmpTable();}
+function openEditEmp(id){
+  var e=employees.find(x=>x.id===id);if(!e)return;
+  document.getElementById('edit-emp-id').value=e.id;
+  document.getElementById('edit-en').value=e.name||'';
+  document.getElementById('edit-epos').value=e.pos||'';
+  document.getElementById('edit-edept').value=e.dept||'';
+  document.getElementById('edit-etype').value=e.type||'Regular';
+  document.getElementById('edit-estart').value=e.start||'';
+  document.getElementById('edit-ebank').value=e.bank||'';
+  document.getElementById('edit-eemail').value=e.email||'';
+  document.getElementById('edit-emobile').value=e.mobile||'';
+  document.getElementById('edit-eemergency').value=e.emergency||'';
+  document.getElementById('edit-eaddress').value=e.address||'';
+  document.getElementById('edit-etin').value=e.tin||'';
+  document.getElementById('edit-esmb').value=e.smb||0;
+  document.getElementById('edit-esss').value=e.sss||0;
+  document.getElementById('edit-ephic').value=e.phic||0;
+  document.getElementById('edit-ehdmf').value=e.hdmf||0;
+  document.getElementById('edit-empl').value=e.mpl||0;
+  document.getElementById('edit-edm').value=e.dm||0;
+  document.getElementById('edit-eload').value=e.load||0;
+  document.getElementById('edit-ewht').value=e.wht||0;
+  document.getElementById('edit-evl').value=e.vlBal||0;
+  document.getElementById('edit-esl').value=e.slBal||0;
+  document.getElementById('edit-emp-err').style.display='none';
+  document.getElementById('edit-emp-modal').style.display='flex';
+}
+function closeEditEmp(){
+  document.getElementById('edit-emp-modal').style.display='none';
+}
+async function saveEditEmp(){
+  var id=parseInt(document.getElementById('edit-emp-id').value);
+  var name=document.getElementById('edit-en').value.trim();
+  if(!name){document.getElementById('edit-emp-err').textContent='Full name is required.';document.getElementById('edit-emp-err').style.display='block';return;}
+  var emp={
+    name,
+    pos:document.getElementById('edit-epos').value,
+    dept:document.getElementById('edit-edept').value,
+    type:document.getElementById('edit-etype').value,
+    start:document.getElementById('edit-estart').value,
+    bank:document.getElementById('edit-ebank').value,
+    email:document.getElementById('edit-eemail').value,
+    mobile:document.getElementById('edit-emobile').value,
+    emergency:document.getElementById('edit-eemergency').value,
+    address:document.getElementById('edit-eaddress').value,
+    tin:document.getElementById('edit-etin').value,
+    smb:parseFloat(document.getElementById('edit-esmb').value)||0,
+    sss:parseFloat(document.getElementById('edit-esss').value)||0,
+    phic:parseFloat(document.getElementById('edit-ephic').value)||0,
+    hdmf:parseFloat(document.getElementById('edit-ehdmf').value)||0,
+    mpl:parseFloat(document.getElementById('edit-empl').value)||0,
+    dm:parseFloat(document.getElementById('edit-edm').value)||0,
+    load:parseFloat(document.getElementById('edit-eload').value)||0,
+    wht:parseFloat(document.getElementById('edit-ewht').value)||0,
+    vlBal:parseFloat(document.getElementById('edit-evl').value)||0,
+    slBal:parseFloat(document.getElementById('edit-esl').value)||0
+  };
+  var btn=document.getElementById('edit-emp-save-btn');
+  btn.disabled=true;btn.textContent='Saving…';
+  var r=await api('PUT','/api/employees/'+id,emp);
+  btn.disabled=false;btn.innerHTML='💾 Save Changes';
+  if(r&&r.success){
+    closeEditEmp();
+    await reloadEmployees();
+    renderEmpTable();
+    render201();
+    showSaveIndicator();
+  }else{
+    document.getElementById('edit-emp-err').textContent='Error saving changes: '+(r&&r.error||'Unknown error');
+    document.getElementById('edit-emp-err').style.display='block';
+  }
+}
 async function reloadEmployees(){
   var r=await api('GET','/api/employees');
   employees=r||[];
@@ -935,7 +1062,7 @@ function renderEmpTable(){
   var w=document.getElementById('emp-wrap');
   if(!employees.length){w.innerHTML='<div class="empty">No employees yet.</div>';return;}
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Dept</th><th>Type</th><th>Semi-monthly</th><th>VL</th><th>SL</th><th>Email</th><th></th></tr></thead><tbody>'
-  +employees.map((e,i)=>'<tr><td style="color:var(--muted);font-family:\'IBM Plex Mono\',monospace">'+(i+1)+'</td><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+(e.dept||'—')+'</td><td><span class="badge badge-blue">'+((e.type||'Regular'))+'</span></td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(e.smb)+'</td><td>'+((e.vlBal||0))+'</td><td>'+((e.slBal||0))+'</td><td style="color:var(--blue)">'+(e.email||'<span style="color:var(--red)">no email</span>')+'</td><td><button class="btn bs br" onclick="removeEmp('+e.id+')">Remove</button></td></tr>').join('')
+  +employees.map((e,i)=>'<tr><td style="color:var(--muted);font-family:\'IBM Plex Mono\',monospace">'+(i+1)+'</td><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+(e.dept||'—')+'</td><td><span class="badge badge-blue">'+((e.type||'Regular'))+'</span></td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(e.smb)+'</td><td>'+((e.vlBal||0))+'</td><td>'+((e.slBal||0))+'</td><td style="color:var(--blue)">'+(e.email||'<span style="color:var(--red)">no email</span>')+'</td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openEditEmp('+e.id+')">✏️ Edit</button><button class="btn bs br" onclick="removeEmp('+e.id+')">Remove</button></td></tr>').join('')
   +'</tbody></table></div>';
 }
 
