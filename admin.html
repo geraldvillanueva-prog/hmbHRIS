@@ -188,6 +188,7 @@ tr:hover td{background:#fafcff}
   <div class="nav-item" onclick="goSec('timelogs',this)"><span class="nav-icon">🕒</span>Employee Time Logs</div>
   <div class="sidebar-section">Settings</div>
   <div class="nav-item" onclick="goSec('users',this)"><span class="nav-icon">🔐</span>User Accounts</div>
+  <div class="nav-item" onclick="goSec('shifts',this)"><span class="nav-icon">🕰️</span>Shift Management</div>
   <div class="nav-item" onclick="goSec('setup',this)"><span class="nav-icon">⚙️</span>System Setup</div>
   <div class="sidebar-footer">HMB Management Consultant<br>v2.0 · Live Database</div>
 </nav>
@@ -746,11 +747,50 @@ tr:hover td{background:#fafcff}
         </div>
         <div class="f" style="max-width:150px"><label>From date</label><input id="tl-from" type="date"></div>
         <div class="f" style="max-width:150px"><label>To date</label><input id="tl-to" type="date"></div>
+        <div class="f" style="max-width:200px"><label>Override shift (optional)</label>
+          <select id="tl-shift-override"><option value="">Use employee's assigned shift</option></select>
+        </div>
         <button class="btn bp" style="align-self:flex-end" onclick="loadTimeLogs()">View</button>
         <button class="btn bg no-print" style="align-self:flex-end" onclick="exportTimeLogsCSV()">⬇ CSV</button>
       </div>
     </div>
     <div id="tl-wrap"><div class="empty">Select filters and click View.</div></div>
+  </div>
+
+  <!-- SHIFT MANAGEMENT -->
+  <div id="sec-shifts" class="sec">
+    <div class="page-title">Shift Management</div>
+    <div class="page-sub">Define work shifts and assign them to employees</div>
+    <div class="card">
+      <div class="card-title">➕ Add / Edit Shift</div>
+      <div class="row">
+        <div class="f" style="max-width:220px"><label>Shift name</label><input id="sh-name" placeholder="e.g. Morning Shift"></div>
+        <div class="f" style="max-width:140px"><label>Start time</label><input id="sh-start" type="time" value="08:00"></div>
+        <div class="f" style="max-width:140px"><label>End time</label><input id="sh-end" type="time" value="17:00"></div>
+        <div style="align-self:flex-end;display:flex;gap:6px">
+          <button class="btn bp" onclick="addShift()">+ Add Shift</button>
+          <span class="ok-msg" id="sh-ok">Saved!</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Defined Shifts</div>
+      <div id="shifts-list-wrap"><div class="empty">No shifts defined.</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">👤 Assign Shift to Employee</div>
+      <div class="row">
+        <div class="f" style="max-width:240px"><label>Employee</label>
+          <select id="sh-emp-sel"><option value="">-- Select employee --</option></select>
+        </div>
+        <div class="f" style="max-width:240px"><label>Shift</label>
+          <select id="sh-shift-sel"><option value="">-- Select shift --</option></select>
+        </div>
+        <button class="btn bg" style="align-self:flex-end" onclick="assignShift()">Assign</button>
+        <span class="ok-msg" id="sh-assign-ok">Assigned!</span>
+      </div>
+      <div id="sh-assign-list-wrap" style="margin-top:14px"><div class="empty">No assignments yet.</div></div>
+    </div>
   </div>
 
   <!-- USER ACCOUNTS -->
@@ -826,6 +866,8 @@ var leaveRecords=[],perfRecords=[],discRecords=[];
 var setup={name:'HMB Management Consultant',tin:'126-757-146-000',addr1:'21 B1 L5 Sta. Ana St',addr2:'Pacita 1B, San Pedro, Laguna',prep:'KMD. GRASPARIL',appr:'KKM. BUÑAG'};
 var emailCfg={svc:'',tpl:'',key:''};
 var allTimeLogs=[];
+var shifts=[{id:1,name:'Morning Shift',start:'08:00',end:'17:00'},{id:2,name:'Afternoon Shift',start:'14:00',end:'23:00'},{id:3,name:'Night Shift',start:'22:00',end:'06:00'}];
+var nextShiftId=4;
 
 // ==================== AUTH =====================
 async function checkAuth(){
@@ -924,8 +966,9 @@ function goSec(name,el){
   if(name==='disciplinary')renderDiscList();
   if(name==='attendance')renderAttRecords();
   if(name==='reports'){}
-  if(name==='timelogs'){populateTlEmpFilter();}
+  if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();}
   if(name==='users'){populateTlEmpFilter();loadUsers();}
+  if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();}
 }
 function goITab(group,name,el){
   var parent=el.closest('.sec');
@@ -1507,8 +1550,29 @@ async function importData(evt){
 }
 
 // ==================== TIME LOGS ====================
+function getEmpShift(empId){
+  // Returns the shift object assigned to an employee, or default 08:00
+  var e=employees.find(x=>x.id==empId);
+  if(e&&e.shiftId){var s=shifts.find(x=>x.id==e.shiftId);if(s)return s;}
+  return{name:'Default',start:'08:00',end:'17:00'};
+}
+function calcLateMinutes(timeIn, shiftStart){
+  // timeIn: 'HH:MM:SS' or 'HH:MM', shiftStart: 'HH:MM'
+  if(!timeIn||!shiftStart)return 0;
+  var ti=timeIn.slice(0,5); // 'HH:MM'
+  var toMins=t=>parseInt(t.split(':')[0])*60+parseInt(t.split(':')[1]);
+  var diff=toMins(ti)-toMins(shiftStart);
+  return diff>0?diff:0;
+}
+function fmtLate(mins){
+  if(!mins||mins<=0)return'<span style="color:var(--green);font-weight:700;font-family:\'IBM Plex Mono\',monospace">On time</span>';
+  var h=Math.floor(mins/60),m=mins%60;
+  var label=(h?h+'h ':'')+(m?m+'m':'');
+  return'<span style="color:var(--red);font-weight:700;font-family:\'IBM Plex Mono\',monospace">+'+label+'</span>';
+}
 async function loadTimeLogs(){
   var empId=v('tl-emp-filter'),from=v('tl-from'),to=v('tl-to');
+  var overrideShiftId=v('tl-shift-override');
   var params=new URLSearchParams();
   if(empId)params.append('employee_id',empId);
   if(from)params.append('from',from);
@@ -1517,14 +1581,28 @@ async function loadTimeLogs(){
   allTimeLogs=rows||[];
   var w=document.getElementById('tl-wrap');
   if(!rows.length){w.innerHTML='<div class="empty">No time log records found.</div>';return;}
-  w.innerHTML='<div style="overflow-x:auto"><table style="min-width:700px"><thead><tr><th>Employee</th><th>Date</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th></tr></thead><tbody>'
-  +rows.map(r=>'<tr><td><strong>'+r.emp_name+'</strong></td><td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
+  // Compute per-row shift and late
+  var overrideShift=overrideShiftId?shifts.find(x=>x.id==parseInt(overrideShiftId)):null;
+  var tableRows=rows.map(r=>{
+    var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
+    var lateMin=calcLateMinutes(r.time_in,shift.start);
+    return{r,shift,lateMin};
+  });
+  w.innerHTML='<div style="overflow-x:auto"><table style="min-width:800px"><thead><tr>'
+    +'<th>Employee</th><th>Date</th><th>Shift</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th>'
+    +'<th style="color:var(--red)">Late / Undertime</th>'
+    +'</tr></thead><tbody>'
+  +tableRows.map(({r,shift,lateMin})=>'<tr>'
+    +'<td><strong>'+r.emp_name+'</strong></td>'
+    +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
+    +'<td><span class="badge badge-blue" style="font-size:10px">'+shift.name+'<br><span style="font-weight:400;font-size:9px">'+shift.start+' – '+shift.end+'</span></span></td>'
     +tlCell(r.time_in,'var(--green)')
     +tlCell(r.lunch_out,'var(--orange)')
     +tlCell(r.lunch_in,'#0277bd')
     +tlCell(r.merienda_out,'var(--orange)')
     +tlCell(r.merienda_in,'#0277bd')
     +tlCell(r.time_out,'var(--muted)')
+    +'<td style="text-align:center">'+fmtLate(lateMin)+'</td>'
     +'</tr>').join('')
   +'</tbody></table></div>';
 }
@@ -1533,9 +1611,99 @@ function tlCell(val,color){
 }
 function exportTimeLogsCSV(){
   if(!allTimeLogs.length){alert('Load time logs first.');return;}
-  var rows=[['Employee','Date','Time In','Lunch Out','Lunch In','Merienda Out','Merienda In','Time Out']];
-  allTimeLogs.forEach(r=>rows.push([r.emp_name,r.log_date,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'']));
+  var overrideShiftId=v('tl-shift-override');
+  var overrideShift=overrideShiftId?shifts.find(x=>x.id==parseInt(overrideShiftId)):null;
+  var rows=[['Employee','Date','Shift','Shift Start','Time In','Lunch Out','Lunch In','Merienda Out','Merienda In','Time Out','Late (mins)']];
+  allTimeLogs.forEach(r=>{
+    var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
+    var lateMin=calcLateMinutes(r.time_in,shift.start);
+    rows.push([r.emp_name,r.log_date,shift.name,shift.start,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin]);
+  });
   downloadCSV('HMB_TimeLogs_'+new Date().toISOString().slice(0,10)+'.csv',rows);
+}
+
+// ==================== SHIFT MANAGEMENT ====================
+function renderShiftsList(){
+  var w=document.getElementById('shifts-list-wrap');if(!w)return;
+  if(!shifts.length){w.innerHTML='<div class="empty">No shifts defined.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Shift Name</th><th>Start Time</th><th>End Time</th><th>Employees Assigned</th><th></th></tr></thead><tbody>'
+  +shifts.map(s=>{
+    var count=employees.filter(e=>e.shiftId===s.id).length;
+    return'<tr><td><strong>'+s.name+'</strong></td>'
+    +'<td><span class="badge badge-green" style="font-family:\'IBM Plex Mono\',monospace">'+s.start+'</span></td>'
+    +'<td><span class="badge badge-orange" style="font-family:\'IBM Plex Mono\',monospace">'+s.end+'</span></td>'
+    +'<td><span class="badge badge-blue">'+count+' employee'+(count!==1?'s':'')+'</span></td>'
+    +'<td><button class="btn bs br" onclick="deleteShift('+s.id+')">🗑 Delete</button></td></tr>';
+  }).join('')+'</tbody></table></div>';
+}
+function renderShiftAssignList(){
+  var w=document.getElementById('sh-assign-list-wrap');if(!w)return;
+  var assigned=employees.filter(e=>e.shiftId);
+  if(!assigned.length){w.innerHTML='<div class="empty">No shift assignments yet.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Position</th><th>Assigned Shift</th><th>Start</th><th>End</th><th></th></tr></thead><tbody>'
+  +assigned.map(e=>{
+    var s=shifts.find(x=>x.id===e.shiftId)||{name:'Unknown',start:'—',end:'—'};
+    return'<tr><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td>'
+    +'<td><span class="badge badge-blue">'+s.name+'</span></td>'
+    +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+s.start+'</td>'
+    +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+s.end+'</td>'
+    +'<td><button class="btn bs br" onclick="removeShiftAssign('+e.id+')">Remove</button></td></tr>';
+  }).join('')+'</tbody></table></div>';
+}
+function populateShiftSelects(){
+  // Populate shift selectors in Shift Management and Time Logs
+  var sels=['sh-shift-sel','tl-shift-override'];
+  sels.forEach(id=>{
+    var sel=document.getElementById(id);if(!sel)return;
+    var cur=sel.value;
+    var isOverride=id==='tl-shift-override';
+    sel.innerHTML=isOverride?'<option value="">Use employee\'s assigned shift</option>':'<option value="">-- Select shift --</option>';
+    shifts.forEach(s=>{var o=document.createElement('option');o.value=s.id;o.textContent=s.name+' ('+s.start+' – '+s.end+')';if(s.id==cur)o.selected=true;sel.appendChild(o);});
+  });
+  // Populate sh-emp-sel
+  var empSel=document.getElementById('sh-emp-sel');if(empSel){
+    var cur=empSel.value;
+    empSel.innerHTML='<option value="">-- Select employee --</option>';
+    employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name+(e.shiftId?' ✓':'');if(e.id==cur)o.selected=true;empSel.appendChild(o);});
+  }
+}
+function addShift(){
+  var name=v('sh-name').trim(),start=v('sh-start'),end=v('sh-end');
+  if(!name){alert('Enter a shift name.');return;}
+  if(!start||!end){alert('Enter start and end times.');return;}
+  if(shifts.find(s=>s.name.toLowerCase()===name.toLowerCase())){alert('A shift with this name already exists.');return;}
+  var s={id:nextShiftId++,name,start,end};
+  shifts.push(s);
+  document.getElementById('sh-name').value='';
+  document.getElementById('sh-start').value='08:00';
+  document.getElementById('sh-end').value='17:00';
+  flash('sh-ok');
+  renderShiftsList();populateShiftSelects();
+}
+function deleteShift(id){
+  var inUse=employees.some(e=>e.shiftId===id);
+  if(inUse&&!confirm('This shift is assigned to employees. Deleting it will remove their shift assignment. Continue?'))return;
+  if(!inUse&&!confirm('Delete this shift?'))return;
+  shifts=shifts.filter(s=>s.id!==id);
+  employees.forEach(e=>{if(e.shiftId===id)delete e.shiftId;});
+  renderShiftsList();renderShiftAssignList();populateShiftSelects();
+}
+async function assignShift(){
+  var empId=parseInt(v('sh-emp-sel')),shiftId=parseInt(v('sh-shift-sel'));
+  if(!empId){alert('Select an employee.');return;}
+  if(!shiftId){alert('Select a shift.');return;}
+  var e=employees.find(x=>x.id===empId);if(!e)return;
+  e.shiftId=shiftId;
+  // Persist to server
+  await api('PUT','/api/employees/'+empId,{...e,shiftId});
+  flash('sh-assign-ok');
+  renderShiftAssignList();populateShiftSelects();
+}
+async function removeShiftAssign(empId){
+  var e=employees.find(x=>x.id===empId);if(!e)return;
+  delete e.shiftId;
+  await api('PUT','/api/employees/'+empId,{...e});
+  renderShiftAssignList();populateShiftSelects();
 }
 
 // ==================== USER MANAGEMENT ====================
@@ -1655,6 +1823,7 @@ window.addEventListener('DOMContentLoaded',async function(){
   renderDashboard();
   populateAllSelects();
   populateTlEmpFilter();
+  populateShiftSelects();
   // set today's date defaults
   var today=new Date().toISOString().slice(0,10);
   document.getElementById('att-pdate').value=today;
