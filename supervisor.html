@@ -170,6 +170,97 @@ tr:hover td{background:#fafcff}
 .c-bubble::after{content:'';position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:var(--border)}
 .c-bubble::before{content:'';position:absolute;bottom:-5.5px;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:#fff;z-index:1}
 .cartoon-wrap:hover .c-bubble{opacity:1}
+
+/* ── PAGE LOAD ANIMATIONS ── */
+@keyframes fadeSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
+
+.topbar{animation:fadeIn .4s ease both}
+.tab-nav{animation:slideDown .4s .1s ease both}
+.tab-btn{opacity:0;animation:fadeSlideUp .35s ease both}
+.tab-btn:nth-child(1){animation-delay:.15s}
+.tab-btn:nth-child(2){animation-delay:.2s}
+.tab-btn:nth-child(3){animation-delay:.25s}
+.tab-btn:nth-child(4){animation-delay:.3s}
+.tab-btn:nth-child(5){animation-delay:.35s}
+
+/* Tab content entrance */
+.tab-content.on .clock-card{animation:scaleIn .4s .05s ease both}
+.tab-content.on .panel{animation:fadeSlideUp .4s ease both}
+.tab-content.on .stats-row{animation:fadeSlideUp .35s ease both}
+.tab-content.on .stat-card{animation:scaleIn .4s ease both}
+.tab-content.on .stat-card:nth-child(1){animation-delay:.05s}
+.tab-content.on .stat-card:nth-child(2){animation-delay:.12s}
+.tab-content.on .stat-card:nth-child(3){animation-delay:.19s}
+
+/* Tab switch animation */
+.tab-content.tab-enter{animation:fadeSlideUp .3s ease both}
+
+/* ── PUNCH ANIMATIONS ── */
+@keyframes punchSuccess{0%{transform:scale(1)}30%{transform:scale(1.12)}60%{transform:scale(0.95)}100%{transform:scale(1)}}
+@keyframes ripple{0%{transform:scale(0);opacity:.6}100%{transform:scale(2.5);opacity:0}}
+.punch-btn{position:relative;overflow:hidden}
+.punch-btn .ripple-circle{position:absolute;border-radius:50%;background:rgba(106,27,154,0.2);pointer-events:none;animation:ripple .55s ease-out forwards}
+.punch-btn.just-done{animation:punchSuccess .4s ease}
+
+/* ── ALERT ANIMATIONS ── */
+@keyframes alertIn{from{opacity:0;transform:translateY(-8px) scaleY(0.9)}to{opacity:1;transform:translateY(0) scaleY(1)}}
+@keyframes alertOut{from{opacity:1;transform:scaleY(1)}to{opacity:0;transform:scaleY(0.85)}}
+.alert{transform-origin:top center}
+.alert.alert-show{animation:alertIn .25s ease both}
+.alert.alert-hide{animation:alertOut .25s ease both}
+
+/* ── CLOCK FLIP ── */
+@keyframes digitFlip{0%{opacity:1;transform:rotateX(0deg)}40%{opacity:0;transform:rotateX(50deg)}60%{opacity:0;transform:rotateX(-30deg)}100%{opacity:1;transform:rotateX(0deg)}}
+.clock-display{transform-style:preserve-3d;perspective:400px}
+.clock-digit-change{animation:digitFlip .22s ease}
+
+/* ── CHARACTER WAVE ── */
+@keyframes wave-arm{0%{transform:rotate(10deg)}25%{transform:rotate(-25deg)}50%{transform:rotate(10deg)}75%{transform:rotate(-20deg)}100%{transform:rotate(10deg)}}
+.cartoon-wrap:hover .c-arm-l{animation:wave-arm .6s ease 1}
+.cartoon-wrap:hover .c-arm-r{animation:wave-arm .6s .1s ease 1}
+
+/* ── CONFETTI ── */
+@keyframes confetti-fall{0%{opacity:1;transform:translateY(0) rotate(0deg) scale(1)}100%{opacity:0;transform:translateY(80px) rotate(720deg) scale(0.4)}}
+.confetti-piece{position:absolute;width:7px;height:7px;border-radius:2px;pointer-events:none;animation:confetti-fall .8s ease forwards}
+
+/* ── LEAVE CARD STAGGER ── */
+@keyframes cardSlideIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.leave-card{transition:box-shadow .15s,transform .15s}
+.leave-card:hover{transform:translateY(-1px)}
+.leave-card-anim{animation:cardSlideIn .3s ease both}
+
+/* ── STAT COUNTER POP ── */
+@keyframes statPop{0%{transform:scale(0.7);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.stat-value.animate{animation:statPop .45s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── TEAM CARD ── */
+@keyframes teamIn{from{opacity:0;transform:scale(0.9) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.team-card-anim{animation:teamIn .3s ease both}
+.team-card{transition:box-shadow .15s,transform .15s}
+.team-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(10,22,40,0.1)}
+
+/* ── APPROVE/DENY BUTTON BOUNCE ── */
+@keyframes actionBounce{0%{transform:scale(1)}40%{transform:scale(0.9)}80%{transform:scale(1.05)}100%{transform:scale(1)}}
+.btn-approve:active,.btn-deny:active{animation:actionBounce .25s ease}
+
+/* ── TOPBAR SHIMMER ── */
+@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+.topbar-brand{background:linear-gradient(90deg,#fff 40%,#ce93d8 50%,#fff 60%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 4s linear infinite}
+
+/* ── PENDING BADGE BOUNCE ── */
+@keyframes badgeBounce{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+.tab-notif{animation:badgeBounce 1.8s ease-in-out infinite}
+
+/* ── MODAL ── */
+@keyframes modalIn{from{opacity:0;transform:scale(0.94) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
+#slip-modal > div{animation:modalIn .3s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── FILTER BTN ── */
+.filter-btn{transition:all .2s cubic-bezier(.34,1.56,.64,1)}
+.filter-btn.on{transform:scale(1.05)}
 </style>
 </head>
 <body>
@@ -397,10 +488,19 @@ var allLeaves = [];
 var currentFilter = 'All';
 
 // ── CLOCK ──────────────────────────────────────────────────────────────────────
+var _lastClockStr = '';
 function updateClock(){
   var now=new Date(),h=now.getHours(),m=now.getMinutes(),s=now.getSeconds();
   var ap=h>=12?'PM':'AM';h=h%12||12;
-  document.getElementById('clock-display').textContent=pad(h)+':'+pad(m)+':'+pad(s)+' '+ap;
+  var newStr=pad(h)+':'+pad(m)+':'+pad(s)+' '+ap;
+  var el=document.getElementById('clock-display');
+  if(newStr!==_lastClockStr){
+    _lastClockStr=newStr;
+    el.textContent=newStr;
+    el.classList.remove('clock-digit-change');
+    void el.offsetWidth;
+    el.classList.add('clock-digit-change');
+  }
   var DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('date-display').textContent=MONTHS[now.getMonth()]+' '+now.getDate()+', '+now.getFullYear();
@@ -436,9 +536,12 @@ async function init(){
 // ── TABS ───────────────────────────────────────────────────────────────────────
 function goTab(name,el){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
-  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('on','tab-enter'));
   el.classList.add('on');
-  document.getElementById('tab-'+name).classList.add('on');
+  var tc=document.getElementById('tab-'+name);
+  tc.classList.add('on');
+  void tc.offsetWidth;
+  tc.classList.add('tab-enter');
   if(name==='team')loadTeam();
   if(name==='payslips')loadPayslips();
   if(name==='leavefile'){supLoadMyLeaves();supLoadBalance();}
@@ -517,17 +620,28 @@ function supShowLeaveMsg(msg,ok){
 }
 
 // ── LEAVE APPROVALS ────────────────────────────────────────────────────────────
+function animateStatCount(el, target){
+  var start=0; var duration=500; var startTime=null;
+  el.classList.remove('animate'); void el.offsetWidth; el.classList.add('animate');
+  function step(ts){
+    if(!startTime)startTime=ts;
+    var p=Math.min((ts-startTime)/duration,1);
+    var e=1-Math.pow(1-p,3);
+    el.textContent=Math.round(e*target);
+    if(p<1)requestAnimationFrame(step);
+    else el.textContent=target;
+  }
+  requestAnimationFrame(step);
+}
 async function loadLeaves(){
   var res=await fetch('/api/my/leaves');
   allLeaves=await res.json();
-  // Update stats
   var pending=allLeaves.filter(l=>l.status==='Pending').length;
   var approved=allLeaves.filter(l=>l.status==='Approved').length;
   var denied=allLeaves.filter(l=>l.status==='Denied').length;
-  document.getElementById('stat-pending').textContent=pending;
-  document.getElementById('stat-approved').textContent=approved;
-  document.getElementById('stat-denied').textContent=denied;
-  // Update pending badge on tab
+  animateStatCount(document.getElementById('stat-pending'),pending);
+  animateStatCount(document.getElementById('stat-approved'),approved);
+  animateStatCount(document.getElementById('stat-denied'),denied);
   var badge=document.getElementById('pending-count');
   badge.textContent=pending;
   badge.style.display=pending>0?'inline':'none';
@@ -548,11 +662,12 @@ function renderLeaves(){
     w.innerHTML='<div class="empty">No '+(currentFilter==='All'?'':currentFilter.toLowerCase()+' ')+'leave requests found.</div>';
     return;
   }
-  w.innerHTML=filtered.map(l=>{
+  w.innerHTML=filtered.map((l,idx)=>{
     var statusClass=l.status.toLowerCase();
     var badgeClass=l.status==='Approved'?'badge-green':l.status==='Denied'?'badge-red':'badge-yellow';
     var isPending=l.status==='Pending';
-    return'<div class="leave-card '+statusClass+'">'
+    var delay=(idx*0.06).toFixed(2);
+    return'<div class="leave-card '+statusClass+' leave-card-anim" style="animation-delay:'+delay+'s">'
       +'<div class="lc-top">'
       +'<div>'
         +'<div class="lc-emp">'+l.empName+'</div>'
@@ -591,8 +706,13 @@ async function actLeave(id, status){
 function showActionMsg(msg,ok){
   var el=document.getElementById(ok?'leave-action-ok':'leave-action-err');
   var other=document.getElementById(ok?'leave-action-err':'leave-action-ok');
-  other.style.display='none';el.textContent=msg;el.style.display='block';
-  setTimeout(()=>el.style.display='none',4000);
+  other.style.display='none';other.classList.remove('alert-show','alert-hide');
+  el.textContent=msg;el.classList.remove('alert-hide');
+  el.style.display='block';el.classList.add('alert-show');
+  setTimeout(()=>{
+    el.classList.remove('alert-show');el.classList.add('alert-hide');
+    setTimeout(()=>{el.style.display='none';el.classList.remove('alert-hide');},250);
+  },4000);
 }
 
 // ── MY TEAM ────────────────────────────────────────────────────────────────────
@@ -602,9 +722,10 @@ async function loadTeam(){
   var w=document.getElementById('team-wrap');
   if(!subs.length){w.innerHTML='<div class="empty">No subordinates assigned yet. Contact HR Admin to assign your team.</div>';return;}
   w.innerHTML='<div class="team-grid">'
-    +subs.map(e=>{
+    +subs.map((e,idx)=>{
       var initials=(e.name||'?').split(/[\s,]+/).filter(Boolean).map(p=>p[0]).slice(0,2).join('').toUpperCase();
-      return'<div class="team-card">'
+      var delay=(idx*0.07).toFixed(2);
+      return'<div class="team-card team-card-anim" style="animation-delay:'+delay+'s">'
         +'<div class="team-avatar">'+initials+'</div>'
         +'<div><div class="team-name">'+e.name+'</div><div class="team-pos">'+(e.pos||'—')+'</div>'
         +(e.dept?'<div style="font-size:10px;color:var(--muted);margin-top:1px">'+e.dept+'</div>':'')+'</div>'
@@ -692,10 +813,14 @@ function setEnabled(btnId, enabled){
 async function doPunch(endpoint, btnId){
   var btn = document.getElementById(btnId);
   btn.disabled = true;
+  addRipple(btn);
   try {
     var res = await fetch('/api/timelogs/'+endpoint, { method: 'POST' });
     var data = await res.json();
     if (data.success) {
+      btn.classList.add('just-done');
+      setTimeout(()=>btn.classList.remove('just-done'),400);
+      spawnConfetti(btn);
       showTimeMsg('✅ ' + labelFor(endpoint) + ' recorded at ' + data.time, true);
       var s2 = await fetch('/api/timelogs/status').then(r=>r.json());
       applyStatus(s2);
@@ -705,6 +830,34 @@ async function doPunch(endpoint, btnId){
       btn.disabled = false;
     }
   } catch(e) { showTimeMsg('❌ Connection error.', false); btn.disabled = false; }
+}
+
+function addRipple(btn){
+  var circle=document.createElement('span');
+  circle.className='ripple-circle';
+  var size=Math.max(btn.offsetWidth,btn.offsetHeight);
+  circle.style.width=circle.style.height=size+'px';
+  circle.style.left=(btn.offsetWidth/2-size/2)+'px';
+  circle.style.top=(btn.offsetHeight/2-size/2)+'px';
+  btn.appendChild(circle);
+  setTimeout(()=>circle.remove(),600);
+}
+
+function spawnConfetti(el){
+  var colors=['#7b1fa2','#ce93d8','#1565c0','#00b4d8','#2e7d32'];
+  var wrap=document.querySelector('.cartoon-wrap');
+  if(!wrap)return;
+  for(var i=0;i<10;i++){
+    var piece=document.createElement('div');
+    piece.className='confetti-piece';
+    piece.style.background=colors[i%colors.length];
+    piece.style.left=(20+Math.random()*50)+'px';
+    piece.style.top='0px';
+    piece.style.animationDelay=(Math.random()*0.3)+'s';
+    piece.style.animationDuration=(0.6+Math.random()*0.4)+'s';
+    wrap.appendChild(piece);
+    setTimeout(()=>piece.remove(),1200);
+  }
 }
 
 function labelFor(ep){
@@ -737,8 +890,13 @@ function tdPunch(val,color){
 function showTimeMsg(msg,ok){
   var el=document.getElementById(ok?'time-ok':'time-err');
   var other=document.getElementById(ok?'time-err':'time-ok');
-  other.style.display='none';el.textContent=msg;el.style.display='block';
-  setTimeout(()=>el.style.display='none',4000);
+  other.style.display='none';other.classList.remove('alert-show','alert-hide');
+  el.textContent=msg;el.classList.remove('alert-hide');
+  el.style.display='block';el.classList.add('alert-show');
+  setTimeout(()=>{
+    el.classList.remove('alert-show');el.classList.add('alert-hide');
+    setTimeout(()=>{el.style.display='none';el.classList.remove('alert-hide');},250);
+  },4000);
 }
 
 // ── PAYSLIPS ───────────────────────────────────────────────────────────────────

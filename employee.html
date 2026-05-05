@@ -146,6 +146,99 @@ textarea{resize:vertical;min-height:72px}
 .c-bubble::after{content:'';position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:var(--border)}
 .c-bubble::before{content:'';position:absolute;bottom:-5.5px;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:#fff;z-index:1}
 .cartoon-wrap:hover .c-bubble{opacity:1}
+
+/* ── PAGE LOAD ANIMATIONS ── */
+@keyframes fadeSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:translateX(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+.topbar{animation:fadeIn .4s ease both}
+.tab-nav{animation:slideDown .4s .1s ease both}
+.tab-btn{opacity:0;animation:fadeSlideUp .35s ease both}
+.tab-btn:nth-child(1){animation-delay:.15s}
+.tab-btn:nth-child(2){animation-delay:.2s}
+.tab-btn:nth-child(3){animation-delay:.25s}
+.tab-btn:nth-child(4){animation-delay:.3s}
+
+/* Tab content entrance */
+.tab-content.on .clock-card{animation:scaleIn .4s .05s ease both}
+.tab-content.on .panel{animation:fadeSlideUp .4s ease both}
+.tab-content.on .balance-grid{animation:fadeSlideUp .35s ease both}
+.tab-content.on .bal-card{animation:scaleIn .4s ease both}
+.tab-content.on .bal-card:nth-child(1){animation-delay:.05s}
+.tab-content.on .bal-card:nth-child(2){animation-delay:.12s}
+
+/* Tab switch animation */
+.tab-content{animation:none}
+.tab-content.tab-enter{animation:fadeSlideUp .3s ease both}
+
+/* ── PUNCH BUTTON ANIMATIONS ── */
+@keyframes punchSuccess{0%{transform:scale(1)}30%{transform:scale(1.12)}60%{transform:scale(0.95)}100%{transform:scale(1)}}
+@keyframes ripple{0%{transform:scale(0);opacity:.6}100%{transform:scale(2.5);opacity:0}}
+.punch-btn{position:relative;overflow:hidden}
+.punch-btn .ripple-circle{position:absolute;border-radius:50%;background:rgba(21,101,192,0.25);pointer-events:none;animation:ripple .55s ease-out forwards}
+.punch-btn.just-done{animation:punchSuccess .4s ease}
+
+/* ── ALERT ANIMATIONS ── */
+@keyframes alertIn{from{opacity:0;transform:translateY(-8px) scaleY(0.9)}to{opacity:1;transform:translateY(0) scaleY(1)}}
+@keyframes alertOut{from{opacity:1;transform:scaleY(1)}to{opacity:0;transform:scaleY(0.85)}}
+.alert{transform-origin:top center}
+.alert.alert-show{animation:alertIn .25s ease both}
+.alert.alert-hide{animation:alertOut .25s ease both}
+
+/* ── CLOCK FLIP ── */
+@keyframes digitFlip{0%{opacity:1;transform:rotateX(0deg)}40%{opacity:0;transform:rotateX(50deg)}60%{opacity:0;transform:rotateX(-30deg)}100%{opacity:1;transform:rotateX(0deg)}}
+.clock-display{transform-style:preserve-3d;perspective:400px}
+.clock-digit-change{animation:digitFlip .22s ease}
+
+/* ── CHARACTER WAVE ── */
+@keyframes wave-arm{0%{transform:rotate(10deg)}25%{transform:rotate(-25deg)}50%{transform:rotate(10deg)}75%{transform:rotate(-20deg)}100%{transform:rotate(10deg)}}
+.cartoon-wrap:hover .c-arm-l{animation:wave-arm .6s ease 1}
+.cartoon-wrap:hover .c-arm-r{animation:wave-arm .6s .1s ease 1}
+
+/* ── CELEBRATION CONFETTI ── */
+@keyframes confetti-fall{0%{opacity:1;transform:translateY(0) rotate(0deg) scale(1)}100%{opacity:0;transform:translateY(80px) rotate(720deg) scale(0.4)}}
+.confetti-piece{position:absolute;width:7px;height:7px;border-radius:2px;pointer-events:none;animation:confetti-fall .8s ease forwards}
+
+/* ── TABLE ROW STAGGER ── */
+@keyframes rowIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.history-row-anim{animation:rowIn .25s ease both}
+
+/* ── LEAVE CARD STAGGER ── */
+@keyframes cardSlideIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.leave-card-anim{animation:cardSlideIn .3s ease both}
+
+/* ── STATUS PILL PULSE ── */
+.status-pill{transition:all .35s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── SCROLL FADE ── */
+@keyframes scrollReveal{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.scroll-reveal{opacity:0}
+.scroll-reveal.revealed{animation:scrollReveal .4s ease forwards}
+
+/* ── TOPBAR SHIMMER ── */
+@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+.topbar-brand{background:linear-gradient(90deg,#fff 40%,var(--accent) 50%,#fff 60%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 4s linear infinite}
+
+/* ── BAL CARD COUNTER ── */
+@keyframes balPop{0%{transform:scale(0.7);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.bal-value.animate{animation:balPop .5s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── PAYSLIP CARD HOVER ── */
+@keyframes payIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.payslip-card-anim{animation:payIn .3s ease both}
+
+/* ── MODAL ── */
+@keyframes modalIn{from{opacity:0;transform:scale(0.94) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
+#slip-modal > div{animation:modalIn .3s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── LOADING SKELETON ── */
+@keyframes skeleton-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.skeleton{background:linear-gradient(90deg,#eef1f5 25%,#e4e8ee 50%,#eef1f5 75%);background-size:400px 100%;animation:skeleton-shimmer 1.4s ease-in-out infinite;border-radius:6px;height:14px;margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -343,10 +436,19 @@ textarea{resize:vertical;min-height:72px}
 var user = null;
 
 // ── CLOCK ──────────────────────────────────────────────────────────────────────
+var _lastClockStr = '';
 function updateClock(){
   var now=new Date(),h=now.getHours(),m=now.getMinutes(),s=now.getSeconds();
   var ap=h>=12?'PM':'AM';h=h%12||12;
-  document.getElementById('clock-display').textContent=pad(h)+':'+pad(m)+':'+pad(s)+' '+ap;
+  var newStr=pad(h)+':'+pad(m)+':'+pad(s)+' '+ap;
+  var el=document.getElementById('clock-display');
+  if(newStr!==_lastClockStr){
+    _lastClockStr=newStr;
+    el.textContent=newStr;
+    el.classList.remove('clock-digit-change');
+    void el.offsetWidth;
+    el.classList.add('clock-digit-change');
+  }
   var days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('date-display').textContent=months[now.getMonth()]+' '+now.getDate()+', '+now.getFullYear();
@@ -359,9 +461,12 @@ updateClock();
 // ── TABS ───────────────────────────────────────────────────────────────────────
 function goTab(name,el){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
-  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('on','tab-enter'));
   el.classList.add('on');
-  document.getElementById('tab-'+name).classList.add('on');
+  var tc=document.getElementById('tab-'+name);
+  tc.classList.add('on');
+  void tc.offsetWidth;
+  tc.classList.add('tab-enter');
   if(name==='leavefile')loadMyLeaves();
   if(name==='leavebal'){loadBalance();loadLeaveAll();}
   if(name==='payslips')loadPayslips();
@@ -444,10 +549,15 @@ function setEnabled(btnId, enabled){
 async function doPunch(endpoint, btnId){
   var btn = document.getElementById(btnId);
   btn.disabled = true;
+  // Ripple effect
+  addRipple(btn);
   try {
     var res = await fetch('/api/timelogs/'+endpoint, { method: 'POST' });
     var data = await res.json();
     if (data.success) {
+      btn.classList.add('just-done');
+      setTimeout(()=>btn.classList.remove('just-done'),400);
+      spawnConfetti(btn);
       showTimeMsg('✅ ' + labelFor(endpoint) + ' recorded at ' + data.time, true);
       await loadStatus();
       await loadHistory();
@@ -456,6 +566,34 @@ async function doPunch(endpoint, btnId){
       btn.disabled = false;
     }
   } catch(e) { showTimeMsg('❌ Connection error.', false); btn.disabled = false; }
+}
+
+function addRipple(btn){
+  var circle=document.createElement('span');
+  circle.className='ripple-circle';
+  var size=Math.max(btn.offsetWidth,btn.offsetHeight);
+  circle.style.width=circle.style.height=size+'px';
+  circle.style.left=(btn.offsetWidth/2-size/2)+'px';
+  circle.style.top=(btn.offsetHeight/2-size/2)+'px';
+  btn.appendChild(circle);
+  setTimeout(()=>circle.remove(),600);
+}
+
+function spawnConfetti(el){
+  var rect=el.getBoundingClientRect();
+  var colors=['#1565c0','#00b4d8','#2e7d32','#f57f17','#e65100'];
+  var wrap=document.querySelector('.cartoon-wrap');
+  for(var i=0;i<10;i++){
+    var piece=document.createElement('div');
+    piece.className='confetti-piece';
+    piece.style.background=colors[i%colors.length];
+    piece.style.left=(20+Math.random()*50)+'px';
+    piece.style.top='0px';
+    piece.style.animationDelay=(Math.random()*0.3)+'s';
+    piece.style.animationDuration=(0.6+Math.random()*0.4)+'s';
+    wrap.appendChild(piece);
+    setTimeout(()=>piece.remove(),1200);
+  }
 }
 
 function labelFor(ep){
@@ -488,8 +626,13 @@ function tdPunch(val,color){
 function showTimeMsg(msg,ok){
   var el=document.getElementById(ok?'time-ok':'time-err');
   var other=document.getElementById(ok?'time-err':'time-ok');
-  other.style.display='none';el.textContent=msg;el.style.display='block';
-  setTimeout(()=>el.style.display='none',4000);
+  other.style.display='none';other.classList.remove('alert-show','alert-hide');
+  el.textContent=msg;el.classList.remove('alert-hide');
+  el.style.display='block';el.classList.add('alert-show');
+  setTimeout(()=>{
+    el.classList.remove('alert-show');el.classList.add('alert-hide');
+    setTimeout(()=>{el.style.display='none';el.classList.remove('alert-hide');},250);
+  },4000);
 }
 
 // ── LEAVE FILING ───────────────────────────────────────────────────────────────
@@ -551,16 +694,38 @@ async function loadMyLeaves(){
 function showLeaveMsg(msg,ok){
   var el=document.getElementById(ok?'leave-ok':'leave-err');
   var other=document.getElementById(ok?'leave-err':'leave-ok');
-  other.style.display='none';el.textContent=msg;el.style.display='block';
-  setTimeout(()=>el.style.display='none',5000);
+  other.style.display='none';other.classList.remove('alert-show','alert-hide');
+  el.textContent=msg;el.classList.remove('alert-hide');
+  el.style.display='block';el.classList.add('alert-show');
+  setTimeout(()=>{
+    el.classList.remove('alert-show');el.classList.add('alert-hide');
+    setTimeout(()=>{el.style.display='none';el.classList.remove('alert-hide');},250);
+  },5000);
 }
 
 // ── LEAVE BALANCE ──────────────────────────────────────────────────────────────
+function animateCount(el, target){
+  var start=0; var duration=600; var startTime=null;
+  function step(ts){
+    if(!startTime)startTime=ts;
+    var progress=Math.min((ts-startTime)/duration,1);
+    var eased=1-Math.pow(1-progress,3);
+    el.textContent=Math.round(eased*target);
+    if(progress<1)requestAnimationFrame(step);
+    else el.textContent=target;
+  }
+  el.classList.remove('animate'); void el.offsetWidth; el.classList.add('animate');
+  requestAnimationFrame(step);
+}
 async function loadBalance(){
   var res=await fetch('/api/leave/balance');
   var data=await res.json();
-  document.getElementById('vl-bal').textContent=data.vlBal??'—';
-  document.getElementById('sl-bal').textContent=data.slBal??'—';
+  var vl=document.getElementById('vl-bal');
+  var sl=document.getElementById('sl-bal');
+  var vlVal=parseFloat(data.vlBal)||0;
+  var slVal=parseFloat(data.slBal)||0;
+  animateCount(vl,vlVal);
+  animateCount(sl,slVal);
 }
 async function loadLeaveAll(){
   var res=await fetch('/api/leave');
