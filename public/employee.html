@@ -309,6 +309,13 @@ input:focus,select:focus,textarea:focus{animation:alertIn .2s ease}
 /* ── SCROLL-TRIGGERED ROW REVEAL ── */
 @keyframes rowReveal{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
 .row-reveal{animation:rowReveal .3s ease both}
+
+/* ── CURSOR PETS ── */
+#cursor-pets{position:fixed;bottom:0;left:0;width:100%;height:0;pointer-events:none;z-index:9999;overflow:visible}
+.cpet{position:absolute;bottom:8px;will-change:left}
+.cpet svg{display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.18))}
+.cpet-label{text-align:center;font-size:9px;font-weight:700;color:var(--navy);opacity:.7;margin-top:1px;font-family:'IBM Plex Mono',monospace}
+
 </style>
 </head>
 <body>
@@ -1104,6 +1111,143 @@ function attachScrollReveal(){
   rows.forEach(r=>obs.observe(r));
 }
 setInterval(attachScrollReveal,2000);
+
+</script>
+
+<script>
+// ── CURSOR PETS (Dog & Cat) ────────────────────────────────────────────────────
+(function(){
+  // SVG dog (side-view cartoon, 52x40)
+  var dogSVG = `<svg width="52" height="40" viewBox="0 0 52 40" xmlns="http://www.w3.org/2000/svg">
+    <!-- tail -->
+    <path id="dog-tail" d="M44 22 Q52 14 50 8" stroke="#c8a06e" stroke-width="4" stroke-linecap="round" fill="none" transform-origin="44 22"/>
+    <!-- body -->
+    <ellipse cx="27" cy="26" rx="15" ry="10" fill="#d4a96a"/>
+    <!-- head -->
+    <ellipse cx="10" cy="20" rx="9" ry="8" fill="#d4a96a"/>
+    <!-- ear -->
+    <ellipse cx="6" cy="14" rx="4" ry="6" fill="#b8845a" transform="rotate(-15 6 14)"/>
+    <!-- snout -->
+    <ellipse cx="4" cy="22" rx="4" ry="3" fill="#c8956a"/>
+    <!-- nose -->
+    <ellipse cx="2" cy="21" rx="2" ry="1.5" fill="#3a1a0a"/>
+    <!-- eye -->
+    <circle cx="8" cy="18" r="2.2" fill="#fff"/>
+    <circle cx="7.6" cy="18" r="1.2" fill="#1a0a00"/>
+    <!-- legs -->
+    <rect id="dog-leg1" x="16" y="33" width="5" height="7" rx="2.5" fill="#c08050"/>
+    <rect id="dog-leg2" x="24" y="33" width="5" height="7" rx="2.5" fill="#c08050"/>
+    <rect id="dog-leg3" x="31" y="33" width="5" height="7" rx="2.5" fill="#c08050"/>
+    <rect id="dog-leg4" x="38" y="33" width="5" height="7" rx="2.5" fill="#c08050"/>
+    <!-- tongue -->
+    <ellipse cx="2" cy="24" rx="2" ry="2.5" fill="#e07090"/>
+    <!-- collar -->
+    <rect x="13" y="24" width="6" height="3" rx="1.5" fill="#1565c0"/>
+  </svg>`;
+
+  // SVG cat (side-view cartoon, 50x40)
+  var catSVG = `<svg width="50" height="40" viewBox="0 0 50 40" xmlns="http://www.w3.org/2000/svg">
+    <!-- tail -->
+    <path id="cat-tail" d="M42 22 Q52 18 48 8 Q46 2 50 0" stroke="#b0a0c0" stroke-width="4" stroke-linecap="round" fill="none" transform-origin="42 22"/>
+    <!-- body -->
+    <ellipse cx="26" cy="27" rx="14" ry="10" fill="#c8b8d8"/>
+    <!-- head -->
+    <ellipse cx="10" cy="20" rx="9" ry="8" fill="#c8b8d8"/>
+    <!-- ears -->
+    <polygon points="4,14 7,6 11,14" fill="#c8b8d8"/>
+    <polygon points="5,13 7,8 10,13" fill="#ffb0c8"/>
+    <!-- snout -->
+    <ellipse cx="4" cy="23" rx="4" ry="2.5" fill="#dac8e8"/>
+    <!-- nose -->
+    <polygon points="2,21 4,19.5 6,21 4,23" fill="#e07090"/>
+    <!-- whiskers -->
+    <line x1="-2" y1="21" x2="8" y2="22" stroke="#888" stroke-width=".8" opacity=".6"/>
+    <line x1="-2" y1="23" x2="8" y2="23" stroke="#888" stroke-width=".8" opacity=".6"/>
+    <!-- eye -->
+    <ellipse cx="8" cy="18" rx="2.5" ry="2.2" fill="#90ee90"/>
+    <ellipse cx="8" cy="18" rx=".8" ry="2" fill="#1a0a00"/>
+    <!-- legs -->
+    <rect id="cat-leg1" x="15" y="34" width="4" height="6" rx="2" fill="#b0a0c0"/>
+    <rect id="cat-leg2" x="22" y="34" width="4" height="6" rx="2" fill="#b0a0c0"/>
+    <rect id="cat-leg3" x="29" y="34" width="4" height="6" rx="2" fill="#b0a0c0"/>
+    <rect id="cat-leg4" x="36" y="34" width="4" height="6" rx="2" fill="#b0a0c0"/>
+    <!-- collar -->
+    <rect x="12" y="25" width="6" height="3" rx="1.5" fill="#c62828"/>
+    <!-- bell -->
+    <circle cx="15" cy="29" r="1.5" fill="#f5c518"/>
+  </svg>`;
+
+  // Create container
+  var wrap = document.createElement('div');
+  wrap.id = 'cursor-pets';
+  document.body.appendChild(wrap);
+
+  function makePet(svgStr, labelText, startX, speed) {
+    var div = document.createElement('div');
+    div.className = 'cpet';
+    div.innerHTML = svgStr + '<div class="cpet-label">' + labelText + '</div>';
+    wrap.appendChild(div);
+    return {el: div, x: startX, targetX: startX, speed: speed};
+  }
+
+  var dog = makePet(dogSVG, '🐕 Buddy', 80, 0.072);
+  var cat = makePet(catSVG, '🐱 Luna', 160, 0.055);
+
+  var cursorX = window.innerWidth / 2;
+  document.addEventListener('mousemove', function(e){ cursorX = e.clientX; });
+  document.addEventListener('touchmove', function(e){ cursorX = e.touches[0].clientX; }, {passive:true});
+
+  var walkFrame = 0;
+  var lastTs = 0;
+
+  function animLegs(petEl, prefix, moving) {
+    var legs = petEl.querySelectorAll('[id^="' + prefix + '-leg"]');
+    if (!moving) {
+      legs.forEach(function(l){ l.style.transform=''; });
+      return;
+    }
+    var a = Math.sin(walkFrame * 0.25) * 5;
+    if (legs[0]) legs[0].style.transform = 'rotate(' + a + 'deg)';
+    if (legs[1]) legs[1].style.transform = 'rotate(' + (-a) + 'deg)';
+    if (legs[2]) legs[2].style.transform = 'rotate(' + (-a) + 'deg)';
+    if (legs[3]) legs[3].style.transform = 'rotate(' + a + 'deg)';
+    // tail wag
+    var tail = petEl.querySelector('[id^="' + prefix + '-tail"]');
+    if (tail) tail.style.transform = 'rotate(' + (Math.sin(walkFrame * 0.18) * 18) + 'deg)';
+  }
+
+  function frame(ts) {
+    walkFrame++;
+    // Offset dog & cat so they don't overlap — dog slightly behind cursor left, cat further back
+    var dogTarget = cursorX - 90;
+    var catTarget = cursorX - 190;
+
+    var dogMoving = Math.abs(dogTarget - dog.x) > 2;
+    var catMoving = Math.abs(catTarget - cat.x) > 2;
+
+    dog.x += (dogTarget - dog.x) * dog.speed * 3;
+    cat.x += (catTarget - cat.x) * cat.speed * 3;
+
+    // clamp to viewport
+    dog.x = Math.max(0, Math.min(window.innerWidth - 60, dog.x));
+    cat.x = Math.max(0, Math.min(window.innerWidth - 60, cat.x));
+
+    dog.el.style.left = dog.x + 'px';
+    cat.el.style.left = cat.x + 'px';
+
+    // Flip direction
+    var dogFacing = dogTarget < dog.x ? 'scaleX(-1)' : 'scaleX(1)';
+    var catFacing = catTarget < cat.x ? 'scaleX(-1)' : 'scaleX(1)';
+    dog.el.querySelector('svg').style.transform = dogFacing;
+    cat.el.querySelector('svg').style.transform = catFacing;
+
+    animLegs(dog.el, 'dog', dogMoving);
+    animLegs(cat.el, 'cat', catMoving);
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
 
 </script>
 </body>
