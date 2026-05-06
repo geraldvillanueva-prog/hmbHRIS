@@ -1323,7 +1323,7 @@ var CSS = `
 #cursor-pets{position:fixed;bottom:0;left:0;width:100%;height:0;pointer-events:none;z-index:9999;overflow:visible}
 .cpet{position:absolute;bottom:0;pointer-events:auto;user-select:none}
 .cpet svg{display:block;transition:filter 0.2s}
-.cpet.dragging svg{filter:drop-shadow(0 8px 16px rgba(0,0,0,0.3));cursor:grabbing}
+.cpet.dragging{position:fixed!important;z-index:99999}.cpet.dragging svg{filter:drop-shadow(0 8px 16px rgba(0,0,0,0.3));cursor:grabbing}
 .cpet.held{bottom:auto}
 .cpet-label{text-align:center;font-size:10px;font-weight:700;color:#1a2332;opacity:0;margin-top:2px;font-family:monospace;transition:opacity 0.3s;pointer-events:none}
 .cpet:hover .cpet-label{opacity:0.7}
@@ -1403,12 +1403,14 @@ function setupDrag(pet, el) {
     pet.dragOffY = pos.y - rect.top - rect.height / 2;
     pet.dragHistory = [];
     pet.vx = 0; pet.vy = 0;
-    pet.y = window.innerHeight - rect.bottom + rect.height / 2;
     el.classList.add('dragging');
     el.style.transition = 'none';
+    // Move to body so position:fixed works relative to viewport
+    el.style.position = 'fixed';
     el.style.bottom = 'auto';
-    el.style.top = (rect.top) + 'px';
-    el.style.left = (rect.left) + 'px';
+    el.style.top = rect.top + 'px';
+    el.style.left = rect.left + 'px';
+    document.body.appendChild(el);
   }
 
   function onMove(e) {
@@ -1418,8 +1420,8 @@ function setupDrag(pet, el) {
     var now = Date.now();
     pet.dragHistory.push({ x: pos.x, y: pos.y, t: now });
     if (pet.dragHistory.length > 8) pet.dragHistory.shift();
-    var newLeft = pos.x - dragSvgW(el) / 2 - pet.dragOffX;
-    var newTop  = pos.y - dragSvgH(el) / 2 - pet.dragOffY;
+    var newLeft = pos.x - dragSvgW(el) / 2;
+    var newTop  = pos.y - dragSvgH(el) / 2;
     el.style.left = newLeft + 'px';
     el.style.top  = newTop + 'px';
   }
@@ -1432,28 +1434,30 @@ function setupDrag(pet, el) {
     // Compute throw velocity from drag history
     var hist = pet.dragHistory;
     if (hist.length >= 2) {
-      var dt = (hist[hist.length-1].t - hist[0].t) / 1000 * 60; // frames
+      var dt = (hist[hist.length-1].t - hist[0].t) / 1000 * 60;
       if (dt > 0) {
         pet.throwVX = (hist[hist.length-1].x - hist[0].x) / dt * 1.2;
         pet.throwVY = (hist[hist.length-1].y - hist[0].y) / dt * 1.2;
       }
     }
 
-    // Convert current pixel position back to game coords
+    // Convert fixed position back to game coords before returning to wrap
     var rect = el.getBoundingClientRect();
-    pet.x = rect.left + rect.width / 2 - 40;
-    var screenY = rect.top + rect.height;
-    var groundScreenY = window.innerHeight - 56;
-    pet.y = Math.max(0, groundScreenY - screenY + 56);
+    pet.x = rect.left;
+    var groundScreenY = window.innerHeight - 64;
+    pet.y = Math.max(0, groundScreenY - rect.top);
 
     pet.vx = pet.throwVX;
-    pet.vy = -pet.throwVY * 0.8; // invert: up is positive y in our coord
+    pet.vy = -pet.throwVY * 0.8;
     pet.bouncing = pet.y > 2;
     pet.happy = 120;
 
+    // Move back into wrap container, restore positioning
+    el.style.position = '';
     el.style.top = '';
     el.style.bottom = '';
     el.style.left = '';
+    wrap.appendChild(el);
   }
 
   el.addEventListener('mousedown', onDown);
@@ -1684,6 +1688,359 @@ function loop() {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
+})();
+
+</script>
+
+<script>
+
+// ── GRANDMA WITH DOCUMENTS ────────────────────────────────────────────────────
+(function(){
+
+var yells = [
+  "WHERE IS MY REPORT?!",
+  "DEADLINE WAS YESTERDAY!!",
+  "READ YOUR EMAILS!!",
+  "SIGN THIS NOW!!!",
+  "THIS IS UNACCEPTABLE!!",
+  "I NEED THOSE DOCUMENTS!!",
+  "WHO APPROVED THIS?!",
+  "MEETING IN 5 MINS!!!",
+  "FILE THESE IMMEDIATELY!!",
+  "NO MORE EXCUSES!!!",
+  "FIX THIS RIGHT NOW!!",
+  "I'VE BEEN WAITING!!",
+];
+
+var grandmaCSS = `
+#grandma-wrap{position:fixed;bottom:0;left:0;width:100%;height:0;pointer-events:none;z-index:9998;overflow:visible}
+.gma{position:absolute;bottom:0;pointer-events:auto;cursor:pointer;user-select:none}
+.gma-bubble{position:absolute;bottom:115px;left:50%;transform:translateX(-50%);background:#fff;border:2.5px solid #c62828;border-radius:14px;padding:7px 13px;font-size:11.5px;font-weight:800;color:#c62828;white-space:nowrap;box-shadow:0 4px 16px rgba(198,40,40,0.18);opacity:0;transition:opacity 0.22s;pointer-events:none;font-family:'IBM Plex Mono',monospace;text-align:center;max-width:200px;white-space:normal;line-height:1.3}
+.gma-bubble::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#c62828}
+.gma-bubble::before{content:'';position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#fff;z-index:1}
+.gma-bubble.show{opacity:1}
+.gma-label{text-align:center;font-size:9px;font-weight:700;color:#6b7c93;margin-top:2px;font-family:monospace;opacity:0.6}
+`;
+var styleEl2 = document.createElement('style');
+styleEl2.textContent = grandmaCSS;
+document.head.appendChild(styleEl2);
+
+var wrap2 = document.createElement('div');
+wrap2.id = 'grandma-wrap';
+document.body.appendChild(wrap2);
+
+// ── SVG ───────────────────────────────────────────────────────────────────────
+var gmaSVG = `<svg width="88" height="110" viewBox="0 0 88 110" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;display:block">
+  <ellipse cx="44" cy="109" rx="28" ry="4.5" fill="rgba(0,0,0,0.09)"/>
+
+  <!-- LEGS -->
+  <g id="gma-leg-l" style="transform-origin:36px 82px">
+    <rect x="30" y="82" width="13" height="26" rx="6.5" fill="#7b5ea7"/>
+    <ellipse cx="36" cy="108" rx="9" ry="4" fill="#4a3060"/>
+    <!-- shoe -->
+    <ellipse cx="33" cy="109" rx="10" ry="4.5" fill="#2c1a40"/>
+  </g>
+  <g id="gma-leg-r" style="transform-origin:52px 82px">
+    <rect x="46" y="82" width="13" height="26" rx="6.5" fill="#7b5ea7"/>
+    <ellipse cx="52" cy="108" rx="9" ry="4" fill="#4a3060"/>
+    <ellipse cx="55" cy="109" rx="10" ry="4.5" fill="#2c1a40"/>
+  </g>
+
+  <!-- DRESS/BODY -->
+  <ellipse cx="44" cy="72" rx="20" ry="18" fill="#9c6bb5"/>
+  <rect x="24" y="58" width="40" height="28" rx="8" fill="#9c6bb5"/>
+
+  <!-- COLLAR / BLOUSE -->
+  <ellipse cx="44" cy="57" rx="10" ry="5" fill="#f8e8d0"/>
+  <polygon points="40,52 44,62 48,52" fill="#f8e8d0"/>
+
+  <!-- DOCUMENT STACK (left arm holding) -->
+  <g id="gma-docs" style="transform-origin:18px 65px">
+    <rect x="4" y="54" width="28" height="36" rx="3" fill="#fff" stroke="#bbb" stroke-width="1.2"/>
+    <rect x="6" y="52" width="28" height="36" rx="3" fill="#fff9f0" stroke="#ddd" stroke-width="1"/>
+    <rect x="8" y="50" width="28" height="36" rx="3" fill="#fffde7" stroke="#ccc" stroke-width="1"/>
+    <!-- lines on doc -->
+    <line x1="12" y1="58" x2="32" y2="58" stroke="#aaa" stroke-width="1.5"/>
+    <line x1="12" y1="63" x2="30" y2="63" stroke="#bbb" stroke-width="1"/>
+    <line x1="12" y1="68" x2="32" y2="68" stroke="#bbb" stroke-width="1"/>
+    <line x1="12" y1="73" x2="28" y2="73" stroke="#bbb" stroke-width="1"/>
+    <line x1="12" y1="78" x2="31" y2="78" stroke="#ccc" stroke-width="1"/>
+    <text x="13" y="57" font-size="5" fill="#c62828" font-weight="bold">URGENT</text>
+  </g>
+
+  <!-- LEFT ARM -->
+  <g id="gma-arm-l" style="transform-origin:28px 60px">
+    <rect x="10" y="57" width="22" height="10" rx="5" fill="#f5c9a0"/>
+  </g>
+
+  <!-- RIGHT ARM (raised/pointing) -->
+  <g id="gma-arm-r" style="transform-origin:60px 60px">
+    <rect x="58" y="48" width="10" height="26" rx="5" fill="#f5c9a0" transform="rotate(-35 63 60)"/>
+    <!-- pointing finger -->
+    <ellipse cx="72" cy="44" rx="4" ry="7" fill="#f5c9a0" transform="rotate(-35 72 44)"/>
+    <ellipse cx="75" cy="38" rx="3" ry="5" fill="#f0b090" transform="rotate(-35 75 38)"/>
+  </g>
+
+  <!-- NECK -->
+  <rect x="38" y="42" width="12" height="14" rx="6" fill="#f5c9a0"/>
+
+  <!-- HEAD -->
+  <ellipse cx="44" cy="34" rx="18" ry="18" fill="#f5c9a0"/>
+
+  <!-- HAIR (white/grey bun) -->
+  <ellipse cx="44" cy="18" rx="16" ry="10" fill="#d8d0c8"/>
+  <ellipse cx="44" cy="14" rx="10" ry="8" fill="#e8e0d8"/>
+  <!-- bun -->
+  <circle cx="44" cy="10" r="8" fill="#e0d8d0"/>
+  <circle cx="44" cy="10" r="5" fill="#d0c8c0"/>
+  <!-- hair pins -->
+  <line x1="38" y1="10" x2="50" y2="10" stroke="#8a7a6a" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="40" y1="7" x2="48" y2="13" stroke="#8a7a6a" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- WRINKLES / FACE -->
+  <!-- forehead lines -->
+  <path d="M34 26 Q44 23 54 26" stroke="#e8b090" stroke-width="1" fill="none" opacity="0.6"/>
+  <path d="M36 29 Q44 27 52 29" stroke="#e8b090" stroke-width="0.8" fill="none" opacity="0.5"/>
+
+  <!-- GLASSES -->
+  <circle cx="37" cy="34" r="7" fill="rgba(180,220,255,0.3)" stroke="#5a3a10" stroke-width="1.8"/>
+  <circle cx="51" cy="34" r="7" fill="rgba(180,220,255,0.3)" stroke="#5a3a10" stroke-width="1.8"/>
+  <line x1="44" y1="34" x2="44" y2="34" stroke="#5a3a10" stroke-width="2"/>
+  <line x1="30" y1="33" x2="26" y2="31" stroke="#5a3a10" stroke-width="1.8"/>
+  <line x1="58" y1="33" x2="62" y2="31" stroke="#5a3a10" stroke-width="1.8"/>
+
+  <!-- EYES (angry/wide) -->
+  <ellipse cx="37" cy="34" rx="4" ry="4.5" fill="#fff"/>
+  <ellipse cx="37" cy="34" rx="2.5" ry="3" fill="#4a2800"/>
+  <ellipse cx="51" cy="34" rx="4" ry="4.5" fill="#fff"/>
+  <ellipse cx="51" cy="34" rx="2.5" ry="3" fill="#4a2800"/>
+  <!-- eye glint -->
+  <circle cx="36" cy="32.5" r="1" fill="rgba(255,255,255,0.9)"/>
+  <circle cx="50" cy="32.5" r="1" fill="rgba(255,255,255,0.9)"/>
+
+  <!-- EYEBROWS (angry V shape) -->
+  <path id="gma-brow-l" d="M30 27 Q37 24 40 27" stroke="#6a4a20" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path id="gma-brow-r" d="M48 27 Q51 24 58 27" stroke="#6a4a20" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+  <!-- MOUTH (yelling open) -->
+  <g id="gma-mouth">
+    <ellipse cx="44" cy="44" rx="6" ry="5" fill="#8a2000"/>
+    <ellipse cx="44" cy="45" rx="4" ry="3" fill="#600000"/>
+    <!-- teeth -->
+    <rect x="40" y="41" width="3.5" height="4" rx="1" fill="#fff"/>
+    <rect x="44.5" y="41" width="3.5" height="4" rx="1" fill="#fff"/>
+  </g>
+
+  <!-- CHEEK BLUSH (angry red) -->
+  <ellipse cx="30" cy="38" rx="5" ry="3" fill="rgba(220,80,40,0.25)"/>
+  <ellipse cx="58" cy="38" rx="5" ry="3" fill="rgba(220,80,40,0.25)"/>
+
+  <!-- BROOCH -->
+  <circle cx="44" cy="62" r="4" fill="#f5c518" stroke="#c8a000" stroke-width="1"/>
+  <circle cx="44" cy="62" r="2" fill="#c8a000"/>
+</svg>`;
+
+var div = document.createElement('div');
+div.className = 'gma';
+div.innerHTML = gmaSVG + '<div class="gma-bubble" id="gma-bubble"></div><div class="gma-label">👵 Mrs. Reyes</div>';
+wrap2.appendChild(div);
+
+var bubble = div.querySelector('#gma-bubble');
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+var gma = {
+  x: window.innerWidth * 0.6,
+  vx: 0,
+  facing: -1,
+  gait: 0,
+  bodyBob: 0,
+  armPhase: 0,
+  targetX: window.innerWidth * 0.2,
+  stateTimer: 80,
+  state: 'walk',
+  yellTimer: 0,
+  yellInterval: 180 + Math.random() * 200,
+  yelling: false,
+  speed: 1.3,
+};
+
+var W2 = window.innerWidth;
+window.addEventListener('resize', function(){ W2 = window.innerWidth; });
+
+function pickGmaState() {
+  var r = Math.random();
+  if (r < 0.55) {
+    gma.state = 'walk';
+    gma.targetX = 30 + Math.random() * (W2 - 120);
+    gma.stateTimer = 120 + Math.random() * 200;
+  } else if (r < 0.75) {
+    gma.state = 'stomp'; // walk fast and angry
+    gma.targetX = 30 + Math.random() * (W2 - 120);
+    gma.stateTimer = 80 + Math.random() * 120;
+  } else {
+    gma.state = 'idle';
+    gma.stateTimer = 60 + Math.random() * 100;
+  }
+}
+
+function showYell() {
+  var msg = yells[Math.floor(Math.random() * yells.length)];
+  bubble.textContent = msg;
+  bubble.classList.add('show');
+  gma.yellTimer = 90 + Math.floor(msg.length * 1.8);
+  gma.yelling = true;
+}
+
+function hideYell() {
+  bubble.classList.remove('show');
+  gma.yelling = false;
+  gma.yellInterval = 160 + Math.random() * 240;
+}
+
+var frame2 = 0;
+
+function updateGma() {
+  frame2++;
+  gma.stateTimer--;
+  if (gma.stateTimer <= 0) pickGmaState();
+
+  // Yell timer
+  if (!gma.yelling) {
+    gma.yellInterval--;
+    if (gma.yellInterval <= 0) showYell();
+  } else {
+    gma.yellTimer--;
+    if (gma.yellTimer <= 0) hideYell();
+  }
+
+  var isStormp = gma.state === 'stomp';
+  var maxV = gma.speed * (isStormp ? 3.2 : 1.8);
+  var accel = gma.speed * (isStormp ? 0.28 : 0.16);
+
+  if (gma.state === 'walk' || gma.state === 'stomp') {
+    var dx = gma.targetX - gma.x;
+    var dist = Math.abs(dx);
+    if (dist < 8) {
+      gma.vx *= 0.7;
+      if (dist < 3) pickGmaState();
+    } else {
+      var dir = dx > 0 ? 1 : -1;
+      gma.vx += dir * accel * Math.min(1, dist / 60);
+      if (Math.abs(gma.vx) > maxV) gma.vx = dir * maxV;
+    }
+  } else {
+    gma.vx *= 0.80;
+    if (Math.abs(gma.vx) < 0.08) gma.vx = 0;
+  }
+
+  gma.x += gma.vx;
+  gma.x = Math.max(4, Math.min(W2 - 96, gma.x));
+
+  if (gma.vx > 0.25) gma.facing = 1;
+  else if (gma.vx < -0.25) gma.facing = -1;
+
+  var spd = Math.abs(gma.vx);
+  var moving = spd > 0.3;
+  var gaitSpd = isStormp ? 0.32 : 0.20;
+  gma.gait     += moving ? gaitSpd * (1 + spd * 0.1) : 0.04;
+  gma.bodyBob  += moving ? 0.28 * (1 + spd * 0.08) : 0.06;
+  gma.armPhase += moving ? 0.22 : (gma.yellTimer > 0 ? 0.30 : 0.08);
+}
+
+function renderGma() {
+  var spd = Math.abs(gma.vx);
+  var moving = spd > 0.3;
+  var isStormp = gma.state === 'stomp';
+
+  var bob = moving ? Math.sin(gma.bodyBob) * (isStormp ? 4 : 2.2) : Math.sin(gma.bodyBob) * 0.5;
+  // Stomp: extra vertical bounce
+  var stomp = isStormp && moving ? Math.abs(Math.sin(gma.gait * 2)) * 3 : 0;
+
+  div.style.left   = gma.x + 'px';
+  div.style.bottom = (bob + stomp) + 'px';
+
+  var svg = div.querySelector('svg');
+  var flipX = gma.facing === -1 ? -1 : 1;
+  // Slight body lean forward when stomping
+  var lean = isStormp && moving ? gma.facing * 8 : 0;
+  svg.style.transform = 'scaleX(' + flipX + ') rotate(' + lean + 'deg)';
+
+  // LEGS — walk cycle
+  var legL = div.querySelector('#gma-leg-l');
+  var legR = div.querySelector('#gma-leg-r');
+  if (moving) {
+    var amp = isStormp ? 28 : 18;
+    var lA = Math.sin(gma.gait) * amp;
+    var rA = Math.sin(gma.gait + Math.PI) * amp;
+    var lLift = Math.max(0, Math.sin(gma.gait)) * (isStormp ? 10 : 6);
+    var rLift = Math.max(0, Math.sin(gma.gait + Math.PI)) * (isStormp ? 10 : 6);
+    if(legL) legL.style.transform = 'rotate('+lA+'deg) translateY('+(-lLift)+'px)';
+    if(legR) legR.style.transform = 'rotate('+rA+'deg) translateY('+(-rLift)+'px)';
+  } else {
+    var idleSway = Math.sin(gma.bodyBob * 0.4) * 3;
+    if(legL) legL.style.transform = 'rotate('+idleSway+'deg)';
+    if(legR) legR.style.transform = 'rotate('+(-idleSway)+'deg)';
+  }
+
+  // RIGHT ARM — raised, shaking when yelling
+  var armR = div.querySelector('#gma-arm-r');
+  if (armR) {
+    var shakeAmp = gma.yellTimer > 0 ? 18 : 6;
+    var shakeSpd = gma.yellTimer > 0 ? 0.45 : 0.15;
+    var armAng = -35 + Math.sin(gma.armPhase * shakeSpd * 6) * shakeAmp + (moving ? Math.sin(gma.gait) * 10 : 0);
+    armR.style.transform = 'rotate(' + armAng + 'deg)';
+  }
+
+  // LEFT ARM — holding documents, sways slightly
+  var armL = div.querySelector('#gma-arm-l');
+  var docs = div.querySelector('#gma-docs');
+  if (armL) {
+    var docSway = Math.sin(gma.armPhase * 0.12) * 4 + (moving ? Math.sin(gma.gait + Math.PI) * 6 : 0);
+    armL.style.transform = 'rotate(' + docSway + 'deg)';
+    if(docs) docs.style.transform = 'rotate(' + (docSway * 0.6) + 'deg)';
+  }
+
+  // MOUTH: bigger when yelling
+  var mouth = div.querySelector('#gma-mouth');
+  if (mouth) {
+    if (gma.yellTimer > 0) {
+      var scl = 1 + Math.abs(Math.sin(frame2 * 0.35)) * 0.35;
+      mouth.style.transform = 'scaleY(' + scl + ')';
+    } else {
+      mouth.style.transform = '';
+    }
+  }
+
+  // EYEBROWS: furrow more when yelling
+  var browL = div.querySelector('#gma-brow-l');
+  var browR = div.querySelector('#gma-brow-r');
+  if (browL && browR) {
+    var fury = gma.yellTimer > 0 ? 1 : 0;
+    var browShake = fury ? Math.sin(frame2 * 0.4) * 3 : 0;
+    browL.style.transform = 'translateY(' + (fury * 3 + browShake) + 'px)';
+    browR.style.transform = 'translateY(' + (fury * 3 - browShake) + 'px)';
+  }
+
+  // Bubble flips with character so text stays readable
+  var b = div.querySelector('#gma-bubble');
+  if (b) b.style.transform = 'translateX(-50%) scaleX(' + flipX + ')';
+}
+
+// Click to trigger yell
+div.addEventListener('click', function(e) {
+  if (!gma.yelling) showYell();
+  else hideYell();
+});
+
+pickGmaState();
+
+function loopGma() {
+  updateGma();
+  renderGma();
+  requestAnimationFrame(loopGma);
+}
+requestAnimationFrame(loopGma);
 
 })();
 
