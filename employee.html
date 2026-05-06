@@ -239,6 +239,76 @@ textarea{resize:vertical;min-height:72px}
 /* ── LOADING SKELETON ── */
 @keyframes skeleton-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
 .skeleton{background:linear-gradient(90deg,#eef1f5 25%,#e4e8ee 50%,#eef1f5 75%);background-size:400px 100%;animation:skeleton-shimmer 1.4s ease-in-out infinite;border-radius:6px;height:14px;margin-bottom:8px}
+
+/* ── FLOATING PARTICLES BACKGROUND ── */
+.particle{position:fixed;border-radius:50%;pointer-events:none;z-index:0;animation:particle-float linear infinite;opacity:0}
+@keyframes particle-float{0%{transform:translateY(100vh) scale(0);opacity:0}10%{opacity:1}90%{opacity:.4}100%{transform:translateY(-10vh) scale(1);opacity:0}}
+
+/* ── AVATAR PULSE RING ── */
+@keyframes avatar-ring{0%{box-shadow:0 0 0 0 rgba(0,180,216,0.5)}70%{box-shadow:0 0 0 8px rgba(0,180,216,0)}100%{box-shadow:0 0 0 0 rgba(0,180,216,0)}}
+.emp-avatar{animation:avatar-ring 2.5s ease-in-out infinite}
+
+/* ── PUNCH BUTTON IDLE GLOW ── */
+@keyframes btn-glow{0%,100%{box-shadow:0 0 0 0 rgba(46,125,50,0.0)}50%{box-shadow:0 0 10px 3px rgba(46,125,50,0.18)}}
+.punch-primary:not(:disabled):not(.done){animation:btn-glow 2s ease-in-out infinite}
+@keyframes btn-glow-red{0%,100%{box-shadow:0 0 0 0 rgba(198,40,40,0)}50%{box-shadow:0 0 10px 3px rgba(198,40,40,0.18)}}
+.punch-out:not(:disabled):not(.done){animation:btn-glow-red 2s ease-in-out infinite}
+
+/* ── STATUS PILL TRANSITION ── */
+@keyframes pill-pop{0%{transform:scale(0.85);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+.status-pill.pill-changed{animation:pill-pop .35s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── CLOCK CARD GLOW ON HOUR ── */
+@keyframes card-glow{0%{box-shadow:0 4px 24px rgba(10,22,40,0.07)}50%{box-shadow:0 4px 32px rgba(0,180,216,0.22)}100%{box-shadow:0 4px 24px rgba(10,22,40,0.07)}}
+.clock-card.hour-glow{animation:card-glow 1.5s ease}
+
+/* ── LEAVE BADGE BOUNCE ── */
+@keyframes badge-bounce{0%,100%{transform:scale(1) rotate(0deg)}30%{transform:scale(1.2) rotate(-5deg)}60%{transform:scale(0.95) rotate(3deg)}}
+.badge{transition:background .2s,color .2s}
+.badge.badge-new{animation:badge-bounce .5s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── TABLE ROW HOVER SLIDE ── */
+tr{transition:background .15s,transform .1s}
+tr:hover td{background:#f0f7ff;transform:translateX(2px)}
+
+/* ── PANEL HOVER LIFT ── */
+.panel{transition:box-shadow .2s,transform .2s}
+.panel:hover{box-shadow:0 6px 28px rgba(10,22,40,0.1);transform:translateY(-1px)}
+
+/* ── PAYSLIP CARD HOVER ── */
+@keyframes payslip-hover{from{transform:scale(1)}to{transform:scale(1.01)}}
+
+/* ── LOGOUT BTN SHAKE ON HOVER ── */
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
+.btn-logout:hover{animation:shake .4s ease}
+
+/* ── CARTOON CHAR EXCITED BOUNCE ── */
+@keyframes char-excited{0%,100%{transform:translateY(0) rotate(0deg)}20%{transform:translateY(-10px) rotate(-3deg)}40%{transform:translateY(-6px) rotate(3deg)}60%{transform:translateY(-10px) rotate(-2deg)}80%{transform:translateY(-4px) rotate(1deg)}}
+.cartoon-char.excited{animation:char-excited .6s ease}
+
+/* ── LEAVE SUBMIT BTN PULSE ── */
+@keyframes submit-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+.btn-primary:not(:disabled){animation:submit-pulse 2.5s ease-in-out infinite}
+.btn-primary:hover{animation:none;transform:scale(1.04)}
+
+/* ── BALANCE CARD SHINE SWEEP ── */
+@keyframes shine-sweep{0%{left:-100%}100%{left:200%}}
+.bal-card{overflow:hidden;position:relative}
+.bal-card::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.45),transparent);animation:shine-sweep 3s ease-in-out infinite;pointer-events:none}
+
+/* ── TAB ACTIVE INDICATOR SLIDE ── */
+.tab-btn.on{position:relative}
+.tab-btn.on::after{content:'';position:absolute;bottom:-1px;left:0;width:100%;height:3px;background:var(--blue);border-radius:2px 2px 0 0;animation:scaleIn .2s ease}
+
+/* ── CLOCK SECONDS PROGRESS ── */
+.seconds-ring{position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:102px;height:102px;pointer-events:none}
+
+/* ── INPUT FOCUS RIPPLE ── */
+input:focus,select:focus,textarea:focus{animation:alertIn .2s ease}
+
+/* ── SCROLL-TRIGGERED ROW REVEAL ── */
+@keyframes rowReveal{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+.row-reveal{animation:rowReveal .3s ease both}
 </style>
 </head>
 <body>
@@ -558,6 +628,7 @@ async function doPunch(endpoint, btnId){
       btn.classList.add('just-done');
       setTimeout(()=>btn.classList.remove('just-done'),400);
       spawnConfetti(btn);
+      if(window.exciteChar)window.exciteChar();
       showTimeMsg('✅ ' + labelFor(endpoint) + ' recorded at ' + data.time, true);
       await loadStatus();
       await loadHistory();
@@ -917,7 +988,123 @@ init();
     moveEye(pupilL,eyes[0],t.clientX,t.clientY);
     moveEye(pupilR,eyes[1],t.clientX,t.clientY);
   },{passive:true});
+
+  // Excited character bounce on punch
+  window.exciteChar = function(){
+    var c=document.getElementById('cartoon');
+    if(!c)return;
+    c.classList.add('excited');
+    setTimeout(()=>c.classList.remove('excited'),650);
+  };
 })();
+
+// ── FLOATING PARTICLES ─────────────────────────────────────────────────────────
+(function(){
+  var colors=['rgba(0,180,216,0.35)','rgba(21,101,192,0.25)','rgba(46,125,50,0.25)','rgba(245,127,23,0.2)'];
+  function spawnParticle(){
+    var p=document.createElement('div');
+    p.className='particle';
+    var size=4+Math.random()*8;
+    p.style.cssText='width:'+size+'px;height:'+size+'px;left:'+(Math.random()*100)+'vw;'
+      +'background:'+colors[Math.floor(Math.random()*colors.length)]+';'
+      +'animation-duration:'+(8+Math.random()*12)+'s;'
+      +'animation-delay:'+(Math.random()*6)+'s';
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(),(20+Math.random()*12)*1000);
+  }
+  for(var i=0;i<12;i++)spawnParticle();
+  setInterval(spawnParticle,3000);
+})();
+
+// ── SECONDS PROGRESS RING ──────────────────────────────────────────────────────
+(function(){
+  var svg='<svg class="seconds-ring" viewBox="0 0 102 102" fill="none" xmlns="http://www.w3.org/2000/svg">'
+    +'<circle cx="51" cy="51" r="48" stroke="#dce3ec" stroke-width="2.5"/>'
+    +'<circle id="sec-arc" cx="51" cy="51" r="48" stroke="#00b4d8" stroke-width="2.5" stroke-linecap="round"'
+    +' stroke-dasharray="301.6" stroke-dashoffset="301.6" transform="rotate(-90 51 51)" style="transition:stroke-dashoffset .95s linear"/>'
+    +'</svg>';
+  var clockCard=document.querySelector('.clock-card');
+  if(clockCard){
+    clockCard.style.position='relative';
+    clockCard.insertAdjacentHTML('afterbegin',svg);
+  }
+  function updateRing(){
+    var arc=document.getElementById('sec-arc');
+    if(!arc)return;
+    var s=new Date().getSeconds();
+    var pct=s/60;
+    var circumference=301.6;
+    arc.style.strokeDashoffset=circumference-(pct*circumference);
+  }
+  setInterval(updateRing,1000);
+  updateRing();
+})();
+
+// ── HOUR GLOW ON CLOCK CARD ────────────────────────────────────────────────────
+(function(){
+  var lastMin=-1;
+  setInterval(function(){
+    var now=new Date();
+    var m=now.getMinutes();
+    if(m===0 && lastMin!==0){
+      var cc=document.querySelector('.clock-card');
+      if(cc){cc.classList.add('hour-glow');setTimeout(()=>cc.classList.remove('hour-glow'),1600);}
+    }
+    lastMin=m;
+  },5000);
+})();
+
+// ── STATUS PILL ANIMATION ON CHANGE ───────────────────────────────────────────
+var _lastPillClass='';
+(function(){
+  var obs=new MutationObserver(function(){
+    var pill=document.getElementById('status-pill');
+    if(!pill)return;
+    var cls=pill.className;
+    if(cls!==_lastPillClass){
+      _lastPillClass=cls;
+      pill.classList.add('pill-changed');
+      setTimeout(()=>pill.classList.remove('pill-changed'),400);
+    }
+  });
+  setTimeout(function(){
+    var pill=document.getElementById('status-pill');
+    if(pill)obs.observe(pill,{attributes:true,childList:true,subtree:true});
+  },1000);
+})();
+
+// ── PAYSLIP CARD HOVER 3D TILT ────────────────────────────────────────────────
+document.addEventListener('mousemove',function(e){
+  document.querySelectorAll('#payslip-list-wrap > div').forEach(function(card){
+    var r=card.getBoundingClientRect();
+    if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom){
+      card.style.transform='';return;
+    }
+    var xPct=(e.clientX-r.left)/r.width-0.5;
+    var yPct=(e.clientY-r.top)/r.height-0.5;
+    card.style.transform='perspective(600px) rotateY('+(xPct*6)+'deg) rotateX('+(-yPct*4)+'deg) scale(1.01)';
+    card.style.transition='transform .1s ease';
+  });
+});
+document.addEventListener('mouseleave',function(){
+  document.querySelectorAll('#payslip-list-wrap > div').forEach(c=>c.style.transform='');
+});
+
+// ── SCROLL REVEAL FOR TABLE ROWS ──────────────────────────────────────────────
+function attachScrollReveal(){
+  var rows=document.querySelectorAll('tr:not(.revealed-done)');
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        en.target.classList.add('row-reveal','revealed-done');
+        obs.unobserve(en.target);
+      }
+    });
+  },{threshold:0.1});
+  rows.forEach(r=>obs.observe(r));
+}
+setInterval(attachScrollReveal,2000);
+
 </script>
 </body>
 </html>

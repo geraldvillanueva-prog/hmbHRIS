@@ -159,7 +159,24 @@ db.exec(`
     FOREIGN KEY(supervisor_user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS shifts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
+
+// Seed default shifts if none exist
+const shiftCount = db.prepare('SELECT COUNT(*) as c FROM shifts').get();
+if (shiftCount.c === 0) {
+  const insShift = db.prepare('INSERT OR IGNORE INTO shifts (name, start_time, end_time) VALUES (?, ?, ?)');
+  insShift.run('Morning Shift', '08:00', '17:00');
+  insShift.run('Afternoon Shift', '14:00', '23:00');
+  insShift.run('Night Shift', '22:00', '06:00');
+}
 
 // Seed default admin account if no users exist
 const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get();
@@ -375,10 +392,11 @@ app.post('/api/employees', requireAdmin, (req, res) => {
 
 app.put('/api/employees/:id', requireAdmin, (req, res) => {
   const e = req.body;
+  const shiftId = e.shiftId ? parseInt(e.shiftId) : null;
   db.prepare(`UPDATE employees SET name=?,pos=?,dept=?,type=?,start=?,bank=?,email=?,mobile=?,emergency=?,address=?,tin=?,
-    smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,vl_bal=?,sl_bal=? WHERE id=?`).run(
+    smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,vl_bal=?,sl_bal=?,shift_id=? WHERE id=?`).run(
     e.name,e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',e.tin||'',
-    +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,+e.vlBal||15,+e.slBal||15, req.params.id
+    +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,+e.vlBal||15,+e.slBal||15, shiftId, req.params.id
   );
   res.json({ success: true });
 });
@@ -394,7 +412,8 @@ function mapEmployee(e) {
     start: e.start, bank: e.bank, email: e.email, mobile: e.mobile,
     emergency: e.emergency, address: e.address, tin: e.tin,
     smb: e.smb, sss: e.sss, phic: e.phic, hdmf: e.hdmf, mpl: e.mpl,
-    dm: e.dm, load: e.load, wht: e.wht, vlBal: e.vl_bal, slBal: e.sl_bal, active: e.active
+    dm: e.dm, load: e.load, wht: e.wht, vlBal: e.vl_bal, slBal: e.sl_bal, active: e.active,
+    shiftId: e.shift_id || null
   };
 }
 
@@ -443,6 +462,11 @@ try {
 } catch(e) {}
 try {
   db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in TEXT`);
+} catch(e) {}
+
+// Migrate employees table — add shift_id if missing
+try {
+  db.exec(`ALTER TABLE employees ADD COLUMN shift_id INTEGER`);
 } catch(e) {}
 
 // ─── TIME LOGS ────────────────────────────────────────────────────────────────
@@ -763,6 +787,42 @@ app.get('/api/export', requireAdmin, (req, res) => {
   };
   res.setHeader('Content-Disposition', `attachment; filename=HMB_HRIS_Backup_${new Date().toISOString().slice(0,10)}.json`);
   res.json(data);
+});
+
+
+// ─── SHIFT ROUTES ─────────────────────────────────────────────────────────────
+// GET all shifts
+app.get('/api/shifts', requireAuth, (req, res) => {
+  const rows = db.prepare('SELECT * FROM shifts ORDER BY name').all();
+  res.json(rows);
+});
+
+// POST create shift
+app.post('/api/shifts', requireAdmin, (req, res) => {
+  const { name, start_time, end_time } = req.body;
+  if (!name || !start_time || !end_time) return res.status(400).json({ error: 'name, start_time, end_time required' });
+  if (db.prepare('SELECT id FROM shifts WHERE lower(name)=lower(?)').get(name)) {
+    return res.status(400).json({ error: 'A shift with this name already exists.' });
+  }
+  const info = db.prepare('INSERT INTO shifts (name, start_time, end_time) VALUES (?, ?, ?)').run(name, start_time, end_time);
+  const shift = db.prepare('SELECT * FROM shifts WHERE id=?').get(info.lastInsertRowid);
+  res.json(shift);
+});
+
+// PUT update shift
+app.put('/api/shifts/:id', requireAdmin, (req, res) => {
+  const { name, start_time, end_time } = req.body;
+  db.prepare('UPDATE shifts SET name=?, start_time=?, end_time=? WHERE id=?').run(name, start_time, end_time, req.params.id);
+  res.json({ success: true });
+});
+
+// DELETE shift — also unassigns employees
+app.delete('/api/shifts/:id', requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id);
+  // Remove shiftId from any employees using this shift
+  db.prepare("UPDATE employees SET shift_id=NULL WHERE shift_id=?").run(id);
+  db.prepare('DELETE FROM shifts WHERE id=?').run(id);
+  res.json({ success: true });
 });
 
 // ─── START SERVER ─────────────────────────────────────────────────────────────

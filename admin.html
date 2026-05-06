@@ -866,8 +866,8 @@ var leaveRecords=[],perfRecords=[],discRecords=[];
 var setup={name:'HMB Management Consultant',tin:'126-757-146-000',addr1:'21 B1 L5 Sta. Ana St',addr2:'Pacita 1B, San Pedro, Laguna',prep:'KMD. GRASPARIL',appr:'KKM. BUÑAG'};
 var emailCfg={svc:'',tpl:'',key:''};
 var allTimeLogs=[];
-var shifts=[{id:1,name:'Morning Shift',start:'08:00',end:'17:00'},{id:2,name:'Afternoon Shift',start:'14:00',end:'23:00'},{id:3,name:'Night Shift',start:'22:00',end:'06:00'}];
-var nextShiftId=4;
+var shifts=[];
+var nextShiftId=1;
 
 // ==================== AUTH =====================
 async function checkAuth(){
@@ -902,14 +902,15 @@ function showSaveIndicator(){
 async function saveToStorage(){/* No-op: saves happen per action */}
 async function loadFromStorage(){
   try{
-    var [emps,att,leaves,perfs,discs,slips,cfg]=await Promise.all([
+    var [emps,att,leaves,perfs,discs,slips,cfg,shiftData]=await Promise.all([
       api('GET','/api/employees'),
       api('GET','/api/attendance'),
       api('GET','/api/leave'),
       api('GET','/api/performance'),
       api('GET','/api/disciplinary'),
       api('GET','/api/payslips'),
-      api('GET','/api/settings')
+      api('GET','/api/settings'),
+      api('GET','/api/shifts')
     ]);
     employees=emps||[];
     attendance=att||{};
@@ -917,6 +918,11 @@ async function loadFromStorage(){
     perfRecords=perfs||[];
     discRecords=discs||[];
     payslipHistory=slips||[];
+    // Load shifts from server and remap to frontend format
+    if(shiftData&&shiftData.length){
+      shifts=shiftData.map(s=>({id:s.id,name:s.name,start:s.start_time,end:s.end_time}));
+      nextShiftId=Math.max(...shifts.map(s=>s.id))+1;
+    }
     if(cfg){
       setup={name:cfg.co_name||'',tin:cfg.co_tin||'',addr1:cfg.co_addr1||'',addr2:cfg.co_addr2||'',prep:cfg.co_prep||'',appr:cfg.co_appr||''};
       emailCfg={svc:cfg.ejs_svc||'',tpl:cfg.ejs_tpl||'',key:cfg.ejs_key||''};
@@ -1667,23 +1673,30 @@ function populateShiftSelects(){
     employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name+(e.shiftId?' ✓':'');if(e.id==cur)o.selected=true;empSel.appendChild(o);});
   }
 }
-function addShift(){
+async function addShift(){
   var name=v('sh-name').trim(),start=v('sh-start'),end=v('sh-end');
   if(!name){alert('Enter a shift name.');return;}
   if(!start||!end){alert('Enter start and end times.');return;}
   if(shifts.find(s=>s.name.toLowerCase()===name.toLowerCase())){alert('A shift with this name already exists.');return;}
-  var s={id:nextShiftId++,name,start,end};
+  // Save to server
+  var result=await api('POST','/api/shifts',{name,start_time:start,end_time:end});
+  if(result&&result.error){alert(result.error);return;}
+  // Add to local array using server-assigned ID
+  var s={id:result.id,name:result.name,start:result.start_time,end:result.end_time};
   shifts.push(s);
+  nextShiftId=Math.max(...shifts.map(x=>x.id))+1;
   document.getElementById('sh-name').value='';
   document.getElementById('sh-start').value='08:00';
   document.getElementById('sh-end').value='17:00';
   flash('sh-ok');
   renderShiftsList();populateShiftSelects();
 }
-function deleteShift(id){
+async function deleteShift(id){
   var inUse=employees.some(e=>e.shiftId===id);
   if(inUse&&!confirm('This shift is assigned to employees. Deleting it will remove their shift assignment. Continue?'))return;
   if(!inUse&&!confirm('Delete this shift?'))return;
+  // Delete from server
+  await api('DELETE','/api/shifts/'+id);
   shifts=shifts.filter(s=>s.id!==id);
   employees.forEach(e=>{if(e.shiftId===id)delete e.shiftId;});
   renderShiftsList();renderShiftAssignList();populateShiftSelects();
