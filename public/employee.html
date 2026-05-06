@@ -1115,139 +1115,321 @@ setInterval(attachScrollReveal,2000);
 </script>
 
 <script>
-// ── CURSOR PETS (Dog & Cat) ────────────────────────────────────────────────────
+// ── AUTONOMOUS PETS (Dog & Cat) ───────────────────────────────────────────────
 (function(){
-  // SVG dog (side-view cartoon, 52x40)
-  var dogSVG = `<svg width="52" height="40" viewBox="0 0 52 40" xmlns="http://www.w3.org/2000/svg">
-    <!-- tail -->
-    <path id="dog-tail" d="M44 22 Q52 14 50 8" stroke="#c8a06e" stroke-width="4" stroke-linecap="round" fill="none" transform-origin="44 22"/>
-    <!-- body -->
-    <ellipse cx="27" cy="26" rx="15" ry="10" fill="#d4a96a"/>
-    <!-- head -->
-    <ellipse cx="10" cy="20" rx="9" ry="8" fill="#d4a96a"/>
-    <!-- ear -->
-    <ellipse cx="6" cy="14" rx="4" ry="6" fill="#b8845a" transform="rotate(-15 6 14)"/>
-    <!-- snout -->
-    <ellipse cx="4" cy="22" rx="4" ry="3" fill="#c8956a"/>
-    <!-- nose -->
-    <ellipse cx="2" cy="21" rx="2" ry="1.5" fill="#3a1a0a"/>
-    <!-- eye -->
-    <circle cx="8" cy="18" r="2.2" fill="#fff"/>
-    <circle cx="7.6" cy="18" r="1.2" fill="#1a0a00"/>
-    <!-- legs -->
-    <rect id="dog-leg1" x="16" y="33" width="5" height="7" rx="2.5" fill="#c08050"/>
-    <rect id="dog-leg2" x="24" y="33" width="5" height="7" rx="2.5" fill="#c08050"/>
-    <rect id="dog-leg3" x="31" y="33" width="5" height="7" rx="2.5" fill="#c08050"/>
-    <rect id="dog-leg4" x="38" y="33" width="5" height="7" rx="2.5" fill="#c08050"/>
-    <!-- tongue -->
-    <ellipse cx="2" cy="24" rx="2" ry="2.5" fill="#e07090"/>
-    <!-- collar -->
-    <rect x="13" y="24" width="6" height="3" rx="1.5" fill="#1565c0"/>
-  </svg>`;
 
-  // SVG cat (side-view cartoon, 50x40)
-  var catSVG = `<svg width="50" height="40" viewBox="0 0 50 40" xmlns="http://www.w3.org/2000/svg">
-    <!-- tail -->
-    <path id="cat-tail" d="M42 22 Q52 18 48 8 Q46 2 50 0" stroke="#b0a0c0" stroke-width="4" stroke-linecap="round" fill="none" transform-origin="42 22"/>
-    <!-- body -->
-    <ellipse cx="26" cy="27" rx="14" ry="10" fill="#c8b8d8"/>
-    <!-- head -->
-    <ellipse cx="10" cy="20" rx="9" ry="8" fill="#c8b8d8"/>
-    <!-- ears -->
-    <polygon points="4,14 7,6 11,14" fill="#c8b8d8"/>
-    <polygon points="5,13 7,8 10,13" fill="#ffb0c8"/>
-    <!-- snout -->
-    <ellipse cx="4" cy="23" rx="4" ry="2.5" fill="#dac8e8"/>
-    <!-- nose -->
-    <polygon points="2,21 4,19.5 6,21 4,23" fill="#e07090"/>
-    <!-- whiskers -->
-    <line x1="-2" y1="21" x2="8" y2="22" stroke="#888" stroke-width=".8" opacity=".6"/>
-    <line x1="-2" y1="23" x2="8" y2="23" stroke="#888" stroke-width=".8" opacity=".6"/>
-    <!-- eye -->
-    <ellipse cx="8" cy="18" rx="2.5" ry="2.2" fill="#90ee90"/>
-    <ellipse cx="8" cy="18" rx=".8" ry="2" fill="#1a0a00"/>
-    <!-- legs -->
-    <rect id="cat-leg1" x="15" y="34" width="4" height="6" rx="2" fill="#b0a0c0"/>
-    <rect id="cat-leg2" x="22" y="34" width="4" height="6" rx="2" fill="#b0a0c0"/>
-    <rect id="cat-leg3" x="29" y="34" width="4" height="6" rx="2" fill="#b0a0c0"/>
-    <rect id="cat-leg4" x="36" y="34" width="4" height="6" rx="2" fill="#b0a0c0"/>
-    <!-- collar -->
-    <rect x="12" y="25" width="6" height="3" rx="1.5" fill="#c62828"/>
-    <!-- bell -->
-    <circle cx="15" cy="29" r="1.5" fill="#f5c518"/>
-  </svg>`;
+var dogSVG = `<svg class="pet-svg" width="70" height="48" viewBox="0 0 70 48" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+  <ellipse cx="35" cy="47" rx="22" ry="3.5" fill="rgba(0,0,0,0.09)"/>
+  <g id="dg-tail" style="transform-origin:56px 26px">
+    <path d="M56 26 Q66 14 62 5" stroke="#c8905a" stroke-width="5.5" stroke-linecap="round" fill="none"/>
+  </g>
+  <g id="dg-bl" style="transform-origin:44px 36px">
+    <rect x="41" y="36" width="8" height="13" rx="4" fill="#b87040"/>
+    <ellipse cx="45" cy="49" rx="5.5" ry="2.5" fill="#9a6030"/>
+  </g>
+  <g id="dg-br" style="transform-origin:54px 36px">
+    <rect x="51" y="36" width="8" height="13" rx="4" fill="#b87040"/>
+    <ellipse cx="55" cy="49" rx="5.5" ry="2.5" fill="#9a6030"/>
+  </g>
+  <ellipse cx="35" cy="29" rx="18" ry="13" fill="#d4a96a"/>
+  <ellipse cx="14" cy="22" rx="11" ry="10" fill="#d4a96a"/>
+  <ellipse cx="8" cy="14" rx="5" ry="8" fill="#b8845a" transform="rotate(-20 8 14)"/>
+  <ellipse cx="5" cy="25" rx="5.5" ry="4" fill="#c8956a"/>
+  <ellipse cx="2" cy="23.5" rx="2.5" ry="2" fill="#3a1a0a"/>
+  <ellipse cx="3" cy="27" rx="2.5" ry="3" fill="#e07090"/>
+  <circle cx="12" cy="19" r="3" fill="#fff" stroke="#2c1810" stroke-width="1"/>
+  <circle cx="11.5" cy="19" r="1.6" fill="#1a0a00"/>
+  <circle cx="11" cy="18" r="0.6" fill="rgba(255,255,255,0.8)"/>
+  <g id="dg-fl" style="transform-origin:20px 36px">
+    <rect x="17" y="36" width="8" height="13" rx="4" fill="#c08050"/>
+    <ellipse cx="21" cy="49" rx="5.5" ry="2.5" fill="#9a6030"/>
+  </g>
+  <g id="dg-fr" style="transform-origin:30px 36px">
+    <rect x="27" y="36" width="8" height="13" rx="4" fill="#c08050"/>
+    <ellipse cx="31" cy="49" rx="5.5" ry="2.5" fill="#9a6030"/>
+  </g>
+  <rect x="17" y="28" width="9" height="4" rx="2" fill="#1565c0"/>
+  <circle cx="21" cy="33" r="2" fill="#f5c518"/>
+</svg>`;
 
-  // Create container
-  var wrap = document.createElement('div');
-  wrap.id = 'cursor-pets';
-  document.body.appendChild(wrap);
+var catSVG = `<svg class="pet-svg" width="66" height="48" viewBox="0 0 66 48" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+  <ellipse cx="33" cy="47" rx="20" ry="3.5" fill="rgba(0,0,0,0.09)"/>
+  <g id="ct-tail" style="transform-origin:52px 24px">
+    <path d="M52 24 Q64 16 60 6 Q58 0 63 -4" stroke="#b0a0c0" stroke-width="5" stroke-linecap="round" fill="none"/>
+  </g>
+  <g id="ct-bl" style="transform-origin:42px 36px">
+    <rect x="39" y="36" width="7" height="13" rx="3.5" fill="#b0a0c0"/>
+    <ellipse cx="43" cy="49" rx="5" ry="2.5" fill="#9890b0"/>
+  </g>
+  <g id="ct-br" style="transform-origin:51px 36px">
+    <rect x="48" y="36" width="7" height="13" rx="3.5" fill="#b0a0c0"/>
+    <ellipse cx="52" cy="49" rx="5" ry="2.5" fill="#9890b0"/>
+  </g>
+  <ellipse cx="33" cy="29" rx="17" ry="12" fill="#c8b8d8"/>
+  <ellipse cx="13" cy="21" rx="10" ry="9" fill="#c8b8d8"/>
+  <polygon points="5,15 8,4 13,15" fill="#c8b8d8"/>
+  <polygon points="6,14 8,7 12,14" fill="#ffb0c8"/>
+  <polygon points="13,15 16,4 20,15" fill="#c8b8d8"/>
+  <polygon points="14,14 16,7 19,14" fill="#ffb0c8"/>
+  <ellipse cx="5" cy="24" rx="5" ry="3.5" fill="#dac8e8"/>
+  <polygon points="3,21 6,19 9,21 6,24" fill="#e07090"/>
+  <line x1="-3" y1="20" x2="10" y2="21.5" stroke="#aaa" stroke-width="1" opacity=".55"/>
+  <line x1="-3" y1="23" x2="10" y2="23" stroke="#aaa" stroke-width="1" opacity=".55"/>
+  <line x1="-3" y1="26" x2="10" y2="24.5" stroke="#aaa" stroke-width="1" opacity=".55"/>
+  <ellipse cx="11" cy="19" rx="3.2" ry="2.8" fill="#90ee90"/>
+  <ellipse cx="11" cy="19" rx="1" ry="2.5" fill="#1a0a00"/>
+  <circle cx="10" cy="17.5" r="0.7" fill="rgba(255,255,255,0.8)"/>
+  <g id="ct-fl" style="transform-origin:18px 36px">
+    <rect x="15" y="36" width="7" height="13" rx="3.5" fill="#c8b8d8"/>
+    <ellipse cx="19" cy="49" rx="5" ry="2.5" fill="#9890b0"/>
+  </g>
+  <g id="ct-fr" style="transform-origin:27px 36px">
+    <rect x="24" y="36" width="7" height="13" rx="3.5" fill="#c8b8d8"/>
+    <ellipse cx="28" cy="49" rx="5" ry="2.5" fill="#9890b0"/>
+  </g>
+  <rect x="16" y="27" width="8" height="4" rx="2" fill="#c62828"/>
+  <circle cx="20" cy="32" r="2" fill="#f5c518"/>
+</svg>`;
 
-  function makePet(svgStr, labelText, startX, speed) {
-    var div = document.createElement('div');
-    div.className = 'cpet';
-    div.innerHTML = svgStr + '<div class="cpet-label">' + labelText + '</div>';
-    wrap.appendChild(div);
-    return {el: div, x: startX, targetX: startX, speed: speed};
+// ── CONTAINER ─────────────────────────────────────────────────────────────────
+var wrap = document.createElement('div');
+wrap.id = 'cursor-pets';
+document.body.appendChild(wrap);
+
+function makePet(svgStr, name, startX) {
+  var div = document.createElement('div');
+  div.className = 'cpet';
+  div.innerHTML = svgStr + '<div class="cpet-label">' + name + '</div>';
+  wrap.appendChild(div);
+  return div;
+}
+
+var dogEl = makePet(dogSVG, '🐕 Buddy', 120);
+var catEl = makePet(catSVG, '🐱 Luna', 300);
+
+// ── PET STATE ─────────────────────────────────────────────────────────────────
+function makePetState(startX, prefix, wanderOffset) {
+  return {
+    x: startX,           // current pixel x
+    vx: 0,               // velocity x
+    facing: 1,           // 1 = right, -1 = left
+    gait: 0,             // walk cycle phase
+    state: 'walk',       // 'walk' | 'sit' | 'sniff' | 'idle'
+    stateTimer: 0,       // frames left in current state
+    targetX: startX + 80,
+    bodyBob: 0,          // vertical body bob phase
+    tailPhase: 0,        // tail wag phase
+    sitProgress: 0,      // 0..1 for sitting down animation
+    sniffTimer: 0,
+    prefix: prefix,
+    wanderOffset: wanderOffset, // phase offset so they don't sync
+    idleAnim: 0,
+    speed: prefix === 'dg' ? 1.7 : 1.2,  // dog faster, cat slower/lazier
+    accel: prefix === 'dg' ? 0.22 : 0.13,
+    friction: prefix === 'dg' ? 0.78 : 0.82,
+  };
+}
+
+var dog = makePetState(120, 'dg', 0);
+var cat = makePetState(340, 'ct', 137);  // phase offset so cat picks different times to sit
+
+// ── BEHAVIOR STATE MACHINE ────────────────────────────────────────────────────
+var W = window.innerWidth;
+window.addEventListener('resize', function(){ W = window.innerWidth; });
+
+function pickNewTarget(pet) {
+  // Weighted random: mostly walk, sometimes stop
+  var roll = Math.random();
+  if (roll < 0.55) {
+    pet.state = 'walk';
+    // Pick a target somewhere across the screen
+    var range = W - 80;
+    pet.targetX = 20 + Math.random() * range;
+    pet.stateTimer = 120 + Math.random() * 200;
+  } else if (roll < 0.75) {
+    pet.state = 'sit';
+    pet.stateTimer = 80 + Math.random() * 160;
+    pet.sitProgress = 0;
+  } else if (roll < 0.90) {
+    pet.state = 'sniff';
+    pet.stateTimer = 60 + Math.random() * 100;
+    pet.sniffTimer = 0;
+  } else {
+    pet.state = 'idle';
+    pet.stateTimer = 40 + Math.random() * 80;
   }
+}
 
-  var dog = makePet(dogSVG, '🐕 Buddy', 80, 0.072);
-  var cat = makePet(catSVG, '🐱 Luna', 160, 0.055);
+function updatePet(pet, frame) {
+  pet.stateTimer--;
+  if (pet.stateTimer <= 0) pickNewTarget(pet);
 
-  var cursorX = window.innerWidth / 2;
-  document.addEventListener('mousemove', function(e){ cursorX = e.clientX; });
-  document.addEventListener('touchmove', function(e){ cursorX = e.touches[0].clientX; }, {passive:true});
+  var moving = false;
 
-  var walkFrame = 0;
-  var lastTs = 0;
+  if (pet.state === 'walk') {
+    var dx = pet.targetX - pet.x;
+    var dist = Math.abs(dx);
 
-  function animLegs(petEl, prefix, moving) {
-    var legs = petEl.querySelectorAll('[id^="' + prefix + '-leg"]');
-    if (!moving) {
-      legs.forEach(function(l){ l.style.transform=''; });
-      return;
+    if (dist < 6) {
+      // Arrived — pick next state
+      pet.vx *= 0.7;
+      if (dist < 2) pickNewTarget(pet);
+    } else {
+      var dir = dx > 0 ? 1 : -1;
+      pet.vx += dir * pet.accel * Math.min(1, dist / 60);
+      pet.vx *= pet.friction;
+      // Cap speed
+      var maxV = pet.speed * (pet.prefix === 'dg' ? 2.8 : 2.0);
+      if (Math.abs(pet.vx) > maxV) pet.vx = dir * maxV;
+      moving = true;
     }
-    var a = Math.sin(walkFrame * 0.25) * 5;
-    if (legs[0]) legs[0].style.transform = 'rotate(' + a + 'deg)';
-    if (legs[1]) legs[1].style.transform = 'rotate(' + (-a) + 'deg)';
-    if (legs[2]) legs[2].style.transform = 'rotate(' + (-a) + 'deg)';
-    if (legs[3]) legs[3].style.transform = 'rotate(' + a + 'deg)';
-    // tail wag
-    var tail = petEl.querySelector('[id^="' + prefix + '-tail"]');
-    if (tail) tail.style.transform = 'rotate(' + (Math.sin(walkFrame * 0.18) * 18) + 'deg)';
+  } else {
+    // Decelerate to stop
+    pet.vx *= 0.75;
+    if (Math.abs(pet.vx) < 0.05) pet.vx = 0;
+    if (Math.abs(pet.vx) > 0.4) moving = true;
   }
 
-  function frame(ts) {
-    walkFrame++;
-    // Offset dog & cat so they don't overlap — dog slightly behind cursor left, cat further back
-    var dogTarget = cursorX - 90;
-    var catTarget = cursorX - 190;
+  pet.x += pet.vx;
+  pet.x = Math.max(4, Math.min(W - 74, pet.x));
 
-    var dogMoving = Math.abs(dogTarget - dog.x) > 2;
-    var catMoving = Math.abs(catTarget - cat.x) > 2;
+  // Facing direction (only flip when actually moving meaningfully)
+  if (pet.vx > 0.3) pet.facing = 1;
+  else if (pet.vx < -0.3) pet.facing = -1;
 
-    dog.x += (dogTarget - dog.x) * dog.speed * 3;
-    cat.x += (catTarget - cat.x) * cat.speed * 3;
-
-    // clamp to viewport
-    dog.x = Math.max(0, Math.min(window.innerWidth - 60, dog.x));
-    cat.x = Math.max(0, Math.min(window.innerWidth - 60, cat.x));
-
-    dog.el.style.left = dog.x + 'px';
-    cat.el.style.left = cat.x + 'px';
-
-    // Flip direction
-    var dogFacing = dogTarget < dog.x ? 'scaleX(-1)' : 'scaleX(1)';
-    var catFacing = catTarget < cat.x ? 'scaleX(-1)' : 'scaleX(1)';
-    dog.el.querySelector('svg').style.transform = dogFacing;
-    cat.el.querySelector('svg').style.transform = catFacing;
-
-    animLegs(dog.el, 'dog', dogMoving);
-    animLegs(cat.el, 'cat', catMoving);
-
-    requestAnimationFrame(frame);
+  // Gait / body bob
+  if (moving) {
+    var gaitSpeed = pet.prefix === 'dg' ? 0.28 : 0.20;
+    pet.gait += gaitSpeed * (1 + Math.abs(pet.vx) * 0.18);
+    pet.bodyBob += 0.32;
+  } else {
+    pet.gait += 0.04; // idle sway
+    pet.bodyBob += 0.06;
   }
-  requestAnimationFrame(frame);
+
+  // Tail
+  if (pet.prefix === 'dg') {
+    pet.tailPhase += moving ? 0.22 : 0.10;
+  } else {
+    pet.tailPhase += moving ? 0.14 : 0.07;
+  }
+
+  if (pet.state === 'sit') {
+    pet.sitProgress = Math.min(1, pet.sitProgress + 0.04);
+  } else {
+    pet.sitProgress = Math.max(0, pet.sitProgress - 0.06);
+  }
+
+  if (pet.state === 'sniff') pet.sniffTimer++;
+
+  return moving;
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderPet(pet, el, moving) {
+  // Position
+  el.style.left = pet.x + 'px';
+
+  var svg = el.querySelector('svg');
+
+  // Flip for direction
+  svg.style.transform = pet.facing === -1 ? 'scaleX(-1)' : 'scaleX(1)';
+
+  // Body bob: slight vertical when walking
+  var bobAmt = moving ? Math.sin(pet.bodyBob) * 1.8 : Math.sin(pet.bodyBob) * 0.4;
+  el.style.bottom = (8 + bobAmt) + 'px';
+
+  // Body squash/stretch: compress slightly on land phase
+  var squash = moving ? 1 + Math.sin(pet.bodyBob * 2) * 0.03 : 1;
+  svg.style.transform = (pet.facing === -1 ? 'scaleX(-1)' : 'scaleX(1)') + ' scaleY(' + squash + ')';
+
+  var p = pet.prefix;
+
+  // ── LEGS (realistic alternating gait) ──
+  var fl = el.querySelector('#' + p + '-fl');
+  var fr = el.querySelector('#' + p + '-fr');
+  var bl = el.querySelector('#' + p + '-bl');
+  var br = el.querySelector('#' + p + '-br');
+
+  if (moving) {
+    var g = pet.gait;
+    var amp = pet.prefix === 'dg' ? 22 : 18;
+    // Front and back legs alternate: diagonal pairs move together (trot gait)
+    var flAng = Math.sin(g) * amp;
+    var frAng = Math.sin(g + Math.PI) * amp;
+    var blAng = Math.sin(g + Math.PI) * amp;
+    var brAng = Math.sin(g) * amp;
+
+    // Lift leg off ground on forward stroke
+    var flLift = Math.max(0, Math.sin(g)) * 6;
+    var frLift = Math.max(0, Math.sin(g + Math.PI)) * 6;
+    var blLift = Math.max(0, Math.sin(g + Math.PI)) * 5;
+    var brLift = Math.max(0, Math.sin(g)) * 5;
+
+    if(fl) fl.style.transform = 'rotate(' + flAng + 'deg) translateY(' + (-flLift) + 'px)';
+    if(fr) fr.style.transform = 'rotate(' + frAng + 'deg) translateY(' + (-frLift) + 'px)';
+    if(bl) bl.style.transform = 'rotate(' + blAng + 'deg) translateY(' + (-blLift) + 'px)';
+    if(br) br.style.transform = 'rotate(' + brAng + 'deg) translateY(' + (-brLift) + 'px)';
+  } else {
+    // Idle: subtle weight shift
+    var idleSway = Math.sin(pet.bodyBob * 0.5) * 3;
+    if(fl) fl.style.transform = 'rotate(' + idleSway + 'deg)';
+    if(fr) fr.style.transform = 'rotate(' + (-idleSway * 0.5) + 'deg)';
+    if(bl) bl.style.transform = 'rotate(' + (-idleSway * 0.5) + 'deg)';
+    if(br) br.style.transform = 'rotate(' + idleSway + 'deg)';
+  }
+
+  // Sitting: fold back legs, lower rear
+  if (pet.sitProgress > 0.01) {
+    var sp = pet.sitProgress;
+    if(bl) bl.style.transform = 'rotate(' + (sp * 55) + 'deg) translateY(' + (sp * -4) + 'px)';
+    if(br) br.style.transform = 'rotate(' + (sp * -35) + 'deg) translateY(' + (sp * -4) + 'px)';
+    el.style.bottom = (8 - sp * 6 + bobAmt * (1 - sp)) + 'px';
+  }
+
+  // ── TAIL ──
+  var tail = el.querySelector('#' + p + '-tail');
+  if (tail) {
+    var tailAng;
+    if (pet.prefix === 'dg') {
+      // Dog: enthusiastic wag when moving, slower when idle
+      var wagSpeed = moving ? 1 : 0.5;
+      tailAng = Math.sin(pet.tailPhase * wagSpeed * 2) * (moving ? 35 : 18);
+    } else {
+      // Cat: slow graceful curl, tip flick when curious
+      tailAng = Math.sin(pet.tailPhase) * (moving ? 20 : 12);
+      if (pet.state === 'sniff') tailAng += Math.sin(pet.sniffTimer * 0.25) * 25;
+    }
+    tail.style.transform = 'rotate(' + tailAng + 'deg)';
+  }
+
+  // ── SNIFF ANIMATION: head bobs down ──
+  if (pet.state === 'sniff' && pet.sitProgress < 0.1) {
+    var sniffBob = Math.abs(Math.sin(pet.sniffTimer * 0.18)) * 8;
+    el.style.bottom = (8 - sniffBob * 0.5 + bobAmt) + 'px';
+  }
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
+var frame = 0;
+// Stagger initial state timers so they don't act in sync
+dog.stateTimer = 60;
+cat.stateTimer = 110;
+pickNewTarget(dog);
+pickNewTarget(cat);
+
+function loop() {
+  frame++;
+  var dogMoving = updatePet(dog, frame);
+  var catMoving = updatePet(cat, frame);
+  renderPet(dog, dogEl, dogMoving);
+  renderPet(cat, catEl, catMoving);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
 })();
+
 
 </script>
 </body>
