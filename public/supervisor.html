@@ -261,6 +261,70 @@ tr:hover td{background:#fafcff}
 /* ── FILTER BTN ── */
 .filter-btn{transition:all .2s cubic-bezier(.34,1.56,.64,1)}
 .filter-btn.on{transform:scale(1.05)}
+
+/* ── FLOATING PARTICLES ── */
+.particle{position:fixed;border-radius:50%;pointer-events:none;z-index:0;animation:particle-float linear infinite;opacity:0}
+@keyframes particle-float{0%{transform:translateY(100vh) scale(0);opacity:0}10%{opacity:1}90%{opacity:.4}100%{transform:translateY(-10vh) scale(1);opacity:0}}
+
+/* ── AVATAR PULSE RING ── */
+@keyframes avatar-ring{0%{box-shadow:0 0 0 0 rgba(123,31,162,0.5)}70%{box-shadow:0 0 0 8px rgba(123,31,162,0)}100%{box-shadow:0 0 0 0 rgba(123,31,162,0)}}
+.sup-avatar{animation:avatar-ring 2.5s ease-in-out infinite}
+
+/* ── PUNCH GLOW ── */
+@keyframes btn-glow{0%,100%{box-shadow:0 0 0 0 rgba(46,125,50,0)}50%{box-shadow:0 0 10px 3px rgba(46,125,50,0.18)}}
+.punch-primary:not(:disabled):not(.done){animation:btn-glow 2s ease-in-out infinite}
+@keyframes btn-glow-red{0%,100%{box-shadow:0 0 0 0 rgba(198,40,40,0)}50%{box-shadow:0 0 10px 3px rgba(198,40,40,0.18)}}
+.punch-out:not(:disabled):not(.done){animation:btn-glow-red 2s ease-in-out infinite}
+
+/* ── STATUS PILL POP ── */
+@keyframes pill-pop{0%{transform:scale(0.85);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+.status-pill.pill-changed{animation:pill-pop .35s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── PANEL HOVER LIFT ── */
+.panel{transition:box-shadow .2s,transform .2s}
+.panel:hover{box-shadow:0 6px 28px rgba(10,22,40,0.1);transform:translateY(-1px)}
+
+/* ── LEAVE CARD APPROVED/DENIED FLASH ── */
+@keyframes approve-flash{0%{background:#fff}30%{background:#e8f5e9}100%{background:#fff}}
+@keyframes deny-flash{0%{background:#fff}30%{background:#ffebee}100%{background:#fff}}
+.leave-card.flash-approve{animation:approve-flash .6s ease}
+.leave-card.flash-deny{animation:deny-flash .6s ease}
+
+/* ── LOGOUT SHAKE ── */
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
+.btn-logout:hover{animation:shake .4s ease}
+
+/* ── TOPBAR ROLE PILL SHIMMER ── */
+@keyframes pill-shimmer{0%,100%{opacity:1}50%{opacity:0.6}}
+.role-pill{animation:pill-shimmer 2.5s ease-in-out infinite}
+
+/* ── STAT CARD HOVER ── */
+.stat-card{transition:transform .2s,box-shadow .2s}
+.stat-card:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 6px 20px rgba(10,22,40,0.1)}
+
+/* ── BALANCE SHINE ── */
+@keyframes shine-sweep{0%{left:-100%}100%{left:200%}}
+
+/* ── CLOCK CARD GLOW ── */
+@keyframes card-glow{0%{box-shadow:0 4px 24px rgba(10,22,40,0.07)}50%{box-shadow:0 4px 32px rgba(123,31,162,0.2)}100%{box-shadow:0 4px 24px rgba(10,22,40,0.07)}}
+.clock-card.hour-glow{animation:card-glow 1.5s ease}
+
+/* ── EXCITED CHAR ── */
+@keyframes char-excited{0%,100%{transform:translateY(0) rotate(0deg)}20%{transform:translateY(-10px) rotate(-3deg)}40%{transform:translateY(-6px) rotate(3deg)}60%{transform:translateY(-10px) rotate(-2deg)}80%{transform:translateY(-4px) rotate(1deg)}}
+.cartoon-char.excited{animation:char-excited .6s ease}
+
+/* ── APPROVE/DENY BTN PRESS ── */
+@keyframes press{0%{transform:scale(1)}40%{transform:scale(0.92)}100%{transform:scale(1)}}
+.btn-approve:active{animation:press .2s ease}
+.btn-deny:active{animation:press .2s ease}
+
+/* ── SCROLL REVEAL ── */
+@keyframes rowReveal{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+.row-reveal{animation:rowReveal .3s ease both}
+
+/* ── INPUT FOCUS ── */
+@keyframes alertIn2{from{opacity:0;transform:translateY(-4px) scaleY(0.97)}to{opacity:1;transform:none}}
+input:focus,select:focus,textarea:focus{animation:alertIn2 .15s ease}
 </style>
 </head>
 <body>
@@ -821,6 +885,7 @@ async function doPunch(endpoint, btnId){
       btn.classList.add('just-done');
       setTimeout(()=>btn.classList.remove('just-done'),400);
       spawnConfetti(btn);
+      if(window.exciteChar)window.exciteChar();
       showTimeMsg('✅ ' + labelFor(endpoint) + ' recorded at ' + data.time, true);
       var s2 = await fetch('/api/timelogs/status').then(r=>r.json());
       applyStatus(s2);
@@ -1062,7 +1127,106 @@ init();
     moveEye(pupilL,eyes[0],t.clientX,t.clientY);
     moveEye(pupilR,eyes[1],t.clientX,t.clientY);
   },{passive:true});
+
+  // Excited character on punch
+  window.exciteChar = function(){
+    var c=document.getElementById('cartoon');
+    if(!c)return;
+    c.classList.add('excited');
+    setTimeout(()=>c.classList.remove('excited'),650);
+  };
 })();
+
+// ── FLOATING PARTICLES ─────────────────────────────────────────────────────────
+(function(){
+  var colors=['rgba(123,31,162,0.25)','rgba(206,147,216,0.3)','rgba(21,101,192,0.2)','rgba(0,180,216,0.2)'];
+  function spawnParticle(){
+    var p=document.createElement('div');
+    p.className='particle';
+    var size=4+Math.random()*8;
+    p.style.cssText='width:'+size+'px;height:'+size+'px;left:'+(Math.random()*100)+'vw;'
+      +'background:'+colors[Math.floor(Math.random()*colors.length)]+';'
+      +'animation-duration:'+(8+Math.random()*12)+'s;'
+      +'animation-delay:'+(Math.random()*6)+'s';
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(),(20+Math.random()*12)*1000);
+  }
+  for(var i=0;i<12;i++)spawnParticle();
+  setInterval(spawnParticle,3000);
+})();
+
+// ── SECONDS RING ───────────────────────────────────────────────────────────────
+(function(){
+  var svg='<svg class="seconds-ring" viewBox="0 0 102 102" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:102px;height:102px;pointer-events:none">'
+    +'<circle cx="51" cy="51" r="48" stroke="#dce3ec" stroke-width="2.5"/>'
+    +'<circle id="sec-arc" cx="51" cy="51" r="48" stroke="#ce93d8" stroke-width="2.5" stroke-linecap="round"'
+    +' stroke-dasharray="301.6" stroke-dashoffset="301.6" transform="rotate(-90 51 51)" style="transition:stroke-dashoffset .95s linear"/>'
+    +'</svg>';
+  var clockCard=document.querySelector('.clock-card');
+  if(clockCard){
+    clockCard.style.position='relative';
+    clockCard.insertAdjacentHTML('afterbegin',svg);
+  }
+  function updateRing(){
+    var arc=document.getElementById('sec-arc');
+    if(!arc)return;
+    var s=new Date().getSeconds();
+    arc.style.strokeDashoffset=301.6-(s/60*301.6);
+  }
+  setInterval(updateRing,1000);
+  updateRing();
+})();
+
+// ── LEAVE CARD FLASH ON APPROVE/DENY ─────────────────────────────────────────
+var _origActLeave=actLeave;
+actLeave=async function(id,status){
+  var cards=document.querySelectorAll('.leave-card');
+  await _origActLeave(id,status);
+};
+
+// ── STAT CARD CLICK RIPPLE ────────────────────────────────────────────────────
+document.querySelectorAll && document.addEventListener('click',function(e){
+  var sc=e.target.closest('.stat-card');
+  if(!sc)return;
+  var r=document.createElement('span');
+  r.style.cssText='position:absolute;border-radius:50%;background:rgba(123,31,162,0.15);pointer-events:none;'
+    +'width:80px;height:80px;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);'
+    +'animation:ripple .5s ease-out forwards';
+  sc.style.position='relative';sc.style.overflow='hidden';
+  sc.appendChild(r);
+  setTimeout(()=>r.remove(),550);
+});
+
+// ── STATUS PILL CHANGE ANIMATION ─────────────────────────────────────────────
+var _lastPillClass='';
+setTimeout(function(){
+  var pill=document.getElementById('status-pill');
+  if(!pill)return;
+  new MutationObserver(function(){
+    var cls=pill.className;
+    if(cls!==_lastPillClass){
+      _lastPillClass=cls;
+      pill.classList.add('pill-changed');
+      setTimeout(()=>pill.classList.remove('pill-changed'),400);
+    }
+  }).observe(pill,{attributes:true,childList:true,subtree:true});
+},1000);
+
+// ── SCROLL REVEAL TABLE ROWS ──────────────────────────────────────────────────
+function attachScrollReveal(){
+  var rows=document.querySelectorAll('tr:not(.revealed-done)');
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){
+        en.target.classList.add('row-reveal','revealed-done');
+        obs.unobserve(en.target);
+      }
+    });
+  },{threshold:0.1});
+  rows.forEach(r=>obs.observe(r));
+}
+setInterval(attachScrollReveal,2000);
+
 </script>
 </body>
 </html>
