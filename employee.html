@@ -316,9 +316,126 @@ input:focus,select:focus,textarea:focus{animation:alertIn .2s ease}
 .cpet svg{display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.18))}
 .cpet-label{text-align:center;font-size:9px;font-weight:700;color:var(--navy);opacity:.7;margin-top:1px;font-family:'IBM Plex Mono',monospace}
 
+/* ══════════════════════════════════════════
+   PROFESSIONAL ANIMATION ENHANCEMENTS
+═══════════════════════════════════════════ */
+
+/* ── TOP PROGRESS BAR (tab switch) ── */
+#progress-bar{position:fixed;top:0;left:0;height:3px;width:0%;background:linear-gradient(90deg,var(--blue),var(--accent));z-index:9999;transition:width .3s ease,opacity .4s ease;border-radius:0 2px 2px 0;box-shadow:0 0 8px rgba(0,180,216,0.5);opacity:0;pointer-events:none}
+#progress-bar.running{opacity:1}
+
+/* ── SKELETON LOADER ── */
+.skel-row{display:flex;gap:10px;margin-bottom:10px}
+.skel-block{border-radius:6px;background:linear-gradient(90deg,#eef1f5 25%,#e0e6ef 50%,#eef1f5 75%);background-size:600px 100%;animation:skeleton-shimmer 1.4s ease-in-out infinite}
+@keyframes skeleton-shimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}
+
+/* ── SMOOTH CLOCK DIGIT TRANSITIONS ── */
+@keyframes digitTick{0%{transform:translateY(-6px);opacity:0}100%{transform:translateY(0);opacity:1}}
+.clock-tick{animation:digitTick .18s cubic-bezier(.22,1,.36,1)}
+
+/* ── ANIMATED GRADIENT BORDER on active punch btn ── */
+@keyframes grad-border-spin{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.punch-primary:not(:disabled):not(.done){
+  background:linear-gradient(#fff,#fff) padding-box,
+  linear-gradient(135deg,var(--green),var(--accent),var(--green)) border-box;
+  border:2px solid transparent;
+  animation:btn-glow 2s ease-in-out infinite,grad-border 3s linear infinite;
+  background-size:200% 200%
+}
+@keyframes grad-border{0%,100%{filter:hue-rotate(0deg)}50%{filter:hue-rotate(20deg)}}
+
+/* ── PUNCH SUCCESS RING BURST ── */
+@keyframes ring-burst{0%{transform:scale(0.6);opacity:0.9;border-width:6px}100%{transform:scale(2.2);opacity:0;border-width:1px}}
+.ring-burst{position:absolute;inset:-2px;border-radius:10px;border:4px solid var(--accent);pointer-events:none;animation:ring-burst .5s ease-out forwards}
+
+/* ── FLOATING LABEL SLIDE for inputs ── */
+.f{position:relative}
+input:not([readonly]):focus + label,
+input:not([readonly]):not(:placeholder-shown) + label{
+  transform:translateY(-18px) scale(0.85);
+  color:var(--blue)
+}
+
+/* ── STATUS PILL LIVE GLOW ── */
+.status-in{animation:status-glow-green 2.5s ease-in-out infinite}
+@keyframes status-glow-green{0%,100%{box-shadow:0 0 0 0 rgba(46,125,50,0)}50%{box-shadow:0 0 0 5px rgba(46,125,50,0.12)}}
+.status-out{animation:status-glow-orange 2.5s ease-in-out infinite}
+@keyframes status-glow-orange{0%,100%{box-shadow:0 0 0 0 rgba(230,81,0,0)}50%{box-shadow:0 0 0 5px rgba(230,81,0,0.12)}}
+
+/* ── CARD ENTRANCE with 3D TILT ── */
+.panel{transform-style:preserve-3d;perspective:800px;transition:box-shadow .25s,transform .25s}
+.panel:hover{box-shadow:0 8px 32px rgba(10,22,40,0.13);transform:perspective(800px) rotateX(0.8deg) translateY(-2px)}
+
+/* ── TABLE ROW ENTER STAGGER ── */
+@keyframes trFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+tbody tr{animation:trFadeIn .3s ease both}
+tbody tr:nth-child(1){animation-delay:.04s}
+tbody tr:nth-child(2){animation-delay:.08s}
+tbody tr:nth-child(3){animation-delay:.12s}
+tbody tr:nth-child(4){animation-delay:.16s}
+tbody tr:nth-child(5){animation-delay:.2s}
+tbody tr:nth-child(n+6){animation-delay:.24s}
+
+/* ── BALANCE NUMBER ODOMETER ── */
+@keyframes odometer-up{0%{transform:translateY(100%);opacity:0}100%{transform:translateY(0);opacity:1}}
+.bal-value{overflow:hidden;display:block}
+.bal-value.counting{animation:odometer-up .45s cubic-bezier(.22,1,.36,1)}
+
+/* ── BTN PRESS DEPTH ── */
+.btn-primary:active{transform:scale(0.97) translateY(1px)!important;box-shadow:inset 0 2px 6px rgba(0,0,0,0.2)}
+
+/* ── TOPBAR GRADIENT UNDERLINE ── */
+.topbar{position:relative}
+.topbar::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--accent) 40%,var(--blue) 60%,transparent);animation:underline-sweep 4s ease-in-out infinite}
+@keyframes underline-sweep{0%,100%{opacity:0.4;transform:scaleX(0.6)}50%{opacity:1;transform:scaleX(1)}}
+
+/* ── PUNCH-IN CELEBRATION RING ── */
+@keyframes celebrate-ring{0%{transform:translate(-50%,-50%) scale(0);opacity:0.8}100%{transform:translate(-50%,-50%) scale(4);opacity:0}}
+.celebrate-ring{position:absolute;top:50%;left:50%;width:60px;height:60px;border-radius:50%;border:3px solid var(--accent);pointer-events:none;animation:celebrate-ring .7s ease-out forwards}
+
+/* ── SCROLL FADE IN for panels/cards ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{opacity:0}
+.fade-up.visible{animation:fadeUp .45s cubic-bezier(.22,1,.36,1) forwards}
+
+/* ── TYPING CURSOR in clock ── */
+.clock-cursor{display:inline-block;width:2px;height:0.8em;background:var(--accent);margin-left:2px;vertical-align:middle;animation:cursor-blink 1s step-end infinite;border-radius:1px}
+@keyframes cursor-blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ── SMOOTH PAGE TRANSITION overlay ── */
+#page-transition{position:fixed;inset:0;background:var(--navy);z-index:99999;pointer-events:none;opacity:0;transition:opacity .35s ease}
+#page-transition.active{opacity:1}
+
+/* ── NOTIFICATION BADGE HEARTBEAT ── */
+@keyframes heartbeat{0%,100%{transform:scale(1)}14%{transform:scale(1.3)}28%{transform:scale(1)}42%{transform:scale(1.2)}70%{transform:scale(1)}}
+
+/* ── SMOOTH FOCUS RING for all inputs ── */
+input:focus,select:focus,textarea:focus{
+  box-shadow:0 0 0 3px rgba(21,101,192,.15),0 1px 4px rgba(21,101,192,0.1);
+  transform:none;
+  transition:box-shadow .2s,border-color .2s
+}
+
+/* ── GLASS MORPHISM on clock card ── */
+.clock-card{backdrop-filter:blur(12px);background:rgba(255,255,255,0.97)}
+
+/* ── LEAVE CARD HOVER BORDER GLOW ── */
+.leave-card-anim{transition:box-shadow .25s,transform .2s,border-color .25s}
+.leave-card-anim:hover{transform:translateY(-2px) scale(1.005);box-shadow:0 4px 20px rgba(21,101,192,0.12)}
+
+/* ── PAYSLIP CARD SHINE ── */
+@keyframes payshine{0%{left:-100%;opacity:0}30%{opacity:1}100%{left:200%;opacity:0}}
+.payslip-card{position:relative;overflow:hidden}
+.payslip-card::before{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent);animation:payshine 3.5s ease-in-out infinite;pointer-events:none}
+
 </style>
 </head>
 <body>
+
+<!-- PAGE TRANSITION OVERLAY -->
+<div id="page-transition"></div>
+<!-- TOP PROGRESS BAR -->
+<div id="progress-bar"></div>
 
 <!-- TOPBAR -->
 <div class="topbar">
@@ -537,6 +654,16 @@ updateClock();
 
 // ── TABS ───────────────────────────────────────────────────────────────────────
 function goTab(name,el){
+  // Progress bar
+  var pb=document.getElementById('progress-bar');
+  pb.style.width='0%'; pb.classList.add('running');
+  requestAnimationFrame(function(){
+    pb.style.width='40%';
+    setTimeout(function(){pb.style.width='75%';},120);
+    setTimeout(function(){pb.style.width='100%';},300);
+    setTimeout(function(){pb.classList.remove('running');pb.style.width='0%';},600);
+  });
+
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('on','tab-enter'));
   el.classList.add('on');
@@ -547,6 +674,9 @@ function goTab(name,el){
   if(name==='leavefile')loadMyLeaves();
   if(name==='leavebal'){loadBalance();loadLeaveAll();}
   if(name==='payslips')loadPayslips();
+
+  // Scroll reveal on tab switch
+  setTimeout(setupScrollReveal, 50);
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────────────
@@ -1921,6 +2051,129 @@ function loopGma() {
 requestAnimationFrame(loopGma);
 
 })();
+
+</script>
+
+<script>
+/* ══════════════════════════════════════════
+   PROFESSIONAL ANIMATION ENHANCEMENTS JS
+═══════════════════════════════════════════ */
+
+// ── SCROLL REVEAL ─────────────────────────
+function setupScrollReveal(){
+  var els = document.querySelectorAll('.panel, .bal-card, .leave-card, .payslip-card, .clock-card');
+  if(!window._scrollRevealObs){
+    window._scrollRevealObs = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          e.target.classList.add('fade-up','visible');
+          window._scrollRevealObs.unobserve(e.target);
+        }
+      });
+    },{threshold:0.08,rootMargin:'0px 0px -30px 0px'});
+  }
+  els.forEach(function(el){
+    if(!el.classList.contains('visible')){
+      window._scrollRevealObs.observe(el);
+    }
+  });
+}
+document.addEventListener('DOMContentLoaded', function(){ setTimeout(setupScrollReveal,200); });
+
+// ── ODOMETER COUNT-UP for balance numbers ─
+function animateCountUp(el, target, duration){
+  if(!el) return;
+  var start = 0, startTime = null;
+  el.classList.add('counting');
+  function step(ts){
+    if(!startTime) startTime = ts;
+    var progress = Math.min((ts - startTime) / duration, 1);
+    var ease = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(ease * target);
+    if(progress < 1) requestAnimationFrame(step);
+    else el.textContent = target;
+  }
+  requestAnimationFrame(step);
+}
+// Hook into balance display
+var _origShowBalance = window.showBalance;
+if(typeof _origShowBalance === 'undefined'){
+  window._pendingBalAnim = true;
+}
+
+// ── PUNCH BUTTON RING BURST ──────────────
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('.punch-btn');
+  if(btn && !btn.disabled && !btn.classList.contains('done')){
+    var ring = document.createElement('div');
+    ring.className = 'ring-burst';
+    btn.appendChild(ring);
+    setTimeout(function(){ ring.remove(); }, 500);
+  }
+});
+
+// ── SMOOTH INPUT FOCUS INTERACTIONS ──────
+document.querySelectorAll('input, select, textarea').forEach(function(inp){
+  inp.addEventListener('focus', function(){
+    this.parentElement && this.parentElement.style && (this.parentElement.style.zIndex = '2');
+  });
+  inp.addEventListener('blur', function(){
+    this.parentElement && this.parentElement.style && (this.parentElement.style.zIndex = '');
+  });
+});
+
+// ── TILT EFFECT on clock card ─────────────
+(function(){
+  var card = document.querySelector('.clock-card');
+  if(!card) return;
+  card.addEventListener('mousemove', function(e){
+    var r = card.getBoundingClientRect();
+    var x = (e.clientX - r.left) / r.width - 0.5;
+    var y = (e.clientY - r.top) / r.height - 0.5;
+    card.style.transform = 'perspective(800px) rotateX('+(y*-4)+'deg) rotateY('+(x*4)+'deg) translateY(-2px)';
+  });
+  card.addEventListener('mouseleave', function(){
+    card.style.transform = '';
+  });
+})();
+
+// ── STATUS PILL morph on change ───────────
+var _lastStatus = null;
+function checkStatusChange(){
+  var pill = document.getElementById('status-pill');
+  if(!pill) return;
+  var cur = pill.className;
+  if(cur !== _lastStatus){
+    _lastStatus = cur;
+    pill.classList.add('pill-changed');
+    setTimeout(function(){ pill.classList.remove('pill-changed'); }, 400);
+  }
+}
+setInterval(checkStatusChange, 500);
+
+// ── PAGE LOAD ENTRANCE ANIMATION ─────────
+(function(){
+  var overlay = document.getElementById('page-transition');
+  if(!overlay) return;
+  overlay.style.opacity = '1';
+  overlay.style.transition = 'none';
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      overlay.style.transition = 'opacity .5s ease';
+      overlay.style.opacity = '0';
+    });
+  });
+})();
+
+// ── STAT CARD NUMBER SHIMMER on hover ─────
+document.querySelectorAll('.bal-value').forEach(function(el){
+  var parent = el.closest('.bal-card');
+  if(!parent) return;
+  parent.addEventListener('mouseenter', function(){
+    el.classList.add('animate');
+    setTimeout(function(){ el.classList.remove('animate'); }, 500);
+  });
+});
 
 </script>
 </body>

@@ -332,9 +332,110 @@ input:focus,select:focus,textarea:focus{animation:alertIn2 .15s ease}
 .cpet svg{display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.18))}
 .cpet-label{text-align:center;font-size:9px;font-weight:700;color:var(--navy);opacity:.7;margin-top:1px;font-family:'IBM Plex Mono',monospace}
 
+/* ══════════════════════════════════════════
+   PROFESSIONAL ANIMATION ENHANCEMENTS
+═══════════════════════════════════════════ */
+
+/* ── TOP PROGRESS BAR ── */
+#progress-bar{position:fixed;top:0;left:0;height:3px;width:0%;background:linear-gradient(90deg,#7b1fa2,#ce93d8,#7b1fa2);z-index:9999;transition:width .3s ease,opacity .4s ease;border-radius:0 2px 2px 0;box-shadow:0 0 8px rgba(206,147,216,0.6);opacity:0;pointer-events:none}
+#progress-bar.running{opacity:1}
+
+/* ── PAGE TRANSITION ── */
+#page-transition{position:fixed;inset:0;background:var(--navy);z-index:99999;pointer-events:none;opacity:0;transition:opacity .5s ease}
+#page-transition.active{opacity:1}
+
+/* ── SCROLL FADE IN ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{opacity:0}
+.fade-up.visible{animation:fadeUp .45s cubic-bezier(.22,1,.36,1) forwards}
+
+/* ── ANIMATED GRADIENT BORDER on active punch ── */
+.punch-primary:not(:disabled):not(.done){
+  background:linear-gradient(#fff,#fff) padding-box,
+  linear-gradient(135deg,var(--green),#7b1fa2,var(--accent)) border-box;
+  border:2px solid transparent;
+  animation:btn-glow 2s ease-in-out infinite;
+}
+
+/* ── PUNCH RING BURST ── */
+@keyframes ring-burst{0%{transform:scale(0.6);opacity:0.9;border-width:6px}100%{transform:scale(2.2);opacity:0;border-width:1px}}
+.ring-burst{position:absolute;inset:-2px;border-radius:10px;border:4px solid #ce93d8;pointer-events:none;animation:ring-burst .5s ease-out forwards}
+
+/* ── STATUS PILL LIVE GLOW ── */
+.status-in{animation:status-glow-green 2.5s ease-in-out infinite}
+@keyframes status-glow-green{0%,100%{box-shadow:0 0 0 0 rgba(46,125,50,0)}50%{box-shadow:0 0 0 5px rgba(46,125,50,0.12)}}
+.status-out{animation:status-glow-orange 2.5s ease-in-out infinite}
+@keyframes status-glow-orange{0%,100%{box-shadow:0 0 0 0 rgba(230,81,0,0)}50%{box-shadow:0 0 0 5px rgba(230,81,0,0.12)}}
+
+/* ── TABLE ROW ENTER STAGGER ── */
+@keyframes trFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+tbody tr{animation:trFadeIn .3s ease both}
+tbody tr:nth-child(1){animation-delay:.04s}
+tbody tr:nth-child(2){animation-delay:.08s}
+tbody tr:nth-child(3){animation-delay:.12s}
+tbody tr:nth-child(4){animation-delay:.16s}
+tbody tr:nth-child(5){animation-delay:.2s}
+tbody tr:nth-child(n+6){animation-delay:.24s}
+
+/* ── TOPBAR GRADIENT UNDERLINE ── */
+.topbar{position:relative}
+.topbar::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,#ce93d8 40%,#7b1fa2 60%,transparent);animation:underline-sweep 4s ease-in-out infinite}
+@keyframes underline-sweep{0%,100%{opacity:0.4;transform:scaleX(0.6)}50%{opacity:1;transform:scaleX(1)}}
+
+/* ── LEAVE CARD ENHANCED HOVER ── */
+.leave-card{transition:box-shadow .25s,transform .2s,border-color .25s}
+.leave-card:hover{transform:translateY(-3px) scale(1.005);box-shadow:0 6px 24px rgba(123,31,162,0.13)}
+
+/* ── STAT CARD 3D TILT HOVER ── */
+.stat-card{transform-style:preserve-3d;perspective:600px;transition:transform .25s,box-shadow .25s}
+.stat-card:hover{transform:perspective(600px) rotateY(-4deg) rotateX(2deg) translateY(-4px) scale(1.03);box-shadow:0 8px 28px rgba(123,31,162,0.18)}
+
+/* ── APPROVE BTN SUCCESS GLOW ── */
+@keyframes approve-success-glow{0%{box-shadow:0 0 0 0 rgba(46,125,50,0.5)}100%{box-shadow:0 0 0 12px rgba(46,125,50,0)}}
+.btn-approve.just-approved{animation:approve-success-glow .6s ease-out}
+
+/* ── DENY BTN SHAKE ── */
+@keyframes deny-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.btn-deny.just-denied{animation:deny-shake .4s ease}
+
+/* ── PANEL 3D HOVER ── */
+.panel{transform-style:preserve-3d;perspective:900px;transition:box-shadow .25s,transform .25s}
+.panel:hover{box-shadow:0 8px 32px rgba(10,22,40,0.13);transform:perspective(900px) rotateX(0.6deg) translateY(-2px)}
+
+/* ── STAT VALUE POP on change ── */
+@keyframes valuePop{0%{transform:scale(0.8) translateY(8px);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.stat-value.pop{animation:valuePop .35s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── GLASS MORPHISM clock card ── */
+.clock-card{backdrop-filter:blur(12px);background:rgba(255,255,255,0.97)}
+
+/* ── INPUT FOCUS RING ── */
+input:focus,select:focus,textarea:focus{
+  box-shadow:0 0 0 3px rgba(123,31,162,.12),0 1px 4px rgba(123,31,162,0.1);
+  animation:none;
+  transition:box-shadow .2s,border-color .2s
+}
+
+/* ── TEAM CARD SHINE ── */
+@keyframes team-shine{0%{left:-100%;opacity:0}30%{opacity:0.6}100%{left:200%;opacity:0}}
+.team-card{overflow:hidden;position:relative}
+.team-card::before{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent);animation:team-shine 4s ease-in-out infinite;pointer-events:none}
+
+/* ── PENDING LEAVE CARD PULSE BORDER ── */
+@keyframes pending-pulse{0%,100%{border-left-color:var(--yellow)}50%{border-left-color:#ffd54f}}
+.leave-card.pending{animation:pending-pulse 2s ease-in-out infinite}
+
+/* ── BTN PRESS DEPTH ── */
+.btn-primary:active,.btn-approve:active,.btn-deny:active{transform:scale(0.96) translateY(1px)!important}
+
 </style>
 </head>
 <body>
+
+<!-- PAGE TRANSITION OVERLAY -->
+<div id="page-transition"></div>
+<!-- TOP PROGRESS BAR -->
+<div id="progress-bar"></div>
 
 <!-- TOPBAR -->
 <div class="topbar">
@@ -606,6 +707,16 @@ async function init(){
 
 // ── TABS ───────────────────────────────────────────────────────────────────────
 function goTab(name,el){
+  // Progress bar
+  var pb=document.getElementById('progress-bar');
+  pb.style.width='0%'; pb.classList.add('running');
+  requestAnimationFrame(function(){
+    pb.style.width='40%';
+    setTimeout(function(){pb.style.width='75%';},120);
+    setTimeout(function(){pb.style.width='100%';},300);
+    setTimeout(function(){pb.classList.remove('running');pb.style.width='0%';},600);
+  });
+
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('on','tab-enter'));
   el.classList.add('on');
@@ -616,6 +727,8 @@ function goTab(name,el){
   if(name==='team')loadTeam();
   if(name==='payslips')loadPayslips();
   if(name==='leavefile'){supLoadMyLeaves();supLoadBalance();}
+
+  setTimeout(setupScrollReveal, 50);
 }
 
 // ── SUPERVISOR: FILE OWN LEAVE ─────────────────────────────────────────────────
@@ -2043,6 +2156,120 @@ function loopGma() {
 requestAnimationFrame(loopGma);
 
 })();
+
+</script>
+
+<script>
+/* ══════════════════════════════════════════
+   PROFESSIONAL ANIMATION ENHANCEMENTS JS
+═══════════════════════════════════════════ */
+
+// ── SCROLL REVEAL ─────────────────────────
+function setupScrollReveal(){
+  var els = document.querySelectorAll('.panel, .stat-card, .leave-card, .team-card, .clock-card');
+  if(!window._scrollRevealObs){
+    window._scrollRevealObs = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          e.target.classList.add('fade-up','visible');
+          window._scrollRevealObs.unobserve(e.target);
+        }
+      });
+    },{threshold:0.08,rootMargin:'0px 0px -30px 0px'});
+  }
+  els.forEach(function(el){
+    if(!el.classList.contains('visible')) window._scrollRevealObs.observe(el);
+  });
+}
+document.addEventListener('DOMContentLoaded', function(){ setTimeout(setupScrollReveal,200); });
+
+// ── PUNCH RING BURST ─────────────────────
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('.punch-btn');
+  if(btn && !btn.disabled && !btn.classList.contains('done')){
+    var ring = document.createElement('div');
+    ring.className = 'ring-burst';
+    btn.appendChild(ring);
+    setTimeout(function(){ ring.remove(); }, 500);
+  }
+});
+
+// ── APPROVE/DENY BUTTON FEEDBACK ─────────
+document.addEventListener('click', function(e){
+  var approveBtn = e.target.closest('.btn-approve');
+  var denyBtn = e.target.closest('.btn-deny');
+  if(approveBtn){ approveBtn.classList.add('just-approved'); setTimeout(function(){approveBtn.classList.remove('just-approved');},700); }
+  if(denyBtn){ denyBtn.classList.add('just-denied'); setTimeout(function(){denyBtn.classList.remove('just-denied');},500); }
+});
+
+// ── STAT VALUE ANIMATE on render ─────────
+function animateStatValues(){
+  document.querySelectorAll('.stat-value').forEach(function(el){
+    el.classList.add('pop');
+    setTimeout(function(){ el.classList.remove('pop'); }, 400);
+  });
+}
+
+// ── CLOCK CARD 3D TILT ───────────────────
+(function(){
+  var card = document.querySelector('.clock-card');
+  if(!card) return;
+  card.addEventListener('mousemove', function(e){
+    var r = card.getBoundingClientRect();
+    var x = (e.clientX - r.left) / r.width - 0.5;
+    var y = (e.clientY - r.top) / r.height - 0.5;
+    card.style.transform = 'perspective(800px) rotateX('+(y*-4)+'deg) rotateY('+(x*4)+'deg) translateY(-2px)';
+  });
+  card.addEventListener('mouseleave', function(){
+    card.style.transform = '';
+  });
+})();
+
+// ── STATUS PILL MORPH ────────────────────
+var _lastStatus = null;
+function checkStatusChange(){
+  var pill = document.getElementById('status-pill');
+  if(!pill) return;
+  if(pill.className !== _lastStatus){
+    _lastStatus = pill.className;
+    pill.classList.add('pill-changed');
+    setTimeout(function(){ pill.classList.remove('pill-changed'); }, 400);
+  }
+}
+setInterval(checkStatusChange, 500);
+
+// ── PAGE LOAD ENTRANCE ───────────────────
+(function(){
+  var overlay = document.getElementById('page-transition');
+  if(!overlay) return;
+  overlay.style.opacity = '1';
+  overlay.style.transition = 'none';
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      overlay.style.transition = 'opacity .5s ease';
+      overlay.style.opacity = '0';
+    });
+  });
+})();
+
+// ── SMOOTH INPUT FOCUS ───────────────────
+document.querySelectorAll('input, select, textarea').forEach(function(inp){
+  inp.addEventListener('focus', function(){
+    if(this.parentElement) this.parentElement.style.zIndex = '2';
+  });
+  inp.addEventListener('blur', function(){
+    if(this.parentElement) this.parentElement.style.zIndex = '';
+  });
+});
+
+// ── PENDING BADGE ENHANCED HEARTBEAT ────
+var badge = document.querySelector('.tab-notif');
+if(badge){
+  badge.style.animation = 'heartbeat 2s ease-in-out infinite';
+  var style = document.createElement('style');
+  style.textContent = '@keyframes heartbeat{0%,100%{transform:scale(1)}14%{transform:scale(1.35)}28%{transform:scale(1)}42%{transform:scale(1.2)}70%{transform:scale(1)}}';
+  document.head.appendChild(style);
+}
 
 </script>
 </body>
