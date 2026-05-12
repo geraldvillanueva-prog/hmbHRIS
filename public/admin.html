@@ -864,7 +864,7 @@ tr:hover td{background:#fafcff}
 var employees=[],attendance={},payslipHistory=[],nextId=1;
 var leaveRecords=[],perfRecords=[],discRecords=[];
 var setup={name:'HMB Management Consultant',tin:'126-757-146-000',addr1:'21 B1 L5 Sta. Ana St',addr2:'Pacita 1B, San Pedro, Laguna',prep:'KMD. GRASPARIL',appr:'KKM. BUÑAG'};
-var emailCfg={svc:'',tpl:'',key:''};
+var emailCfg={svc:'service_egeu3v1',tpl:'template_7jtdhwe',key:'N1iAC7sZ5RVfPhug5'};
 var allTimeLogs=[];
 var shifts=[];
 var nextShiftId=1;
@@ -1457,7 +1457,36 @@ async function sendOne(empId,per,pdate){
   if(!emailCfg.svc||!emailCfg.tpl||!emailCfg.key){
     window.open('mailto:'+e.email+'?subject='+encodeURIComponent('Pay Slip - '+per+' - '+e.name)+'&body='+encodeURIComponent(text));
   } else {
-    try{await emailjs.send(emailCfg.svc,emailCfg.tpl,{to_email:e.email,to_name:e.name,subject:'Pay Slip - '+per,message:text});}
+    try{await emailjs.send(emailCfg.svc,emailCfg.tpl,{
+  to_email:               e.email,
+  name:                   e.name,
+  position:               e.pos||'',
+  bank_acc:               e.bank||'',
+  cut_off:                per,
+  payroll_date:           pdate?fmtDate(pdate):'',
+  start_date:             e.start?fmtDate(e.start):'',
+  semi_monthly_basic_pay: fp(e.smb),
+  daily_rate:             fp(p.dr),
+  no_of_days_worked:      a.days,
+  basic_pay:              fp(p.basicPay),
+  deminimis:              e.dm?fp(e.dm):'-',
+  other_additionals:      a.otherAdd?fp(a.otherAdd):'-',
+  reg_overtime:           p.otPay?fp(p.otPay):'-',
+  holiday_pay:            a.holiday?fp(a.holiday):'-',
+  leave_w_pay:            a.leave?fp(a.leave):'-',
+  commission:             a.commission?fp(a.commission):'-',
+  total_earnings:         fp(p.totalEarnings),
+  sss:                    fp(e.sss),
+  phic:                   fp(e.phic),
+  hdmf:                   fp(e.hdmf),
+  total_contribution:     fp(p.totalContrib),
+  other_deductions:       a.otherDed?fp(a.otherDed):'-',
+  wht_tax:                e.wht?fp(e.wht):'-',
+  late_undertime:         a.late?fp(a.late):'-',
+  total_deductions:       fp(p.totalDeductions),
+  net_pay:                '₱'+fp(p.netPay),
+  notes:                  'Load Allowance: ₱'+fp(e.load)+'/mo. | HDMF MPL: ₱'+fp(e.mpl)+'/mo.'
+});}
     catch(err){alert('Email failed: '+(err.text||err));return;}
   }
   var rec={empId:e.id,empName:e.name,empPos:e.pos||'',period:per,pdate,sentAt:new Date().toISOString(),emailSentTo:e.email,basicPay:p.basicPay,totalEarnings:p.totalEarnings,totalDeductions:p.totalDeductions,netPay:p.netPay,attendance:JSON.parse(JSON.stringify(a)),employeeSnapshot:JSON.parse(JSON.stringify(e))};

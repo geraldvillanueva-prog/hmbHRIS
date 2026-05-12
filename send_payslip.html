@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+</head>
+<body>
+<script>
+  emailjs.init("N1iAC7sZ5RVfPhug5");
+
+  emailjs.send("service_egeu3v1", "template_7jtdhwe", {
+    to_email:               "villanuevagerald256@gmail.com",
+    name:                   "Villanueva, Gerald Umandap",
+    position:               "IT Officer / DCA",
+    bank_acc:               "2274 0000 3601",
+    cut_off:                "Apr. 16 - Apr. 30, 2026",
+    payroll_date:           "May 5, 2026",
+    start_date:             "12/22/2025",
+    semi_monthly_basic_pay: "10,416.50",
+    daily_rate:             "801.27",
+    no_of_days_worked:      "13.00",
+    basic_pay:              "10,416.50",
+    deminimis:              "1,083.50",
+    other_additionals:      "125.00",
+    reg_overtime:           "-",
+    holiday_pay:            "-",
+    leave_w_pay:            "-",
+    commission:             "-",
+    total_earnings:         "11,625.00",
+    sss:                    "525.00",
+    phic:                   "125.00",
+    hdmf:                   "100.00",
+    total_contribution:     "750.00",
+    other_deductions:       "150.93",
+    wht_tax:                "-",
+    late_undertime:         "495.79",
+    total_deductions:       "1,396.71",
+    net_pay:                "10,228.29",
+    notes:                  "Load Allowance: 250.00/mo. | HDMF MPL: 301.85/mo."
+  })
+  .then(() => alert("✅ Payslip sent successfully!"))
+  .catch((err) => alert("❌ Error: " + JSON.stringify(err)));
+</script>
+</body>
+</html>
