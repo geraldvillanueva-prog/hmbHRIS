@@ -167,6 +167,13 @@ db.exec(`
     end_time TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS payslip_approvals (
+    period TEXT PRIMARY KEY,
+    approved_by INTEGER,
+    approved_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY(approved_by) REFERENCES users(id) ON DELETE SET NULL
+  );
 `);
 
 // Seed default shifts if none exist
@@ -224,6 +231,10 @@ function requireAdmin(req, res, next) {
   if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
   next();
 }
+function requireAdminOrManagement(req, res, next) {
+  if (!req.session.user || !['admin','management'].includes(req.session.user.role)) return res.status(403).json({ error: 'Not authorized' });
+  next();
+}
 function requireAdminOrSupervisor(req, res, next) {
   if (!req.session.user || !['admin','supervisor'].includes(req.session.user.role)) return res.status(403).json({ error: 'Not authorized' });
   next();
@@ -250,7 +261,7 @@ app.get('/api/me', requireAuth, (req, res) => {
 });
 
 // ─── USER MANAGEMENT (Admin) ──────────────────────────────────────────────────
-app.get('/api/users', requireAdmin, (req, res) => {
+app.get('/api/users', requireAdminOrManagement, (req, res) => {
   const users = db.prepare('SELECT id, username, role, employee_id, created_at FROM users').all();
   res.json(users);
 });
@@ -418,7 +429,7 @@ function mapEmployee(e) {
 }
 
 // ─── ATTENDANCE / PAYROLL ──────────────────────────────────────────────────────
-app.get('/api/attendance', requireAdmin, (req, res) => {
+app.get('/api/attendance', requireAdminOrManagement, (req, res) => {
   const rows = db.prepare('SELECT * FROM attendance').all();
   // Convert to nested object format { period: { empId: {...} } }
   const result = {};
@@ -598,8 +609,8 @@ app.get('/api/timelogs/status', requireAuth, (req, res) => {
 // ─── LEAVE ────────────────────────────────────────────────────────────────────
 app.get('/api/leave', requireAuth, (req, res) => {
   const role = req.session.user.role;
-  // Admin: all leaves
-  if (role === 'admin') {
+  // Admin & Management: all leaves
+  if (role === 'admin' || role === 'management') {
     const rows = db.prepare('SELECT l.*, e.name as emp_name FROM leave_records l JOIN employees e ON l.employee_id=e.id ORDER BY l.filed_at DESC').all();
     return res.json(rows.map(r => ({ id: r.id, empId: r.employee_id, empName: r.emp_name, type: r.type, from: r.from_date, to: r.to_date, days: r.days, reason: r.reason, status: r.status, pay: r.pay, filedAt: r.filed_at })));
   }
@@ -655,11 +666,11 @@ app.post('/api/leave', requireAdmin, (req, res) => {
   res.json({ success: true, id: r.lastInsertRowid });
 });
 
-app.put('/api/leave/:id', requireAdminOrSupervisor, (req, res) => {
+app.put('/api/leave/:id', requireAdminOrManagement, (req, res) => {
   const { status } = req.body;
   const rec = db.prepare('SELECT * FROM leave_records WHERE id=?').get(req.params.id);
   if (!rec) return res.json({ success: false, error: 'Not found' });
-  // Supervisor can only update their own subordinates' leaves
+  // Supervisor check skipped for admin and management
   if (req.session.user.role === 'supervisor') {
     const isSub = db.prepare('SELECT id FROM supervisor_subordinates WHERE supervisor_user_id=? AND employee_id=?').get(req.session.user.id, rec.employee_id);
     if (!isSub) return res.status(403).json({ success: false, error: 'Not your subordinate' });
@@ -718,7 +729,7 @@ app.delete('/api/disciplinary/:id', requireAdmin, (req, res) => {
 });
 
 // ─── PAYSLIP HISTORY ─────────────────────────────────────────────────────────
-app.get('/api/payslips', requireAdmin, (req, res) => {
+app.get('/api/payslips', requireAdminOrManagement, (req, res) => {
   const rows = db.prepare('SELECT * FROM payslip_history ORDER BY sent_at DESC').all();
   res.json(rows.map(r => ({
     id: r.id, empId: r.employee_id, empName: JSON.parse(r.employee_snapshot||'{}').name || '', empPos: JSON.parse(r.employee_snapshot||'{}').pos || '',
@@ -741,7 +752,7 @@ app.get('/api/payslips/mine', requireAuth, (req, res) => {
   })));
 });
 
-app.post('/api/payslips', requireAdmin, (req, res) => {
+app.post('/api/payslips', requireAdminOrManagement, (req, res) => {
   const h = req.body;
   db.prepare(`INSERT INTO payslip_history (employee_id, period, pdate, sent_at, email_sent_to, basic_pay, total_earnings, total_deductions, net_pay, attendance_snapshot, employee_snapshot)
     VALUES (?,?,?,datetime('now'),?,?,?,?,?,?,?)
@@ -789,6 +800,32 @@ app.get('/api/export', requireAdmin, (req, res) => {
   res.json(data);
 });
 
+
+// ─── PAYSLIP APPROVALS ────────────────────────────────────────────────────────
+// GET all approvals — both admin and management can read
+app.get('/api/payslip-approvals', requireAdminOrManagement, (req, res) => {
+  const rows = db.prepare('SELECT period, approved_at FROM payslip_approvals').all();
+  const result = {};
+  rows.forEach(r => result[r.period] = true);
+  res.json(result);
+});
+
+// POST approve a period — management (or admin) approves
+app.post('/api/payslip-approvals', requireAdminOrManagement, (req, res) => {
+  const { period } = req.body;
+  if (!period) return res.status(400).json({ error: 'period required' });
+  db.prepare(`INSERT INTO payslip_approvals (period, approved_by, approved_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(period) DO UPDATE SET approved_by=excluded.approved_by, approved_at=excluded.approved_at`)
+    .run(period, req.session.user.id);
+  res.json({ success: true });
+});
+
+// DELETE revoke approval — admin only
+app.delete('/api/payslip-approvals/:period', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM payslip_approvals WHERE period=?').run(req.params.period);
+  res.json({ success: true });
+});
 
 // ─── SHIFT ROUTES ─────────────────────────────────────────────────────────────
 // GET all shifts
