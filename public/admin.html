@@ -94,6 +94,7 @@ tr:hover td{background:#fafcff}
 .badge-accent{background:#e0f7fa;color:#00838f}
 .badge-orange{background:#fff3e0;color:#e65100}
 .badge-purple{background:#f3e5f5;color:#6a1b9a}
+.btn.bo{background:#fff;border:1.5px solid var(--navy);color:var(--navy)}.btn.bo:hover{background:#f0f4ff}
 
 /* TABS */
 .inner-tabs{display:flex;gap:2px;border-bottom:2px solid var(--border);margin-bottom:16px}
@@ -168,28 +169,30 @@ tr:hover td{background:#fafcff}
   <div class="sidebar-section">Overview</div>
   <div class="nav-item on" onclick="goSec('dashboard',this)"><span class="nav-icon">🏠</span>Dashboard</div>
   <div class="sidebar-section">Employees</div>
-  <div class="nav-item" onclick="goSec('employees',this)"><span class="nav-icon">👥</span>Employee Records</div>
-  <div class="nav-item" onclick="goSec('201',this)"><span class="nav-icon">📋</span>201 Files</div>
+  <div id="nav-employees" class="nav-item" onclick="goSec('employees',this)"><span class="nav-icon">👥</span>Employee Records</div>
+  <div id="nav-201" class="nav-item" onclick="goSec('201',this)"><span class="nav-icon">📋</span>201 Files</div>
   <div class="sidebar-section">Time & Leave</div>
-  <div class="nav-item" onclick="goSec('attendance',this)"><span class="nav-icon">🕐</span>Attendance</div>
-  <div class="nav-item" onclick="goSec('leave',this)"><span class="nav-icon">🌴</span>Leave Management</div>
+  <div id="nav-attendance" class="nav-item" onclick="goSec('attendance',this)"><span class="nav-icon">🕐</span>Attendance</div>
+  <div id="nav-leave" class="nav-item" onclick="goSec('leave',this)"><span class="nav-icon">🌴</span>Leave Management</div>
   <div class="sidebar-section">Payroll</div>
-  <div class="nav-item" onclick="goSec('payroll-att',this)"><span class="nav-icon">📝</span>Payroll Encoding</div>
-  <div class="nav-item" onclick="goSec('payroll',this)"><span class="nav-icon">💰</span>Payroll Summary</div>
-  <div class="nav-item" onclick="goSec('send',this)"><span class="nav-icon">📧</span>Send Pay Slips</div>
-  <div class="nav-item" onclick="goSec('history',this)"><span class="nav-icon">🗂</span>Slip History</div>
+  <div id="nav-payroll-att" class="nav-item" onclick="goSec('payroll-att',this)"><span class="nav-icon">📝</span>Payroll Encoding</div>
+  <div id="nav-payroll" class="nav-item" onclick="goSec('payroll',this)"><span class="nav-icon">💰</span>Payroll Summary</div>
+  <div id="nav-send" class="nav-item" onclick="goSec('send',this)"><span class="nav-icon">📧</span>Send Pay Slips</div>
+  <div id="nav-history" class="nav-item" onclick="goSec('history',this)"><span class="nav-icon">🗂</span>Slip History</div>
   <div class="sidebar-section">Performance</div>
-  <div class="nav-item" onclick="goSec('performance',this)"><span class="nav-icon">⭐</span>Evaluations</div>
+  <div id="nav-performance" class="nav-item" onclick="goSec('performance',this)"><span class="nav-icon">⭐</span>Evaluations</div>
   <div class="sidebar-section">Discipline</div>
-  <div class="nav-item" onclick="goSec('disciplinary',this)"><span class="nav-icon">⚠️</span>Disciplinary Records</div>
+  <div id="nav-disciplinary" class="nav-item" onclick="goSec('disciplinary',this)"><span class="nav-icon">⚠️</span>Disciplinary Records</div>
   <div class="sidebar-section">Reports</div>
-  <div class="nav-item" onclick="goSec('reports',this)"><span class="nav-icon">📊</span>Reports & Downloads</div>
+  <div id="nav-reports" class="nav-item" onclick="goSec('reports',this)"><span class="nav-icon">📊</span>Reports & Downloads</div>
   <div class="sidebar-section">Time Logs</div>
-  <div class="nav-item" onclick="goSec('timelogs',this)"><span class="nav-icon">🕒</span>Employee Time Logs</div>
+  <div id="nav-timelogs" class="nav-item" onclick="goSec('timelogs',this)"><span class="nav-icon">🕒</span>Employee Time Logs</div>
   <div class="sidebar-section">Settings</div>
-  <div class="nav-item" onclick="goSec('users',this)"><span class="nav-icon">🔐</span>User Accounts</div>
-  <div class="nav-item" onclick="goSec('shifts',this)"><span class="nav-icon">🕰️</span>Shift Management</div>
-  <div class="nav-item" onclick="goSec('setup',this)"><span class="nav-icon">⚙️</span>System Setup</div>
+  <div id="nav-users" class="nav-item" onclick="goSec('users',this)"><span class="nav-icon">🔐</span>User Accounts</div>
+  <div id="nav-shifts" class="nav-item" onclick="goSec('shifts',this)"><span class="nav-icon">🕰️</span>Shift Management</div>
+  <div id="nav-setup" class="nav-item" onclick="goSec('setup',this)"><span class="nav-icon">⚙️</span>System Setup</div>
+  <div class="sidebar-section" id="nav-mgmt-section" style="display:none">Management</div>
+  <div id="nav-management" class="nav-item" style="display:none" onclick="goSec('management',this)"><span class="nav-icon">🏢</span>Management Console</div>
   <div class="sidebar-footer">HMB Management Consultant<br>v2.0 · Live Database</div>
 </nav>
 
@@ -488,6 +491,7 @@ tr:hover td{background:#fafcff}
   <div id="sec-send" class="sec">
     <div class="page-title">Send Pay Slips</div>
     <div class="page-sub">Generate and send pay slips via email</div>
+    <div id="send-approval-notice" style="margin-bottom:14px"></div>
     <div class="card no-print">
       <div class="row" style="align-items:flex-end">
         <div class="f" style="max-width:260px"><label>Period</label>
@@ -501,7 +505,7 @@ tr:hover td{background:#fafcff}
             <option>Jun. 16 - Jun. 30, 2026</option>
           </select>
         </div>
-        <button class="btn bg" onclick="sendAll()">📧 Send All Pay Slips</button>
+        <button id="send-all-btn" class="btn bg" onclick="sendAll()">📧 Send All Pay Slips</button>
         <button class="btn" onclick="window.print()">🖨 Print all</button>
       </div>
     </div>
@@ -801,6 +805,7 @@ tr:hover td{background:#fafcff}
       <div class="card-title">➕ Create Account</div>
       <div class="infobox">
         <strong>Admin</strong> — Full HRIS access. &nbsp;|&nbsp;
+        <strong>Management</strong> — View payroll, approve payslip sending, approve/deny supervisor leave requests. &nbsp;|&nbsp;
         <strong>Supervisor</strong> — Can approve/deny leaves of assigned subordinates + Time In/Out. &nbsp;|&nbsp;
         <strong>Employee</strong> — Time In/Out and leave filing only.
       </div>
@@ -811,6 +816,7 @@ tr:hover td{background:#fafcff}
           <select id="ua-role" onchange="toggleEmpLink()">
             <option value="employee">Employee (Time In/Out + Leave Filing)</option>
             <option value="supervisor">Supervisor (Leave Approver)</option>
+            <option value="management">Management (Payroll Review + Leave Approval)</option>
             <option value="admin">Admin (Full HRIS Access)</option>
           </select>
         </div>
@@ -844,6 +850,80 @@ tr:hover td{background:#fafcff}
   </div><!-- end content -->
 </div><!-- end main -->
 
+<!-- MANAGEMENT CONSOLE SECTION (injected into content above via JS) -->
+<template id="tpl-management">
+  <div id="sec-management" class="sec">
+    <div class="page-title">🏢 Management Console</div>
+    <div class="page-sub">Review payroll, approve payslip sending, and manage supervisor leave requests</div>
+
+    <!-- Metrics -->
+    <div class="metrics" id="mgmt-metrics"></div>
+
+    <!-- PAYROLL SUMMARY (read-only view for management) -->
+    <div class="card">
+      <div class="card-title">💰 Payroll Summary</div>
+      <div class="warnbox">Read-only view. Payroll figures are computed by HR Admin. Use the Payslip Approval section below to authorize sending.</div>
+      <div class="row" style="align-items:flex-end">
+        <div class="f" style="max-width:260px"><label>Pay Period</label>
+          <select id="mgmt-pay-per" onchange="mgmtRenderPayroll()">
+            <option>Mar. 16 - Mar. 31, 2026</option>
+            <option>Apr. 1 - Apr. 15, 2026</option>
+            <option>Apr. 16 - Apr. 30, 2026</option>
+            <option>May. 1 - May. 15, 2026</option>
+            <option>May. 16 - May. 31, 2026</option>
+            <option>Jun. 1 - Jun. 15, 2026</option>
+            <option>Jun. 16 - Jun. 30, 2026</option>
+          </select>
+        </div>
+        <button class="btn" onclick="window.print()" style="align-self:flex-end">🖨 Print</button>
+      </div>
+      <div id="mgmt-pay-metrics" class="metrics" style="margin-top:12px"></div>
+      <div id="mgmt-pay-wrap" style="margin-top:10px"><div class="empty">No payroll data for this period.</div></div>
+    </div>
+
+    <!-- PAYSLIP SENDING APPROVAL -->
+    <div class="card">
+      <div class="card-title">📧 Payslip Sending Approval</div>
+      <div class="infobox">Review payroll below, then approve. <strong>Approve Only</strong> unlocks HR Admin to send. <strong>Approve &amp; Send All</strong> approves and sends the batch immediately yourself.</div>
+      <div class="row" style="align-items:flex-end;flex-wrap:wrap;gap:8px">
+        <div class="f" style="max-width:260px"><label>Pay Period</label>
+          <select id="mgmt-per" onchange="mgmtRenderSlips()">
+            <option>Mar. 16 - Mar. 31, 2026</option>
+            <option>Apr. 1 - Apr. 15, 2026</option>
+            <option>Apr. 16 - Apr. 30, 2026</option>
+            <option>May. 1 - May. 15, 2026</option>
+            <option>May. 16 - May. 31, 2026</option>
+            <option>Jun. 1 - Jun. 15, 2026</option>
+            <option>Jun. 16 - Jun. 30, 2026</option>
+          </select>
+        </div>
+        <button id="mgmt-approve-only-btn" class="btn bg" onclick="mgmtApproveOnly()" style="background:var(--green)">✅ Approve Only (Unlock HR)</button>
+        <button id="mgmt-approve-all-btn" class="btn bo" onclick="mgmtApproveAllSlips()">✅ Approve &amp; Send All</button>
+      </div>
+      <div id="mgmt-approval-banner" style="margin-top:10px"></div>
+      <div id="mgmt-slip-msg" style="display:none;margin-top:10px;padding:9px 13px;border-radius:5px;font-size:13px;border-left:3px solid"></div>
+      <div id="mgmt-slip-wrap" style="margin-top:14px"><div class="empty">Select a pay period above.</div></div>
+    </div>
+
+    <!-- SUPERVISOR LEAVE APPROVAL -->
+    <div class="card">
+      <div class="card-title">🌴 Supervisor Leave Requests — Pending Approval</div>
+      <div class="infobox">Leave filings by <strong>Supervisor</strong>-role accounts awaiting management sign-off. All other employee leaves are handled by the admin/supervisor side.</div>
+      <div class="row no-print" style="margin-bottom:10px">
+        <div class="f" style="max-width:160px"><label>Filter by status</label>
+          <select id="mgmt-lv-status" onchange="mgmtRenderLeaves()">
+            <option value="">All</option>
+            <option value="Pending">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Denied">Denied</option>
+          </select>
+        </div>
+      </div>
+      <div id="mgmt-leave-wrap"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</template>
+
 <!-- MODAL -->
 <div class="modal-overlay" id="slip-modal" onclick="closeModal(event)">
   <div class="modal-box">
@@ -863,6 +943,7 @@ tr:hover td{background:#fafcff}
 // ==================== STATE ====================
 var employees=[],attendance={},payslipHistory=[],nextId=1;
 var leaveRecords=[],perfRecords=[],discRecords=[];
+var payslipApprovals={};  // { [period_key]: true } — set by management
 var setup={name:'HMB Management Consultant',tin:'126-757-146-000',addr1:'21 B1 L5 Sta. Ana St',addr2:'Pacita 1B, San Pedro, Laguna',prep:'KMD. GRASPARIL',appr:'KKM. BUÑAG'};
 var emailCfg={svc:'service_egeu3v1',tpl:'template_7jtdhwe',key:'N1iAC7sZ5RVfPhug5'};
 var allTimeLogs=[];
@@ -870,14 +951,44 @@ var shifts=[];
 var nextShiftId=1;
 
 // ==================== AUTH =====================
+var currentUserRole = 'admin'; // will be overwritten on load
+
 async function checkAuth(){
   try{
     var r=await fetch('/api/me');
     var u=await r.json();
-    if(!u||!u.id||u.role!=='admin'){window.location.href='/';return false;}
-    document.getElementById('admin-username-display').textContent='👤 '+u.username;
+    if(!u||!u.id||(u.role!=='admin'&&u.role!=='management')){window.location.href='/';return false;}
+    currentUserRole = u.role;
+    var roleLabel = u.role==='management' ? '🏢 '+u.username+' (Management)' : '👤 '+u.username;
+    document.getElementById('admin-username-display').textContent=roleLabel;
+    applyRoleUI();
     return true;
   }catch(e){window.location.href='/';return false;}
+}
+
+function applyRoleUI(){
+  if(currentUserRole==='management'){
+    // Show only management-relevant sidebar items
+    document.querySelectorAll('.nav-item').forEach(function(el){
+      el.style.display='none';
+    });
+    document.querySelectorAll('.sidebar-section').forEach(function(el){
+      el.style.display='none';
+    });
+    // Show management nav
+    var mgmtSec=document.getElementById('nav-mgmt-section');
+    if(mgmtSec)mgmtSec.style.display='';
+    var mgmtNav=document.getElementById('nav-management');
+    if(mgmtNav)mgmtNav.style.display='';
+    // Hide export/import buttons in topbar
+    var tb=document.querySelector('.topbar-right');
+    if(tb){
+      tb.querySelectorAll('button').forEach(function(b){
+        if(b.textContent.includes('Export')||b.textContent.includes('Import'))b.style.display='none';
+      });
+    }
+  }
+  // Admin: management nav stays hidden (already hidden by default)
 }
 async function doLogout(){
   await fetch('/api/logout',{method:'POST'});
@@ -899,7 +1010,9 @@ function showSaveIndicator(){
 }
 
 // ==================== STORAGE (now API calls) ==
-async function saveToStorage(){/* No-op: saves happen per action */}
+async function saveToStorage(){
+  try{localStorage.setItem('hmb_payslip_approvals',JSON.stringify(payslipApprovals));}catch(e){}
+}
 async function loadFromStorage(){
   try{
     var [emps,att,leaves,perfs,discs,slips,cfg,shiftData]=await Promise.all([
@@ -933,6 +1046,8 @@ async function loadFromStorage(){
     }
     // Re-compute nextId
     if(employees.length)nextId=Math.max(...employees.map(e=>e.id))+1;
+    // Load management approvals
+    try{var stored=localStorage.getItem('hmb_payslip_approvals');if(stored)payslipApprovals=JSON.parse(stored);}catch(e){}
   }catch(e){console.error('Load failed',e);}
 }
 
@@ -955,6 +1070,11 @@ function getInitials(name){if(!name)return'?';var p=name.split(/[\s,]+/).filter(
 
 // ==================== NAVIGATION ====================
 function goSec(name,el){
+  // Inject management section from template on first use
+  if(name==='management'&&!document.getElementById('sec-management')){
+    var tpl=document.getElementById('tpl-management');
+    if(tpl){document.querySelector('.content').appendChild(tpl.content.cloneNode(true));}
+  }
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('on'));
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   el.classList.add('on');
@@ -975,6 +1095,7 @@ function goSec(name,el){
   if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();}
   if(name==='users'){populateTlEmpFilter();loadUsers();}
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();}
+  if(name==='management'){mgmtRenderMetrics();mgmtRenderPayroll();mgmtRenderSlips();mgmtRenderLeaves();}
 }
 function goITab(group,name,el){
   var parent=el.closest('.sec');
@@ -1423,12 +1544,28 @@ function buildSlipText(e,a,per,pdate){
 }
 function renderSendList(){
   var per=v('send-per'),k=attKey(per),pdate=v('att-pdate');
+  var approved=!!payslipApprovals[k];
+  var notice=document.getElementById('send-approval-notice');
+  if(notice){
+    if(approved){
+      notice.innerHTML='<div class="infobox" style="background:#e8f5e9;color:#1b5e20;border-left-color:#2e7d32">✅ <strong>Management has approved payslip sending</strong> for this period. You may now send payslips.</div>';
+    } else {
+      notice.innerHTML='<div class="warnbox">🔒 <strong>Awaiting management approval.</strong> Payslip sending for <strong>'+per+'</strong> has not yet been approved by management. Please ask management to approve via the Management Console before sending.</div>';
+    }
+  }
+  // Toggle Send All button
+  var sendAllBtn=document.getElementById('send-all-btn');
+  if(sendAllBtn){sendAllBtn.disabled=!approved;sendAllBtn.style.opacity=approved?'1':'0.45';sendAllBtn.title=approved?'':'Management approval required';}
+
   var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
   var w=document.getElementById('send-wrap');
   if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';return;}
   w.innerHTML=recs.map(e=>{
     var a=attendance[k][e.id],p=calcPay(e,a);
     var sent=payslipHistory.some(h=>h.empId===e.id&&h.period===per);
+    var btnHtml=approved
+      ? '<button class="btn bs bp" onclick="sendOne('+e.id+',\''+per+'\',\''+pdate+'\')">Send</button>'
+      : '<button class="btn bs" disabled style="opacity:0.45;cursor:not-allowed" title="Management approval required">🔒 Locked</button>';
     return'<div style="margin-bottom:1.5rem">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;gap:8px" class="no-print">'
     +'<div><strong style="font-size:14px">'+e.name+'</strong> <span style="color:var(--muted);font-size:12px">'+(e.pos||'')+'</span>'
@@ -1436,7 +1573,7 @@ function renderSendList(){
     +' '+(sent?'<span class="badge badge-green">Sent</span>':'<span class="badge badge-yellow">Not yet sent</span>')+'</div>'
     +'<div style="display:flex;gap:8px;align-items:center">'
     +'<span style="font-size:12px;color:'+(e.email?'var(--blue)':'var(--red)')+'">'+(e.email||'no email')+'</span>'
-    +'<button class="btn bs bp" onclick="sendOne('+e.id+',\''+per+'\',\''+pdate+'\')">Send</button>'
+    +btnHtml
     +'<span id="sent_'+e.id+'" style="font-size:11px;display:none;color:var(--green);font-weight:700">✓ Sent!</span>'
     +'</div></div>'+buildSlipHTML(e,a,per,pdate)
     +'</div><hr style="border:none;border-top:1px solid var(--border);margin:1rem 0">';
@@ -1449,6 +1586,8 @@ function showSendMsg(msg,ok){
   el.textContent=msg;setTimeout(()=>el.style.display='none',5000);
 }
 async function sendOne(empId,per,pdate){
+  var k=attKey(per);
+  if(!payslipApprovals[k]){alert('This period has not been approved by management yet. Please ask management to approve payslip sending first.');return;}
   var e=employees.find(x=>x.id===empId);
   if(!e||!e.email){alert('No email address for this employee.');return;}
   var k=attKey(per),a=attendance[k]&&attendance[k][empId];
@@ -1481,6 +1620,7 @@ async function sendOne(empId,per,pdate){
 }
 async function sendAll(){
   var per=v('send-per'),k=attKey(per),pdate=v('att-pdate');
+  if(!payslipApprovals[k]){showSendMsg('🔒 Management approval required before sending payslips for this period.',false);return;}
   var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.email);
   if(!recs.length){showSendMsg('No employees with email for this period.',false);return;}
   for(var i=0;i<recs.length;i++)await sendOne(recs[i].id,per,pdate);
@@ -1737,7 +1877,7 @@ var currentSubSupervisorId = null;
 function toggleEmpLink(){
   var role = v('ua-role');
   var wrap = document.getElementById('ua-emp-wrap');
-  wrap.style.display = role === 'admin' ? 'none' : '';
+  wrap.style.display = (role === 'admin' || role === 'management') ? 'none' : '';
 }
 async function createUser(){
   var username=v('ua-user'),password=v('ua-pass'),role=v('ua-role'),empId=v('ua-emp');
@@ -1767,7 +1907,7 @@ async function loadUsers(){
   var users=await api('GET','/api/users');
   var w=document.getElementById('users-wrap');
   if(!users||!users.length){w.innerHTML='<div class="empty">No users found.</div>';return;}
-  var roleColors={'admin':'badge-blue','supervisor':'badge-orange','employee':'badge-green'};
+  var roleColors={'admin':'badge-blue','supervisor':'badge-orange','employee':'badge-green','management':'badge-purple'};
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Username</th><th>Role</th><th>Linked Employee</th><th>Created</th><th></th></tr></thead><tbody>'
   +users.map(u=>{
     var emp=u.employee_id?employees.find(e=>e.id==u.employee_id):null;
@@ -1839,20 +1979,258 @@ function populateTlEmpFilter(){
   employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name;if(e.id==cur2)o.selected=true;sel2.appendChild(o);});
 }
 
+// ==================== MANAGEMENT CONSOLE ====================
+// Supervisor user IDs cache
+var supervisorUserIds=[];
+
+async function mgmtLoadSupervisorIds(){
+  try{
+    var users=await api('GET','/api/users');
+    supervisorUserIds=(users||[]).filter(u=>u.role==='supervisor').map(u=>u.employee_id).filter(Boolean);
+  }catch(e){supervisorUserIds=[];}
+}
+
+function mgmtRenderMetrics(){
+  var el=document.getElementById('mgmt-metrics');if(!el)return;
+  var per=v('mgmt-per')||'';
+  var k=attKey(per);
+  var totalEmp=employees.length;
+  var pendingLeaves=leaveRecords.filter(l=>l.status==='Pending').length;
+  var sentSlips=payslipHistory.length;
+  var totalNet=0;
+  employees.forEach(e=>{if(attendance[k]&&attendance[k][e.id])totalNet+=calcPay(e,attendance[k][e.id]).netPay;});
+  el.innerHTML=
+    '<div class="mc blue"><div class="ml">Total Employees</div><div class="mv">'+totalEmp+'</div></div>'
+   +'<div class="mc orange"><div class="ml">Pending Leaves</div><div class="mv">'+pendingLeaves+'</div></div>'
+   +'<div class="mc green"><div class="ml">Payslips Sent</div><div class="mv">'+sentSlips+'</div></div>'
+   +(totalNet?'<div class="mc accent"><div class="ml">Net Pay (Period)</div><div class="mv">₱'+fp(totalNet)+'</div></div>':'');
+}
+
+function mgmtRenderPayroll(){
+  var perEl=document.getElementById('mgmt-pay-per');if(!perEl)return;
+  var per=perEl.value,k=attKey(per);
+  var metricsEl=document.getElementById('mgmt-pay-metrics');
+  var wrapEl=document.getElementById('mgmt-pay-wrap');
+  if(!metricsEl||!wrapEl)return;
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
+  if(!recs.length){wrapEl.innerHTML='<div class="empty">No payroll data for this period.</div>';metricsEl.innerHTML='';return;}
+  var totE=0,totD=0,totN=0;
+  recs.forEach(e=>{var p=calcPay(e,attendance[k][e.id]);totE+=p.totalEarnings;totD+=p.totalDeductions;totN+=p.netPay;});
+  metricsEl.innerHTML=
+    '<div class="mc blue"><div class="ml">Employees</div><div class="mv">'+recs.length+'</div></div>'
+   +'<div class="mc green"><div class="ml">Total Earnings</div><div class="mv" style="font-size:16px">₱'+fp(totE)+'</div></div>'
+   +'<div class="mc red"><div class="ml">Total Deductions</div><div class="mv" style="font-size:16px">₱'+fp(totD)+'</div></div>'
+   +'<div class="mc accent"><div class="ml">Total Net Pay</div><div class="mv" style="font-size:16px">₱'+fp(totN)+'</div></div>';
+  wrapEl.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+   +'<th>Employee</th><th>Position</th><th>Days</th><th>Basic Pay</th>'
+   +'<th>Total Earnings</th><th>Total Deductions</th><th>Net Pay</th>'
+   +'</tr></thead><tbody>'
+   +recs.map(e=>{
+     var a=attendance[k][e.id],p=calcPay(e,a);
+     return'<tr><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td>'
+       +'<td>'+a.days+'</td>'
+       +'<td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.basicPay)+'</td>'
+       +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--green)">₱'+fp(p.totalEarnings)+'</td>'
+       +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">₱'+fp(p.totalDeductions)+'</td>'
+       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-weight:700;color:var(--navy)">₱'+fp(p.netPay)+'</td>'
+       +'</tr>';
+   }).join('')
+   +'<tr style="background:#f8fafc;font-weight:700">'
+   +'<td colspan="3" style="text-align:right;padding-right:10px;font-size:11px;color:var(--muted)">TOTALS</td>'
+   +'<td></td>'
+   +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--green)">₱'+fp(totE)+'</td>'
+   +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">₱'+fp(totD)+'</td>'
+   +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--navy)">₱'+fp(totN)+'</td>'
+   +'</tr>'
+   +'</tbody></table></div>';
+}
+
+function mgmtRenderSlips(){
+  var perEl=document.getElementById('mgmt-per');if(!perEl)return;
+  var per=perEl.value,k=attKey(per),pdate=v('att-pdate');
+  var w=document.getElementById('mgmt-slip-wrap');if(!w)return;
+  var approved=!!payslipApprovals[k];
+
+  // Update button states
+  var approveAllBtn=document.getElementById('mgmt-approve-all-btn');
+  if(approveAllBtn){approveAllBtn.innerHTML=approved?'📧 Re-send All':'✅ Approve & Send All';approveAllBtn.className='btn '+(approved?'bg':'bo');}
+  var approveOnlyBtn=document.getElementById('mgmt-approve-only-btn');
+  if(approveOnlyBtn)approveOnlyBtn.style.display=approved?'none':'';
+
+  // Banner
+  var bannerEl=document.getElementById('mgmt-approval-banner');
+  if(bannerEl){bannerEl.innerHTML=approved
+    ?'<div class="infobox" style="background:#e8f5e9;color:#1b5e20;border-left-color:#2e7d32;margin-bottom:12px">✅ <strong>Approved.</strong> HR Admin is now unlocked to send payslips for this period.</div>'
+    :'<div class="warnbox" style="margin-bottom:12px">🔒 <strong>Not yet approved.</strong> Click <strong>Approve Only</strong> to unlock HR Admin, or <strong>Approve & Send All</strong> to approve and send immediately.</div>';}
+
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
+  if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+   +'<th>Employee</th><th>Position</th><th>Email</th><th>Net Pay</th><th>Sent Status</th><th>Action</th>'
+   +'</tr></thead><tbody>'
+   +recs.map(e=>{
+     var a=attendance[k][e.id],p=calcPay(e,a);
+     var sent=payslipHistory.some(h=>h.empId===e.id&&h.period===per);
+     return'<tr>'
+       +'<td><strong>'+e.name+'</strong></td>'
+       +'<td>'+(e.pos||'—')+'</td>'
+       +'<td style="font-size:11px;color:'+(e.email?'var(--blue)':'var(--red)')+'">'+(e.email||'⚠ no email')+'</td>'
+       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-weight:700;color:var(--green)">₱'+fp(p.netPay)+'</td>'
+       +'<td>'+(sent?'<span class="badge badge-green">✓ Sent</span>':'<span class="badge badge-yellow">Pending</span>')+'</td>'
+       +'<td><button class="btn bs bp" onclick="mgmtSendOne('+e.id+',\''+per+'\',\''+pdate+'\')">'+(sent?'Resend':'📧 Send')+'</button>'
+       +' <span id="mgmt-sent_'+e.id+'" style="display:none;font-size:11px;color:var(--green);font-weight:700">✓ Sent!</span>'
+       +'</td></tr>';
+   }).join('')+'</tbody></table></div>';
+}
+
+function mgmtShowSlipMsg(msg,ok){
+  var el=document.getElementById('mgmt-slip-msg');if(!el)return;
+  el.style.display='block';el.style.background=ok?'#e8f5e9':'#ffebee';
+  el.style.color=ok?'var(--green)':'var(--red)';el.style.borderLeftColor=ok?'var(--green)':'var(--red)';
+  el.textContent=msg;setTimeout(()=>el.style.display='none',5000);
+}
+
+async function mgmtApproveOnly(){
+  var perEl=document.getElementById('mgmt-per');if(!perEl)return;
+  var per=perEl.value,k=attKey(per);
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
+  if(!recs.length){mgmtShowSlipMsg('No attendance data found for this period.',false);return;}
+  if(!confirm('Approve payslip sending for "'+per+'"?\n\nHR Admin will be unlocked to send payslips for this period.'))return;
+  payslipApprovals[k]=true;
+  await saveToStorage();
+  mgmtRenderSlips();
+  mgmtShowSlipMsg('✅ Approved. HR Admin can now send payslips for "'+per+'".',true);
+}
+
+async function mgmtSendOne(empId,per,pdate){
+  var k=attKey(per);
+  payslipApprovals[k]=true; // sending by management auto-approves
+  await saveToStorage();
+  var e=employees.find(x=>x.id===empId);
+  if(!e||!e.email){alert('No email address for this employee.');return;}
+  var a=attendance[k]&&attendance[k][empId];
+  if(!a){alert('No attendance record found.');return;}
+  var text=buildSlipText(e,a,per,pdate),p=calcPay(e,a);
+  if(!emailCfg.svc||!emailCfg.tpl||!emailCfg.key){
+    window.open('mailto:'+e.email+'?subject='+encodeURIComponent('Pay Slip - '+per+' - '+e.name)+'&body='+encodeURIComponent(text));
+  } else {
+    try{await emailjs.send(emailCfg.svc,emailCfg.tpl,{
+      to_email:e.email,name:e.name,position:e.pos||'',bank_acc:e.bank||'',
+      cut_off:per,payroll_date:pdate?fmtDate(pdate):'',start_date:e.start?fmtDate(e.start):'',
+      semi_monthly_basic_pay:fp(e.smb),daily_rate:fp(p.dr),no_of_days_worked:a.days,
+      basic_pay:fp(p.basicPay),deminimis:e.dm?fp(e.dm):'-',other_additionals:a.otherAdd?fp(a.otherAdd):'-',
+      reg_overtime:p.otPay?fp(p.otPay):'-',holiday_pay:a.holiday?fp(a.holiday):'-',
+      leave_w_pay:a.leave?fp(a.leave):'-',commission:a.commission?fp(a.commission):'-',
+      total_earnings:fp(p.totalEarnings),sss:fp(e.sss),phic:fp(e.phic),hdmf:fp(e.hdmf),
+      total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
+      wht_tax:e.wht?fp(e.wht):'-',late_undertime:a.late?fp(a.late):'-',
+      total_deductions:fp(p.totalDeductions),net_pay:'₱'+fp(p.netPay),
+      notes:'Load Allowance: ₱'+fp(e.load)+'/mo. | HDMF MPL: ₱'+fp(e.mpl)+'/mo.'
+    });}catch(err){alert('Email failed: '+(err.text||err));return;}
+  }
+  var rec={empId:e.id,empName:e.name,empPos:e.pos||'',period:per,pdate,sentAt:new Date().toISOString(),emailSentTo:e.email,basicPay:p.basicPay,totalEarnings:p.totalEarnings,totalDeductions:p.totalDeductions,netPay:p.netPay,attendance:JSON.parse(JSON.stringify(a)),employeeSnapshot:JSON.parse(JSON.stringify(e))};
+  await api('POST','/api/payslips',rec);
+  var idx=payslipHistory.findIndex(h=>h.empId===e.id&&h.period===per);
+  if(idx>=0)payslipHistory[idx]=rec;else payslipHistory.push(rec);
+  var indicator=document.getElementById('mgmt-sent_'+empId);if(indicator)indicator.style.display='inline';
+  mgmtRenderSlips();
+  mgmtShowSlipMsg('Payslip sent to '+e.name+' ('+e.email+')',true);
+}
+
+async function mgmtApproveAllSlips(){
+  var perEl=document.getElementById('mgmt-per');if(!perEl)return;
+  var per=perEl.value,k=attKey(per),pdate=v('att-pdate');
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.email);
+  if(!recs.length){mgmtShowSlipMsg('No employees with attendance and email for this period.',false);return;}
+  if(!confirm('Approve and send payslips for ALL '+recs.length+' employee(s) for "'+per+'"?\n\nHR Admin will also be unlocked for this period.'))return;
+  payslipApprovals[k]=true;
+  await saveToStorage();
+  var ok=0,fail=0;
+  for(var e of recs){try{await mgmtSendOne(e.id,per,pdate);ok++;}catch(err){fail++;}}
+  mgmtShowSlipMsg('Done! Sent: '+ok+(fail?' | Failed: '+fail:''),ok>0);
+  mgmtRenderSlips();
+  mgmtRenderMetrics();
+}
+
+
+async function mgmtRenderLeaves(){
+  var w=document.getElementById('mgmt-leave-wrap');if(!w)return;
+  // Load supervisor user IDs if not yet loaded
+  if(!supervisorUserIds.length)await mgmtLoadSupervisorIds();
+  var statusFilter=v('mgmt-lv-status');
+  // Find employees who are supervisors (linked via user accounts)
+  var supEmpIds=supervisorUserIds.map(Number);
+  var list=leaveRecords.filter(l=>{
+    if(!supEmpIds.includes(Number(l.empId)))return false;
+    if(statusFilter&&l.status!==statusFilter)return false;
+    return true;
+  });
+  if(!list.length){
+    w.innerHTML='<div class="empty">No supervisor leave requests found'+(statusFilter?' with status "'+statusFilter+'"':'')+'.</div>';
+    return;
+  }
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+   +'<th>Supervisor</th><th>Leave Type</th><th>From</th><th>To</th><th>Days</th><th>Pay</th><th>Reason</th><th>Status</th><th>Filed</th><th>Action</th>'
+   +'</tr></thead><tbody>'
+   +list.map(l=>{
+     var sc=l.status==='Approved'?'badge-green':l.status==='Denied'?'badge-red':'badge-yellow';
+     return'<tr>'
+       +'<td><strong>'+empName(l.empId)+'</strong></td>'
+       +'<td>'+l.type+'</td>'
+       +'<td>'+fmtDate(l.from)+'</td>'
+       +'<td>'+fmtDate(l.to)+'</td>'
+       +'<td>'+l.days+'</td>'
+       +'<td>'+l.pay+'</td>'
+       +'<td style="font-size:11px;max-width:140px">'+(l.reason||'—')+'</td>'
+       +'<td><span class="badge '+sc+'">'+l.status+'</span></td>'
+       +'<td style="font-size:11px">'+fmtDT(l.filedAt)+'</td>'
+       +'<td style="display:flex;gap:4px;white-space:nowrap">'
+       +(l.status!=='Approved'?'<button class="btn bs bg" onclick="mgmtUpdateLeave('+l.id+',\'Approved\')">✓ Approve</button>':'')
+       +(l.status!=='Denied'?'<button class="btn bs br" onclick="mgmtUpdateLeave('+l.id+',\'Denied\')">✗ Deny</button>':'')
+       +'</td>'
+       +'</tr>';
+   }).join('')
+   +'</tbody></table></div>';
+}
+
+async function mgmtUpdateLeave(id,status){
+  await api('PUT','/api/leave/'+id,{status});
+  var rec=leaveRecords.find(l=>l.id==id);if(rec)rec.status=status;
+  mgmtRenderLeaves();
+  mgmtRenderMetrics();
+}
+
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded',async function(){
   var ok=await checkAuth();
   if(!ok)return;
   await loadFromStorage();
-  renderEmpTable();
-  renderDashboard();
-  populateAllSelects();
-  populateTlEmpFilter();
-  populateShiftSelects();
-  // set today's date defaults
-  var today=new Date().toISOString().slice(0,10);
-  document.getElementById('att-pdate').value=today;
-  document.getElementById('att-month').value=today.slice(0,7);
+  if(currentUserRole==='management'){
+    // Management sees only their console; inject and navigate there
+    var tpl=document.getElementById('tpl-management');
+    if(tpl){document.querySelector('.content').appendChild(tpl.content.cloneNode(true));}
+    // Hide all default sections
+    document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+    var mgmtSec=document.getElementById('sec-management');
+    if(mgmtSec)mgmtSec.classList.add('on');
+    var mgmtNav=document.getElementById('nav-management');
+    if(mgmtNav)mgmtNav.classList.add('on');
+    document.getElementById('topbar-title').textContent='Management Console';
+    await mgmtLoadSupervisorIds();
+    mgmtRenderMetrics();
+    mgmtRenderPayroll();
+    mgmtRenderSlips();
+    mgmtRenderLeaves();
+  } else {
+    renderEmpTable();
+    renderDashboard();
+    populateAllSelects();
+    populateTlEmpFilter();
+    populateShiftSelects();
+    var today=new Date().toISOString().slice(0,10);
+    document.getElementById('att-pdate').value=today;
+    document.getElementById('att-month').value=today.slice(0,7);
+  }
 });
 </script>
 </body>
