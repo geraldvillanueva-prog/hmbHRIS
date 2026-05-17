@@ -1011,7 +1011,7 @@ function showSaveIndicator(){
 
 // ==================== STORAGE (now API calls) ==
 async function saveToStorage(){
-  try{localStorage.setItem('hmb_payslip_approvals',JSON.stringify(payslipApprovals));}catch(e){}
+  // approvals are saved to server via /api/payslip-approvals
 }
 async function loadFromStorage(){
   try{
@@ -1046,8 +1046,8 @@ async function loadFromStorage(){
     }
     // Re-compute nextId
     if(employees.length)nextId=Math.max(...employees.map(e=>e.id))+1;
-    // Load management approvals
-    try{var stored=localStorage.getItem('hmb_payslip_approvals');if(stored)payslipApprovals=JSON.parse(stored);}catch(e){}
+    // Load management approvals from server
+    try{var apr=await api('GET','/api/payslip-approvals');if(apr)payslipApprovals=apr;}catch(e){}
   }catch(e){console.error('Load failed',e);}
 }
 
@@ -2097,7 +2097,7 @@ async function mgmtApproveOnly(){
   if(!recs.length){mgmtShowSlipMsg('No attendance data found for this period.',false);return;}
   if(!confirm('Approve payslip sending for "'+per+'"?\n\nHR Admin will be unlocked to send payslips for this period.'))return;
   payslipApprovals[k]=true;
-  await saveToStorage();
+  await api('POST','/api/payslip-approvals',{period:k});
   mgmtRenderSlips();
   mgmtShowSlipMsg('✅ Approved. HR Admin can now send payslips for "'+per+'".',true);
 }
@@ -2105,7 +2105,7 @@ async function mgmtApproveOnly(){
 async function mgmtSendOne(empId,per,pdate){
   var k=attKey(per);
   payslipApprovals[k]=true; // sending by management auto-approves
-  await saveToStorage();
+  await api('POST','/api/payslip-approvals',{period:k});
   var e=employees.find(x=>x.id===empId);
   if(!e||!e.email){alert('No email address for this employee.');return;}
   var a=attendance[k]&&attendance[k][empId];
@@ -2144,7 +2144,7 @@ async function mgmtApproveAllSlips(){
   if(!recs.length){mgmtShowSlipMsg('No employees with attendance and email for this period.',false);return;}
   if(!confirm('Approve and send payslips for ALL '+recs.length+' employee(s) for "'+per+'"?\n\nHR Admin will also be unlocked for this period.'))return;
   payslipApprovals[k]=true;
-  await saveToStorage();
+  await api('POST','/api/payslip-approvals',{period:k});
   var ok=0,fail=0;
   for(var e of recs){try{await mgmtSendOne(e.id,per,pdate);ok++;}catch(err){fail++;}}
   mgmtShowSlipMsg('Done! Sent: '+ok+(fail?' | Failed: '+fail:''),ok>0);
