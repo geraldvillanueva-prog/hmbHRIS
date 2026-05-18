@@ -141,10 +141,18 @@ tr:hover td{background:#fafcff}
 .mono{font-family:'IBM Plex Mono',monospace}
 
 /* ── PROFESSIONAL HRIS AVATAR ── */
-.hris-avatar-block{display:flex;justify-content:center;align-items:center;margin-bottom:1rem}
-.hris-avatar-circle{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(10,22,40,0.13)}
+.hris-avatar-block{display:flex;justify-content:center;align-items:center;margin-bottom:1.25rem}
+.hris-avatar-ring-wrap{position:relative;width:102px;height:102px;display:flex;align-items:center;justify-content:center;animation:avatar-bob 2.6s ease-in-out infinite}
+.hris-avatar-circle{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(10,22,40,0.15);position:relative;z-index:1;animation:avatar-pulse-purple 2.5s ease-in-out infinite}
 .hris-avatar-blue{background:linear-gradient(135deg,#1565c0 0%,#1976d2 60%,#00b4d8 100%)}
 .hris-avatar-purple{background:linear-gradient(135deg,#6a1b9a 0%,#7b1fa2 60%,#ce93d8 100%)}
+.seconds-ring{position:absolute;top:0;left:0;width:102px;height:102px;pointer-events:none;z-index:2}
+@keyframes avatar-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes avatar-pulse-blue{0%{box-shadow:0 0 0 0 rgba(0,180,216,0.45)}70%{box-shadow:0 0 0 10px rgba(0,180,216,0)}100%{box-shadow:0 0 0 0 rgba(0,180,216,0)}}
+@keyframes avatar-pulse-purple{0%{box-shadow:0 0 0 0 rgba(123,31,162,0.45)}70%{box-shadow:0 0 0 10px rgba(123,31,162,0)}100%{box-shadow:0 0 0 0 rgba(123,31,162,0)}}
+@keyframes avatar-excited{0%,100%{transform:translateY(0) rotate(0deg)}20%{transform:translateY(-12px) rotate(-4deg)}40%{transform:translateY(-7px) rotate(4deg)}60%{transform:translateY(-12px) rotate(-2deg)}80%{transform:translateY(-4px) rotate(1deg)}}
+.hris-avatar-ring-wrap.excited{animation:avatar-excited .65s ease!important}
+
 
 /* ── PAGE LOAD ANIMATIONS ── */
 @keyframes fadeSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
@@ -532,10 +540,17 @@ input:focus,select:focus,textarea:focus{
 <div class="tab-content" id="tab-timeinout">
   <div class="clock-card">
     <div class="hris-avatar-block">
-      <div class="hris-avatar-circle hris-avatar-purple">
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="24" cy="18" r="9" fill="rgba(255,255,255,0.92)"/>
-          <path d="M6 42 C6 32 13 28 24 28 C35 28 42 32 42 42" fill="rgba(255,255,255,0.92)"/>
+      <div class="hris-avatar-ring-wrap">
+        <div class="hris-avatar-circle hris-avatar-purple">
+          <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="22" cy="16" r="8" fill="rgba(255,255,255,0.95)"/>
+            <path d="M4 40 C4 29 11 25 22 25 C33 25 40 29 40 40" fill="rgba(255,255,255,0.95)"/>
+          </svg>
+        </div>
+        <svg class="seconds-ring" viewBox="0 0 102 102" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="51" cy="51" r="46" stroke="#e1bee7" stroke-width="2.5"/>
+          <circle id="sec-arc" cx="51" cy="51" r="46" stroke="#ce93d8" stroke-width="2.5" stroke-linecap="round"
+           stroke-dasharray="289.0" stroke-dashoffset="289.0" transform="rotate(-90 51 51)" style="transition:stroke-dashoffset .95s linear"/>
         </svg>
       </div>
     </div>
@@ -1149,7 +1164,29 @@ async function doLogout(){
   window.location.href='/';
 }
 
+
+// ── AVATAR EXCITED BOUNCE ON PUNCH ────────────────────────────────────────────
+window.exciteChar = function(){
+  var wrap = document.querySelector('.hris-avatar-ring-wrap');
+  if(!wrap) return;
+  wrap.classList.add('excited');
+  setTimeout(function(){ wrap.classList.remove('excited'); }, 700);
+};
+
 init();
+
+// ── SECONDS PROGRESS RING ──────────────────────────────────────────────────────
+(function(){
+  function updateRing(){
+    var arc=document.getElementById('sec-arc');
+    if(!arc)return;
+    var s=new Date().getSeconds();
+    var circumference=289.0;
+    arc.style.strokeDashoffset=circumference-(s/60*circumference);
+  }
+  setInterval(updateRing,1000);
+  updateRing();
+})();
 
 // ── FLOATING PARTICLES ─────────────────────────────────────────────────────────
 (function(){
@@ -1169,27 +1206,6 @@ init();
   setInterval(spawnParticle,3000);
 })();
 
-// ── SECONDS RING ───────────────────────────────────────────────────────────────
-(function(){
-  var svg='<svg class="seconds-ring" viewBox="0 0 102 102" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:102px;height:102px;pointer-events:none">'
-    +'<circle cx="51" cy="51" r="48" stroke="#dce3ec" stroke-width="2.5"/>'
-    +'<circle id="sec-arc" cx="51" cy="51" r="48" stroke="#ce93d8" stroke-width="2.5" stroke-linecap="round"'
-    +' stroke-dasharray="301.6" stroke-dashoffset="301.6" transform="rotate(-90 51 51)" style="transition:stroke-dashoffset .95s linear"/>'
-    +'</svg>';
-  var clockCard=document.querySelector('.clock-card');
-  if(clockCard){
-    clockCard.style.position='relative';
-    clockCard.insertAdjacentHTML('afterbegin',svg);
-  }
-  function updateRing(){
-    var arc=document.getElementById('sec-arc');
-    if(!arc)return;
-    var s=new Date().getSeconds();
-    arc.style.strokeDashoffset=301.6-(s/60*301.6);
-  }
-  setInterval(updateRing,1000);
-  updateRing();
-})();
 
 // ── LEAVE CARD FLASH ON APPROVE/DENY ─────────────────────────────────────────
 var _origActLeave=actLeave;
