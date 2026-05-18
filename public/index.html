@@ -9,38 +9,87 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --navy:#0a1628;--blue:#1565c0;--accent:#00b4d8;
-  --bg:#f0f4f8;--border:#dce3ec;--text:#1a2332;
-  --muted:#6b7c93;--green:#2e7d32;--red:#c62828
+  --bg:#ddeeff;--border:#ccd9ec;--text:#1a2332;
+  --muted:#6b7c93;--green:#2e7d32;--red:#c62828;
 }
-.bg-video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;pointer-events:none}
-body::before{content:"";position:fixed;inset:0;z-index:-1}
-body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
-.login-wrap{width:100%;max-width:420px;position:relative;z-index:10}
-.login-logo{text-align:center;margin-bottom:2rem}
-.logo-box{width:64px;height:64px;background:var(--navy);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px}
-.logo-text{font-size:22px;font-weight:700;color:#fff;letter-spacing:1px}
-.brand-name{font-size:24px;font-weight:700;color:var(--navy)}
-.brand-sub{font-size:12px;color:var(--accent);letter-spacing:3px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-top:2px}
-.card{background:rgba(255,255,255,0.92);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:12px;padding:2rem;box-shadow:0 4px 24px rgba(10,22,40,0.2)}
-.card-title{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px}
-.card-sub{font-size:12px;color:var(--muted);margin-bottom:1.5rem}
-.f{margin-bottom:1rem}
-.f label{display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
-input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:'IBM Plex Sans',sans-serif;color:var(--text);transition:border .15s}
-input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,101,192,.1)}
-.btn{width:100%;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:700;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:background .15s;margin-top:.5rem}
-.btn:hover{background:#0d47a1}
-.btn:disabled{opacity:0.7;cursor:not-allowed}
-.err{background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:1rem;display:none}
+body{
+  font-family:'IBM Plex Sans',sans-serif;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:1rem;overflow:hidden;
+  background:linear-gradient(160deg,#c9e0ff 0%,#d9eeff 40%,#cef3ff 100%);
+}
+.blob{position:fixed;border-radius:50%;filter:blur(60px);opacity:0.35;animation:blobFloat 8s ease-in-out infinite alternate;pointer-events:none}
+.blob1{width:400px;height:400px;background:#a0c4ff;top:-100px;left:-100px;animation-delay:0s}
+.blob2{width:350px;height:350px;background:#bae6fd;bottom:-80px;right:-80px;animation-delay:3s}
+.blob3{width:250px;height:250px;background:#c7f9cc;top:40%;left:60%;animation-delay:1.5s}
+@keyframes blobFloat{from{transform:scale(1) translate(0,0)}to{transform:scale(1.15) translate(20px,-20px)}}
+
+.login-wrap{width:100%;max-width:400px;position:relative;z-index:10}
+.dog-stage{display:flex;justify-content:center;align-items:flex-end;height:190px;position:relative;margin-bottom:-18px;}
+#dogCanvas{width:200px;height:200px;filter:drop-shadow(0 10px 24px rgba(10,22,40,0.22));}
+
+.bubble{
+  position:absolute;
+  background:#fff;border-radius:16px 16px 16px 4px;
+  padding:7px 13px;font-size:12px;font-weight:600;color:var(--navy);
+  box-shadow:0 3px 12px rgba(0,0,0,0.14);
+  pointer-events:none;
+  opacity:0;transform:translateY(6px) scale(0.88);
+  transition:opacity 0.25s ease,transform 0.3s cubic-bezier(.34,1.56,.64,1);
+  white-space:nowrap;top:12px;right:8px;
+}
+.bubble.show{opacity:1;transform:translateY(0) scale(1)}
+
+.confetti-wrap{position:fixed;inset:0;pointer-events:none;z-index:999;overflow:hidden}
+.confetti-piece{position:absolute;animation:confettiFall linear forwards;opacity:0;}
+@keyframes confettiFall{
+  0%{opacity:1;transform:translateY(-20px) rotate(0deg)}
+  100%{opacity:0;transform:translateY(110vh) rotate(720deg)}
+}
+
+.login-logo{text-align:center;margin-bottom:1.4rem}
+.logo-box{width:54px;height:54px;background:var(--navy);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:9px;box-shadow:0 4px 14px rgba(10,22,40,0.25)}
+.logo-text{font-size:17px;font-weight:700;color:#fff;letter-spacing:1px}
+.brand-name{font-size:22px;font-weight:700;color:var(--navy)}
+.brand-sub{font-size:10px;color:var(--accent);letter-spacing:3px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-top:2px}
+
+.card{
+  background:rgba(255,255,255,0.88);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,0.95);
+  border-radius:20px;padding:1.8rem;
+  box-shadow:0 8px 40px rgba(10,22,40,0.16);
+}
+.card-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:3px}
+.card-sub{font-size:12px;color:var(--muted);margin-bottom:1.3rem}
+.f{margin-bottom:.9rem}
+.f label{display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:'IBM Plex Sans',sans-serif;color:var(--text);background:rgba(255,255,255,0.7);transition:border .18s,box-shadow .18s,background .18s;}
+input:focus{outline:none;border-color:var(--blue);background:rgba(255,255,255,0.95);box-shadow:0 0 0 3px rgba(21,101,192,.13)}
+.btn{width:100%;padding:12px;background:linear-gradient(135deg,#1565c0 0%,#0d47a1 100%);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:all .2s;margin-top:.4rem;box-shadow:0 4px 14px rgba(21,101,192,.35);position:relative;overflow:hidden;}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(21,101,192,.45)}
+.btn:active{transform:scale(0.98)}
+.btn:disabled{opacity:0.65;cursor:not-allowed;transform:none}
+.err{background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:8px;padding:9px 13px;font-size:13px;margin-bottom:.9rem;display:none;}
+.err.shake{animation:shake 0.45s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-7px)}35%{transform:translateX(7px)}55%{transform:translateX(-5px)}75%{transform:translateX(4px)}}
+.success{background:#e8f5e9;color:var(--green);border:1px solid #a5d6a7;border-radius:8px;padding:9px 13px;font-size:13px;margin-bottom:.9rem;display:none;}
+.shake-card{animation:cardShake 0.45s ease}
+@keyframes cardShake{0%,100%{transform:translateX(0)}15%{transform:translateX(-8px)}35%{transform:translateX(8px)}55%{transform:translateX(-5px)}75%{transform:translateX(4px)}}
 </style>
 </head>
 <body>
-
-<video autoplay muted loop playsinline class="bg-video">
-  <source src="Pulag.mp4" type="video/mp4">
-</video>
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+<div class="blob blob3"></div>
+<div class="confetti-wrap" id="confettiWrap"></div>
 
 <div class="login-wrap">
+  <div class="dog-stage">
+    <canvas id="dogCanvas" width="200" height="200"></canvas>
+    <div class="bubble" id="bubble"></div>
+  </div>
+
   <div class="login-logo">
     <div class="logo-box"><span class="logo-text">HMB</span></div>
     <div class="brand-name">HMB Management</div>
@@ -50,76 +99,395 @@ input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,1
   <div class="card">
     <div class="card-title">Welcome back</div>
     <div class="card-sub">Sign in to your account</div>
-
     <div class="err" id="err-msg"></div>
-
+    <div class="success" id="success-msg"></div>
     <div class="f">
       <label>Username</label>
-      <input type="text" id="username" placeholder="Enter username"
-             autocomplete="username"
+      <input type="text" id="username" placeholder="Enter username" autocomplete="username"
+             onfocus="setDogState('looking')" onblur="setDogState('idle')"
              onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <div class="f">
       <label>Password</label>
-      <input type="password" id="password" placeholder="Enter password"
-             autocomplete="current-password"
+      <input type="password" id="password" placeholder="Enter password" autocomplete="current-password"
+             onfocus="setDogState('covering')" onblur="onPasswordBlur()"
              onkeydown="if(event.key==='Enter')doLogin()">
     </div>
-
     <button class="btn" onclick="doLogin()" id="login-btn">Sign In</button>
   </div>
 </div>
 
 <script>
-function redirect(role) {
-  if (role === 'admin' || role === 'management') window.location.href = '/admin.html';
-  else if (role === 'supervisor') window.location.href = '/supervisor.html';
-  else window.location.href = '/employee.html';
+const canvas = document.getElementById('dogCanvas');
+const ctx = canvas.getContext('2d');
+const W=200,H=200,CX=100,CY=108;
+
+function lerp(a,b,t){return a+(b-a)*t}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+
+const dog={
+  tailAngle:0,tailDir:1,tailSpeed:0.06,
+  blinkTimer:3,
+  eyeOpenL:1,eyeOpenR:1,eyeTargL:1,eyeTargR:1,
+  pupilX:0,pupilY:0,pupilTX:0,pupilTY:0,
+  pawLift:0,pawTarget:0,pawBounce:0,
+  smileT:0.6,smileTarget:0.6,
+  tongueOut:0,tongueTarget:0,
+  tearAlpha:0,tearTarget:0,tearY:0,
+  blushAlpha:0.5,blushTarget:0.5,
+  bouncePhase:0,bounceAmp:0,bounceAmpTarget:0,
+  wiggle:0,wiggleTarget:0,wigglePhase:0,
+  state:'idle'
+};
+
+const C={
+  body:'#cc9860',bodyLt:'#e8c080',bodyDk:'#a07040',
+  belly:'#f0ddb0',ear:'#b47848',earIn:'#d47878',
+  nose:'#2a1808',
+  pawPad:'#e0b0b0',pawPink:'#f0c8c8',
+  tear:'#88b8ff',tongue:'#e06060'
+};
+
+function ellipse(cx,cy,rx,ry,fill,stroke,sw){
+  ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);
+  ctx.fillStyle=fill;ctx.fill();
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=sw||1;ctx.stroke();}
 }
 
-async function doLogin() {
-  var u = document.getElementById('username').value.trim();
-  var p = document.getElementById('password').value;
-  var err = document.getElementById('err-msg');
-  var btn = document.getElementById('login-btn');
+function render(){
+  ctx.clearRect(0,0,W,H);
 
-  err.style.display = 'none';
-  if (!u || !p) { showErr('Please enter your username and password.'); return; }
+  const bounce=dog.bounceAmp>0.5?Math.sin(dog.bouncePhase)*dog.bounceAmp:0;
+  const wig=dog.wiggle*0.045;
 
-  btn.textContent = 'Signing in…';
-  btn.disabled = true;
+  ctx.save();
+  ctx.translate(CX,CY+bounce);
+  ctx.rotate(wig);
+  ctx.translate(-CX,-CY-bounce);
 
-  try {
-    var res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: u, password: p })
-    });
-    var data = await res.json();
-    if (data.success) {
-      redirect(data.role);
-    } else {
-      showErr(data.error || 'Invalid username or password.');
-      btn.textContent = 'Sign In';
-      btn.disabled = false;
+  const ox=CX,oy=CY+bounce;
+
+  // shadow
+  ctx.globalAlpha=Math.max(0,0.18-Math.abs(bounce)*0.006);
+  ellipse(ox,oy+58,40-Math.abs(bounce)*0.4,7,'rgba(0,0,0,0.3)');
+  ctx.globalAlpha=1;
+
+  // TAIL
+  ctx.save();
+  ctx.translate(ox+44,oy+28);
+  ctx.rotate(dog.tailAngle);
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.bezierCurveTo(22,-8,38,-22,34,-40);
+  ctx.bezierCurveTo(28,-54,14,-50,10,-36);
+  ctx.bezierCurveTo(6,-25,12,-12,0,0);
+  ctx.fillStyle=C.body;ctx.fill();
+  ellipse(24,-44,8,9,'#eedfc0');
+  ctx.restore();
+
+  // BODY
+  ctx.save();ctx.translate(ox,oy+36);ctx.scale(1,0.82);
+  ellipse(0,0,46,40,C.body);ctx.restore();
+  // belly
+  ctx.save();ctx.translate(ox,oy+46);ctx.scale(1,0.72);
+  ellipse(0,0,29,26,C.belly);ctx.restore();
+
+  // BACK LEGS
+  for(const s of[-1,1]){
+    ctx.save();ctx.translate(ox+s*26,oy+56);
+    ellipse(0,0,10,13,C.bodyDk);ellipse(0,13,12,6,C.bodyDk);ctx.restore();
+  }
+
+  // EARS (behind head)
+  for(const s of[-1,1]){
+    ctx.save();ctx.translate(ox+s*28,oy-28);ctx.rotate(s*0.22);ctx.scale(1,1.3);
+    ellipse(0,0,16,19,C.ear);ellipse(0,5,10,12,C.earIn);ctx.restore();
+  }
+
+  // HEAD
+  ellipse(ox,oy-16,43,41,C.body);
+
+  // SNOUT
+  ctx.save();ctx.translate(ox,oy+3);ctx.scale(1,0.72);
+  ellipse(0,0,24,20,C.belly);ctx.restore();
+
+  // NOSE
+  ctx.save();ctx.translate(ox,oy-3);ctx.scale(1.1,0.68);
+  ellipse(0,0,9,9,C.nose);
+  ctx.globalAlpha=0.28;ellipse(-3,-3,3,2,'#fff');ctx.globalAlpha=1;ctx.restore();
+
+  // MOUTH
+  const sm=dog.smileT;
+  ctx.beginPath();
+  if(sm>=0){
+    ctx.moveTo(ox-15,oy+8);
+    ctx.quadraticCurveTo(ox,oy+13+sm*13,ox+15,oy+8);
+  } else {
+    ctx.moveTo(ox-15,oy+17);
+    ctx.quadraticCurveTo(ox,oy+11+sm*13,ox+15,oy+17);
+  }
+  ctx.strokeStyle=C.nose;ctx.lineWidth=2.6;ctx.lineCap='round';ctx.stroke();
+
+  // TONGUE
+  if(dog.tongueOut>0.02){
+    ctx.globalAlpha=dog.tongueOut;
+    ctx.save();ctx.translate(ox,oy+18);
+    ellipse(0,0,9,7*dog.tongueOut,C.tongue);
+    ellipse(0,2,5,3*dog.tongueOut,'rgba(170,40,40,0.4)');
+    ctx.restore();ctx.globalAlpha=1;
+  }
+
+  // TEARS
+  if(dog.tearAlpha>0.02){
+    ctx.globalAlpha=dog.tearAlpha;
+    const ty=dog.tearY;
+    for(const s of[-1,1]){
+      ctx.beginPath();
+      ctx.moveTo(ox+s*30,oy-18+ty);
+      ctx.bezierCurveTo(ox+s*34,oy-8+ty,ox+s*36,oy+ty,ox+s*30,oy+6+ty);
+      ctx.bezierCurveTo(ox+s*24,oy+ty,ox+s*26,oy-8+ty,ox+s*30,oy-18+ty);
+      ctx.fillStyle=C.tear;ctx.fill();
     }
-  } catch(e) {
-    showErr('Connection error. Please try again.');
-    btn.textContent = 'Sign In';
-    btn.disabled = false;
+    ctx.globalAlpha=1;
+  }
+
+  // BLUSH
+  ctx.globalAlpha=dog.blushAlpha;
+  ellipse(ox-32,oy+2,11,6,'#f4a090');
+  ellipse(ox+32,oy+2,11,6,'#f4a090');
+  ctx.globalAlpha=1;
+
+  // EYES
+  const eyeY=oy-26;
+  for(const s of[-1,1]){
+    const ex=ox+s*20,ey=eyeY;
+    const open=s<0?dog.eyeOpenL:dog.eyeOpenR;
+
+    ctx.save();
+    ctx.beginPath();ctx.ellipse(ex,ey,10,10,0,0,Math.PI*2);ctx.clip();
+
+    // white
+    ctx.fillStyle='#fff';ctx.fill();
+
+    // iris + pupil
+    const px=dog.pupilX*3,py=dog.pupilY*2.5;
+    ellipse(ex+px,ey+py,7,7,'#2e1a0e');
+    ellipse(ex+px+1.5,ey+py-1.5,3,3,'#111');
+    ctx.globalAlpha=0.45;ellipse(ex+px+3,ey+py-3,1.8,1.8,'#fff');ctx.globalAlpha=1;
+
+    // eyelid
+    if(open<0.99){
+      const lid=20*(1-open);
+      ctx.fillStyle=C.body;ctx.fillRect(ex-11,ey-11,22,lid+1);
+    }
+    ctx.restore();
+
+    // ring
+    ctx.beginPath();ctx.ellipse(ex,ey,10,10,0,0,Math.PI*2);
+    ctx.strokeStyle='rgba(46,26,14,0.4)';ctx.lineWidth=0.7;ctx.stroke();
+  }
+
+  // EYEBROWS
+  ctx.strokeStyle='rgba(46,26,14,0.65)';ctx.lineWidth=2.2;ctx.lineCap='round';
+  for(const s of[-1,1]){
+    const bx=ox+s*20,by2=eyeY-14;
+    const innerRaise=dog.smileT<-0.3?(s<0?5:-5):0;
+    ctx.beginPath();
+    ctx.moveTo(bx-s*8,by2+(s<0?innerRaise:-innerRaise));
+    ctx.quadraticCurveTo(bx,by2+(dog.smileT<-0.3?4:-2),bx+s*8,by2+(s<0?-innerRaise:innerRaise));
+    ctx.stroke();
+  }
+
+  // PAWS
+  const pl=dog.pawLift;
+  if(pl>0.01){
+    for(const s of[-1,1]){
+      ctx.save();
+      const sx=ox+s*28,sy=oy+28;
+      const ex2=ox+s*20,ey2=oy-30;
+      const px2=lerp(sx,ex2,pl);
+      const py2=lerp(sy,ey2,pl)+Math.sin(dog.pawBounce)*2.5*pl;
+      const rot=s*lerp(0,-0.75,pl);
+      ctx.globalAlpha=Math.min(1,pl*1.8);
+      ctx.translate(px2,py2);ctx.rotate(rot);
+
+      // arm stub
+      ctx.beginPath();ctx.moveTo(0,8);ctx.lineTo(0,26);
+      ctx.strokeStyle=C.body;ctx.lineWidth=13;ctx.lineCap='round';ctx.stroke();
+
+      // paw
+      ellipse(0,0,13,11,C.body);
+      for(let i=-1;i<=1;i++){ellipse(i*8,-8,5,5,C.body);ellipse(i*8,-8,4,4,C.pawPink);}
+      ellipse(0,1,9,7,C.pawPad);
+      ctx.restore();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  ctx.restore();
+
+  // FRONT LEGS (in front)
+  for(const s of[-1,1]){
+    ctx.save();ctx.translate(ox+s*20,oy+50);
+    ellipse(0,0,10,12,C.body);ellipse(0,12,12,6,C.bodyDk);ctx.restore();
   }
 }
 
-function showErr(msg) {
-  var el = document.getElementById('err-msg');
-  el.textContent = msg;
-  el.style.display = 'block';
+let lastT=0;
+function tick(ts){
+  const dt=Math.min((ts-lastT)/1000,0.05);lastT=ts;
+
+  // tail
+  dog.tailAngle+=dog.tailDir*dog.tailSpeed;
+  if(dog.tailAngle>0.4)dog.tailDir=-1;
+  if(dog.tailAngle<-0.4)dog.tailDir=1;
+
+  dog.tailSpeed={idle:0.055,looking:0.11,covering:0.04,error:0.018,success:0.17}[dog.state]||0.055;
+
+  // paw spring
+  dog.pawLift=lerp(dog.pawLift,dog.pawTarget,0.09);
+  dog.pawBounce+=0.1;
+
+  // eyes
+  dog.eyeOpenL=lerp(dog.eyeOpenL,dog.eyeTargL,0.1);
+  dog.eyeOpenR=lerp(dog.eyeOpenR,dog.eyeTargR,0.1);
+
+  // blink
+  if(dog.state==='idle'||dog.state==='looking'){
+    dog.blinkTimer-=dt;
+    if(dog.blinkTimer<=0){
+      dog.blinkTimer=2.2+Math.random()*2.8;
+      dog.eyeTargL=0;dog.eyeTargR=0;
+      setTimeout(()=>{dog.eyeTargL=1;dog.eyeTargR=1;},110);
+    }
+  }
+
+  // pupils
+  dog.pupilX=lerp(dog.pupilX,dog.pupilTX,0.07);
+  dog.pupilY=lerp(dog.pupilY,dog.pupilTY,0.07);
+
+  // mouth
+  dog.smileT=lerp(dog.smileT,dog.smileTarget,0.055);
+
+  // tongue
+  dog.tongueOut=lerp(dog.tongueOut,dog.tongueTarget,0.07);
+
+  // tears
+  dog.tearAlpha=lerp(dog.tearAlpha,dog.tearTarget,0.055);
+  if(dog.tearAlpha>0.05){dog.tearY+=dt*22;if(dog.tearY>32)dog.tearY=0;}
+
+  // blush
+  dog.blushAlpha=lerp(dog.blushAlpha,dog.blushTarget,0.055);
+
+  // celebrate
+  if(dog.state==='success'){
+    dog.bounceAmpTarget=11;
+    dog.bouncePhase+=0.13;
+    dog.wigglePhase+=0.1;
+    dog.wiggleTarget=Math.sin(dog.wigglePhase)*1.0;
+  } else {
+    dog.bounceAmpTarget=0;
+    dog.wiggleTarget=0;
+  }
+  dog.bounceAmp=lerp(dog.bounceAmp,dog.bounceAmpTarget,0.07);
+  dog.wiggle=lerp(dog.wiggle,dog.wiggleTarget,0.1);
+
+  render();
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// bubble
+let bubTimer=null;
+function showBubble(txt,dur=2400){
+  const b=document.getElementById('bubble');
+  b.textContent=txt;b.classList.add('show');
+  clearTimeout(bubTimer);
+  if(dur>0)bubTimer=setTimeout(()=>b.classList.remove('show'),dur);
+}
+function hideBubble(){document.getElementById('bubble').classList.remove('show');clearTimeout(bubTimer);}
+
+function setDogState(s){
+  dog.state=s;
+  const cfg={
+    idle:    {paw:0,eL:1,eR:1,smile:0.6,tongue:0,tear:0,blush:0.5,px:0,py:0,bubble:null},
+    looking: {paw:0,eL:1,eR:1,smile:1,tongue:0,tear:0,blush:0.65,px:0.2,py:0.35,bubble:'👀 I see you typing!'},
+    covering:{paw:1,eL:0.1,eR:0.1,smile:0.25,tongue:0,tear:0,blush:0.7,px:0,py:0,bubble:'🙈 Not peeking, I swear!'},
+    error:   {paw:0,eL:1,eR:1,smile:-1,tongue:0,tear:0.9,blush:0.15,px:-0.3,py:0.55,bubble:'😢 Aww, that wasn\'t right...', bubDur:3800},
+    success: {paw:0,eL:1,eR:1,smile:1,tongue:1,tear:0,blush:0.9,px:0,py:-0.35,bubble:'🎉 YAY! Welcome back!'},
+  }[s];
+  if(!cfg)return;
+  dog.pawTarget=cfg.paw;
+  dog.eyeTargL=cfg.eL;dog.eyeTargR=cfg.eR;
+  dog.smileTarget=cfg.smile;
+  dog.tongueTarget=cfg.tongue;
+  dog.tearTarget=cfg.tear;
+  dog.blushTarget=cfg.blush;
+  dog.pupilTX=cfg.px;dog.pupilTY=cfg.py;
+  if(cfg.bubble)showBubble(cfg.bubble,cfg.bubDur||0);
+  else hideBubble();
+  if(s==='error'){
+    const card=document.querySelector('.card');
+    card.classList.remove('shake-card');void card.offsetWidth;card.classList.add('shake-card');
+    setTimeout(()=>card.classList.remove('shake-card'),500);
+  }
+  if(s==='success')launchConfetti();
 }
 
-// Auto-redirect if already logged in
-fetch('/api/me').then(r => r.json()).then(u => {
-  if (u && u.role) redirect(u.role);
-}).catch(() => {});
+function launchConfetti(){
+  const wrap=document.getElementById('confettiWrap');
+  wrap.innerHTML='';
+  const cols=['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff9f43','#c56bff','#ff87ca','#00d2ff'];
+  for(let i=0;i<90;i++){
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    const sz=6+Math.random()*9;
+    el.style.cssText=`left:${Math.random()*100}vw;top:-24px;width:${sz}px;height:${sz}px;background:${cols[Math.floor(Math.random()*cols.length)]};border-radius:${Math.random()>0.5?'50%':'2px'};animation:confettiFall ${1.4+Math.random()*2.2}s ${Math.random()*1.6}s linear forwards;`;
+    wrap.appendChild(el);
+  }
+}
+
+function onPasswordBlur(){const pw=document.getElementById('password').value;if(!pw&&dog.state==='covering')setDogState('idle');}
+
+function redirect(role){
+  if(role==='admin'||role==='management')window.location.href='/admin.html';
+  else if(role==='supervisor')window.location.href='/supervisor.html';
+  else window.location.href='/employee.html';
+}
+
+async function doLogin(){
+  const u=document.getElementById('username').value.trim();
+  const p=document.getElementById('password').value;
+  const errEl=document.getElementById('err-msg');
+  const sucEl=document.getElementById('success-msg');
+  const btn=document.getElementById('login-btn');
+  errEl.style.display='none';sucEl.style.display='none';
+  if(!u||!p){showErr('Please enter your username and password.');setDogState('error');return;}
+  btn.textContent='Signing in…';btn.disabled=true;
+  try{
+    const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const data=await res.json();
+    if(data.success){
+      setDogState('success');
+      sucEl.textContent='Login successful! Redirecting…';sucEl.style.display='block';
+      setTimeout(()=>redirect(data.role),2000);
+    } else {
+      showErr(data.error||'Invalid username or password.');setDogState('error');
+      btn.textContent='Sign In';btn.disabled=false;
+    }
+  } catch(e){
+    showErr('Connection error. Please try again.');setDogState('error');
+    btn.textContent='Sign In';btn.disabled=false;
+  }
+}
+
+function showErr(msg){
+  const el=document.getElementById('err-msg');
+  el.textContent=msg;el.style.display='block';
+  el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake');
+}
+
+fetch('/api/me').then(r=>r.json()).then(u=>{if(u&&u.role)redirect(u.role);}).catch(()=>{});
 </script>
 </body>
 </html>
