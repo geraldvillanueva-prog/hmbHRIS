@@ -116,10 +116,11 @@ textarea{resize:vertical;min-height:72px}
 .bal-unit{font-size:12px;color:var(--muted);margin-top:4px}
 .mono{font-family:'IBM Plex Mono',monospace}
 
-/* ── PROFESSIONAL AVATAR ── */
-.prof-avatar-wrap{display:flex;justify-content:center;margin-bottom:0.5rem;user-select:none}
-.prof-avatar-wrap svg{filter:drop-shadow(0 3px 10px rgba(10,22,40,0.10));transition:transform .25s}
-.prof-avatar-wrap:hover svg{transform:scale(1.05)}
+/* ── PROFESSIONAL HRIS AVATAR ── */
+.hris-avatar-block{display:flex;justify-content:center;align-items:center;margin-bottom:1rem}
+.hris-avatar-circle{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(10,22,40,0.13)}
+.hris-avatar-blue{background:linear-gradient(135deg,#1565c0 0%,#1976d2 60%,#00b4d8 100%)}
+.hris-avatar-purple{background:linear-gradient(135deg,#6a1b9a 0%,#7b1fa2 60%,#ce93d8 100%)}
 
 /* ── PAGE LOAD ANIMATIONS ── */
 @keyframes fadeSlideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
@@ -428,40 +429,12 @@ input:focus,select:focus,textarea:focus{
 <!-- ════════════ TAB 1: TIME IN / OUT ════════════ -->
 <div class="tab-content on" id="tab-timeinout">
   <div class="clock-card">
-    <div class="prof-avatar-wrap" id="cartoon">
-        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Subtle background ring -->
-          <circle cx="36" cy="36" r="34" fill="#EEF3FB" stroke="#DCEAF7" stroke-width="1.5"/>
-          <!-- Body / shirt -->
-          <path d="M14 62 C14 50 22 46 36 46 C50 46 58 50 58 62" fill="#1565C0"/>
-          <!-- Collar detail -->
-          <path d="M30 46 L36 52 L42 46" fill="#fff" opacity="0.9"/>
-          <!-- Head -->
-          <circle cx="36" cy="30" r="13" fill="#F5C9A0"/>
-          <!-- Hair -->
-          <path d="M23 28 Q24 16 36 16 Q48 16 49 28 Q46 21 36 22 Q26 21 23 28Z" fill="#2C1810"/>
-          <!-- Eyes -->
-          <circle cx="31" cy="30" r="2" fill="#1A0A00"/>
-          <circle cx="41" cy="30" r="2" fill="#1A0A00"/>
-          <circle cx="31.8" cy="29.2" r="0.7" fill="white"/>
-          <circle cx="41.8" cy="29.2" r="0.7" fill="white"/>
-          <!-- Smile -->
-          <path d="M31 35 Q36 39 41 35" stroke="#C0725A" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-          <!-- Tie -->
-          <path d="M34 46 L36 52 L38 46 L37 48 L36 50 L35 48Z" fill="#00B4D8" opacity="0.9"/>
+    <div class="hris-avatar-block">
+      <div class="hris-avatar-circle hris-avatar-blue">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="18" r="9" fill="rgba(255,255,255,0.92)"/>
+          <path d="M6 42 C6 32 13 28 24 28 C35 28 42 32 42 42" fill="rgba(255,255,255,0.92)"/>
         </svg>
-      </div>
-    
-          <div class="c-nose"></div>
-          <div class="c-mouth" id="c-mouth"></div>
-        </div>
-        <div class="c-neck"></div>
-        <div class="c-body">
-          <div class="c-collar"></div>
-          <div class="c-tie"></div>
-        </div>
-        <div class="c-arm-l"></div>
-        <div class="c-arm-r"></div>
       </div>
     </div>
     <div class="date-display" id="date-display"></div>
@@ -768,7 +741,7 @@ function addRipple(btn){
 function spawnConfetti(el){
   var rect=el.getBoundingClientRect();
   var colors=['#1565c0','#00b4d8','#2e7d32','#f57f17','#e65100'];
-  var wrap=document.querySelector('.cartoon-wrap');
+  
   for(var i=0;i<10;i++){
     var piece=document.createElement('div');
     piece.className='confetti-piece';
