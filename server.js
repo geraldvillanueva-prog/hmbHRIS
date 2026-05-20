@@ -396,7 +396,7 @@ app.post('/api/employees', requireAdmin, (req, res) => {
   const r = db.prepare(`INSERT INTO employees (name,pos,dept,type,start,bank,email,mobile,emergency,address,tin,smb,sss,phic,hdmf,mpl,dm,load,wht,vl_bal,sl_bal)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     e.name,e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',e.tin||'',
-    +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,+e.vlBal||15,+e.slBal||15
+    +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0
   );
   res.json({ success: true, id: r.lastInsertRowid });
 });
@@ -407,7 +407,7 @@ app.put('/api/employees/:id', requireAdmin, (req, res) => {
   db.prepare(`UPDATE employees SET name=?,pos=?,dept=?,type=?,start=?,bank=?,email=?,mobile=?,emergency=?,address=?,tin=?,
     smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,vl_bal=?,sl_bal=?,shift_id=? WHERE id=?`).run(
     e.name,e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',e.tin||'',
-    +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,+e.vlBal||15,+e.slBal||15, shiftId, req.params.id
+    +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0, shiftId, req.params.id
   );
   res.json({ success: true });
 });
