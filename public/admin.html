@@ -1416,23 +1416,74 @@ function calcPay(e,a){
   return{dr,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayHrs,restDayPay,totalEarnings,totalContrib,totalDeductions,netPay:totalEarnings-totalDeductions};
 }
 function getAtt(per,empId){var k=attKey(per);if(!attendance[k])attendance[k]={};if(!attendance[k][empId])attendance[k][empId]={days:0,ot:0,otNd:0,restDay:0,holiday:0,leave:0,commission:0,otherAdd:0,otherDed:0,late:0,periodDays:13};return attendance[k][empId];}
+
+// ── AUTO LEAVE W/ PAY COMPUTATION ─────────────────────────────────────────────
+function parsePeriodRange(per){
+  // Handles formats like "Mar. 16 - Mar. 31, 2026" or "Apr. 1 - Apr. 15, 2026"
+  var months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  var m=per.match(/(\w+)\.\s*(\d+)\s*-\s*(\w+)\.\s*(\d+),\s*(\d+)/);
+  if(!m)return null;
+  var yr=parseInt(m[5]);
+  var startMon=months[m[1]],endMon=months[m[3]];
+  if(startMon===undefined||endMon===undefined)return null;
+  var start=new Date(yr,startMon,parseInt(m[2]));
+  var end=new Date(yr,endMon,parseInt(m[4]));
+  return{start,end};
+}
+function autoComputeLeavePay(empId, per, dr){
+  var range=parsePeriodRange(per);
+  if(!range)return{amount:0,breakdown:[]};
+  var approved=leaveRecords.filter(l=>
+    l.empId==empId &&
+    l.status==='Approved' &&
+    l.pay==='With Pay'
+  );
+  var breakdown=[];
+  var totalDays=0;
+  approved.forEach(function(l){
+    var lFrom=new Date(l.from+'T00:00:00');
+    var lTo=new Date(l.to+'T00:00:00');
+    // Find overlap between leave dates and pay period
+    var overlapStart=lFrom<range.start?range.start:lFrom;
+    var overlapEnd=lTo>range.end?range.end:lTo;
+    if(overlapStart<=overlapEnd){
+      var days=Math.round((overlapEnd-overlapStart)/(1000*60*60*24))+1;
+      totalDays+=days;
+      breakdown.push({type:l.type,days:days,from:l.from,to:l.to});
+    }
+  });
+  return{amount:parseFloat((dr*totalDays).toFixed(2)),breakdown,totalDays};
+}
+
 function renderPayrollAttGrid(){
   var per=v('att-per'),g=document.getElementById('att-grid');
   if(!employees.length){g.innerHTML='<div class="empty">Add employees first.</div>';return;}
   g.innerHTML=employees.map(e=>{
     var a=getAtt(per,e.id),periodDays=a.periodDays||13,dr=e.smb/periodDays;
+    var lvComp=autoComputeLeavePay(e.id,per,dr);
+    // Use auto-computed value; if attendance already has a saved value use that,
+    // but seed with auto-computed if it's 0/missing (first load for this period)
+    var lvVal=(a.leave&&a.leave>0)?a.leave:lvComp.amount;
+    // Build breakdown tooltip text
+    var lvBadge='';
+    if(lvComp.breakdown.length>0){
+      var bLines=lvComp.breakdown.map(function(b){return b.type+': '+b.days+' day'+(b.days!==1?'s':'')+' ('+fmtDate(b.from)+' – '+fmtDate(b.to)+')';}).join(' | ');
+      lvBadge='<span style="font-size:9.5px;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:10px;padding:1px 7px;margin-left:5px;font-weight:700;cursor:default;vertical-align:middle" title="Auto-computed from approved leaves: '+bLines+'">⚡ AUTO</span>';
+    }
     return'<div class="card" style="margin-bottom:.75rem">'
     +'<div style="font-weight:700;font-size:14px;color:var(--blue);margin-bottom:2px">'+e.name+'</div>'
     +'<div style="font-size:11px;color:var(--muted);margin-bottom:.75rem">'+(e.pos||'')+'&nbsp;|&nbsp;Daily rate: ₱<span id="dr_'+e.id+'">'+fp(dr)+'</span>&nbsp;|&nbsp;Semi-monthly: ₱'+fp(e.smb)+'</div>'
     +'<div class="row">'
-    +'<div class="f"><label>Working days in period</label><input type="number" id="att_'+e.id+'_periodDays" value="'+periodDays+'" min="1" max="16" step="1" oninput="liveCompute('+e.id+')"></div>'
+    +'<div class="f"><label>Working days in period</label><input type="number" id="att_'+e.id+'_periodDays" value="'+periodDays+'" min="1" max="16" step="1" oninput="recomputeLeave('+e.id+')"></div>'
     +'<div class="f"><label>Days worked</label><input type="number" id="att_'+e.id+'_days" value="'+a.days+'" min="0" max="16" step="0.5" oninput="liveCompute('+e.id+')"></div>'
     +'<div class="f"><label>OT hours</label><input type="number" id="att_'+e.id+'_ot" value="'+a.ot+'" min="0" step="0.5" oninput="liveCompute('+e.id+')"></div>'
     +'<div class="f"><label>OT Night Diff hrs</label><input type="number" id="att_'+e.id+'_otNd" value="'+(a.otNd||0)+'" min="0" step="0.5" oninput="liveCompute('+e.id+')"></div>'
     +'<div class="f"><label>Rest Day OT hrs</label><input type="number" id="att_'+e.id+'_restDay" value="'+(a.restDay||0)+'" min="0" step="0.5" oninput="liveCompute('+e.id+')"></div>'
     +'</div><div class="row">'
     +'<div class="f"><label>Holiday pay (₱)</label><input type="number" id="att_'+e.id+'_holiday" value="'+a.holiday+'" min="0" step="0.01" oninput="liveCompute('+e.id+')"></div>'
-    +'<div class="f"><label>Leave w/ pay (₱)</label><input type="number" id="att_'+e.id+'_leave" value="'+a.leave+'" min="0" step="0.01" oninput="liveCompute('+e.id+')"></div>'
+    +'<div class="f"><label style="display:flex;align-items:center;gap:2px">Leave w/ pay (₱)'+lvBadge+'</label>'
+    +'<input type="number" id="att_'+e.id+'_leave" value="'+lvVal+'" min="0" step="0.01" oninput="liveCompute('+e.id+')" '
+    +(lvComp.breakdown.length>0?'style="border-color:#90caf9;background:#f0f7ff" title="Auto-filled from approved leave(s). You may override."':'')+'></div>'
     +'<div class="f"><label>Commission (₱)</label><input type="number" id="att_'+e.id+'_commission" value="'+a.commission+'" min="0" step="0.01" oninput="liveCompute('+e.id+')"></div>'
     +'<div class="f"><label>Other additionals (₱)</label><input type="number" id="att_'+e.id+'_otherAdd" value="'+a.otherAdd+'" min="0" step="0.01" oninput="liveCompute('+e.id+')"></div>'
     +'<div class="f"><label>Other deductions (₱)</label><input type="number" id="att_'+e.id+'_otherDed" value="'+a.otherDed+'" min="0" step="0.01" oninput="liveCompute('+e.id+')"></div>'
@@ -1449,6 +1500,21 @@ function liveCompute(empId){
   var p=calcPay(e,a),el=document.getElementById('live_'+empId);
   var drEl=document.getElementById('dr_'+empId);if(drEl)drEl.textContent=fp(p.dr);
   if(el)el.innerHTML='<strong>Preview:</strong> &nbsp;Daily rate: ₱'+fp(p.dr)+' &nbsp;|&nbsp; Basic: ₱'+fp(p.basicPay)+' &nbsp;|&nbsp; OT: ₱'+fp(p.otPay)+' &nbsp;|&nbsp; Total earnings: ₱'+fp(p.totalEarnings)+' &nbsp;|&nbsp; Deductions: <span style="color:var(--red)">₱'+fp(p.totalDeductions)+'</span> &nbsp;|&nbsp; <strong style="color:var(--green);font-size:13px">Net pay: ₱'+fp(p.netPay)+'</strong>';
+}
+function recomputeLeave(empId){
+  // When periodDays changes, recalculate the daily rate and update leave field if it was auto-set
+  var e=employees.find(x=>x.id===empId);if(!e)return;
+  var periodDaysEl=document.getElementById('att_'+empId+'_periodDays');
+  var leaveEl=document.getElementById('att_'+empId+'_leave');
+  if(!periodDaysEl||!leaveEl)return;
+  var periodDays=parseFloat(periodDaysEl.value)||13;
+  var dr=e.smb/periodDays;
+  var per=v('att-per');
+  var lvComp=autoComputeLeavePay(empId,per,dr);
+  if(lvComp.amount>0){
+    leaveEl.value=lvComp.amount.toFixed(2);
+  }
+  liveCompute(empId);
 }
 async function savePayrollAtt(){
   var per=v('att-per'),k=attKey(per);
