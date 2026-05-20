@@ -457,7 +457,8 @@ tr:hover td{background:#fafcff}
     </div>
     <div id="att-grid"><div class="empty">Add employees first.</div></div>
     <div style="margin-top:1rem;display:flex;gap:10px;align-items:center" class="no-print">
-      <button class="btn bp" onclick="savePayrollAtt()">💾 Save All Attendance</button>
+      <button class="btn bp" id="att-save-btn" onclick="savePayrollAtt()">💾 Save All Attendance</button>
+      <button class="btn bo" id="att-edit-btn" style="display:none" onclick="editPayrollAtt()">✏️ Edit Attendance</button>
       <span class="ok-msg" id="att-ok">Saved!</span>
     </div>
   </div>
@@ -1458,6 +1459,11 @@ function autoComputeLeavePay(empId, per, dr){
 
 function renderPayrollAttGrid(){
   var per=v('att-per'),g=document.getElementById('att-grid');
+  // Reset lock state whenever grid re-renders (period change)
+  var saveBtn=document.getElementById('att-save-btn');
+  var editBtn=document.getElementById('att-edit-btn');
+  if(saveBtn)saveBtn.style.display='inline-flex';
+  if(editBtn)editBtn.style.display='none';
   if(!employees.length){g.innerHTML='<div class="empty">Add employees first.</div>';return;}
   g.innerHTML=employees.map(e=>{
     var a=getAtt(per,e.id),periodDays=a.periodDays||13,dr=e.smb/periodDays;
@@ -1528,6 +1534,23 @@ async function savePayrollAtt(){
   });
   await api('POST','/api/attendance',{period:k,records});
   showSaveIndicator();flash('att-ok');
+  lockPayrollAttFields(true);
+}
+function lockPayrollAttFields(lock){
+  var fields=['periodDays','days','ot','otNd','restDay','holiday','leave','commission','otherAdd','otherDed','late'];
+  employees.forEach(e=>{
+    fields.forEach(f=>{
+      var el=document.getElementById('att_'+e.id+'_'+f);
+      if(el){el.disabled=lock;el.style.background=lock?'#f0f4f8':'';}
+    });
+  });
+  var saveBtn=document.getElementById('att-save-btn');
+  var editBtn=document.getElementById('att-edit-btn');
+  if(saveBtn)saveBtn.style.display=lock?'none':'inline-flex';
+  if(editBtn)editBtn.style.display=lock?'inline-flex':'none';
+}
+function editPayrollAtt(){
+  lockPayrollAttFields(false);
 }
 async function deletePayrollEmp(empId){
   var per=v('pay-per'),k=attKey(per);
