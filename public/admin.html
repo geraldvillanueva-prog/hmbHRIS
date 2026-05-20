@@ -955,7 +955,7 @@ var currentUserRole = 'admin'; // will be overwritten on load
 
 async function checkAuth(){
   try{
-    var r=await fetch(API_BASE+'/api/me',{credentials:'include'});
+    var r=await fetch('/api/me');
     var u=await r.json();
     if(!u||!u.id||(u.role!=='admin'&&u.role!=='management')){window.location.href='/';return false;}
     currentUserRole = u.role;
@@ -991,18 +991,15 @@ function applyRoleUI(){
   // Admin: management nav stays hidden (already hidden by default)
 }
 async function doLogout(){
-  await fetch(API_BASE+'/api/logout',{method:'POST',credentials:'include'});
+  await fetch('/api/logout',{method:'POST'});
   window.location.href='/';
 }
 
 // ==================== API HELPERS ==============
-// ← CHANGE THIS to your actual backend server URL (e.g. https://your-app.onrender.com)
-const API_BASE = '';
-
 async function api(method,url,body){
-  var opts={method,headers:{'Content-Type':'application/json'},credentials:'include'};
+  var opts={method,headers:{'Content-Type':'application/json'}};
   if(body)opts.body=JSON.stringify(body);
-  var r=await fetch(API_BASE+url,opts);
+  var r=await fetch(url,opts);
   return r.json();
 }
 
@@ -1779,7 +1776,7 @@ function export201CSV(empId){
   var rows=[['Field','Value'],['Name',e.name],['Position',e.pos||''],['Department',e.dept||''],['Type',e.type||''],['Start Date',e.start||''],['Bank Account',e.bank||''],['Email',e.email||''],['Mobile',e.mobile||''],['TIN',e.tin||''],['Address',e.address||''],['Emergency Contact',e.emergency||''],['Semi-monthly Pay',e.smb||0],['SSS',e.sss||0],['PHIC',e.phic||0],['HDMF',e.hdmf||0],['VL Balance',e.vlBal||0],['SL Balance',e.slBal||0]];
   downloadCSV('HMB_201_'+e.name.replace(/\s/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
-function exportData(){window.open(API_BASE+'/api/export','_blank');}
+function exportData(){window.open('/api/export','_blank');}
 async function importData(evt){
   var file=evt.target.files[0];if(!file)return;
   var reader=new FileReader();
