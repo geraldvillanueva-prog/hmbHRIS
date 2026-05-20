@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
@@ -212,15 +213,26 @@ if (settingCount.c === 0) {
 }
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
+app.use(cors({
+  origin: [
+    'https://geraldvillanueva-prog.github.io',
+    'http://localhost:3000'
+  ],
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'hmb-hris-secret-2024',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 8 * 60 * 60 * 1000 } // 8 hours
+  cookie: {
+    maxAge: 8 * 60 * 60 * 1000, // 8 hours
+    sameSite: 'none',            // required for cross-origin cookies
+    secure: true                 // required when sameSite is 'none'
+  }
 }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname)));
 
 // ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
