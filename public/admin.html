@@ -1408,9 +1408,9 @@ function roundOT(h){return Math.round(h*2)/2;}
 function r2(n){return Math.round(n*100)/100;}
 function calcPay(e,a){
   var dr=r2(e.smb/(a.periodDays||13)),basicPay=r2(dr*(a.days||0));
-  var otHrs=roundOT(a.ot||0),otPay=r2((dr/9.5)*1.25*otHrs);
-  var otNdHrs=roundOT(a.otNd||0),otNdPay=r2((dr/9.5)*1.25*1.10*otNdHrs);
-  var restDayHrs=roundOT(a.restDay||0),restDayPay=r2((dr/9.5)*1.30*restDayHrs);
+  var otHrs=roundOT(a.ot||0),otPay=r2((dr/8)*1.25*otHrs);
+  var otNdHrs=roundOT(a.otNd||0),otNdPay=r2((dr/8)*1.25*1.10*otNdHrs);
+  var restDayHrs=roundOT(a.restDay||0),restDayPay=r2((dr/8)*1.30*restDayHrs);
   var totalEarnings=r2(basicPay+(e.dm||0)+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
   var totalContrib=r2((e.sss||0)+(e.phic||0)+(e.hdmf||0));
   var totalDeductions=r2(totalContrib+(a.otherDed||0)+(e.wht||0)+(a.late||0));
