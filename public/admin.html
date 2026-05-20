@@ -457,7 +457,8 @@ tr:hover td{background:#fafcff}
     </div>
     <div id="att-grid"><div class="empty">Add employees first.</div></div>
     <div style="margin-top:1rem;display:flex;gap:10px;align-items:center" class="no-print">
-      <button class="btn bp" onclick="savePayrollAtt()">💾 Save All Attendance</button>
+      <button class="btn bp" id="att-save-btn" onclick="savePayrollAtt()">💾 Save All Attendance</button>
+      <button class="btn bo" id="att-edit-btn" style="display:none" onclick="editPayrollAtt()">✏️ Edit Attendance</button>
       <span class="ok-msg" id="att-ok">Saved!</span>
     </div>
   </div>
@@ -1458,6 +1459,11 @@ function autoComputeLeavePay(empId, per, dr){
 
 function renderPayrollAttGrid(){
   var per=v('att-per'),g=document.getElementById('att-grid');
+  // Reset lock state whenever grid re-renders (period change)
+  var saveBtn=document.getElementById('att-save-btn');
+  var editBtn=document.getElementById('att-edit-btn');
+  if(saveBtn)saveBtn.style.display='inline-flex';
+  if(editBtn)editBtn.style.display='none';
   if(!employees.length){g.innerHTML='<div class="empty">Add employees first.</div>';return;}
   g.innerHTML=employees.map(e=>{
     var a=getAtt(per,e.id),periodDays=a.periodDays||13,dr=e.smb/periodDays;
@@ -1528,6 +1534,23 @@ async function savePayrollAtt(){
   });
   await api('POST','/api/attendance',{period:k,records});
   showSaveIndicator();flash('att-ok');
+  lockPayrollAttFields(true);
+}
+function lockPayrollAttFields(lock){
+  var fields=['periodDays','days','ot','otNd','restDay','holiday','leave','commission','otherAdd','otherDed','late'];
+  employees.forEach(e=>{
+    fields.forEach(f=>{
+      var el=document.getElementById('att_'+e.id+'_'+f);
+      if(el){el.disabled=lock;el.style.background=lock?'#f0f4f8':'';}
+    });
+  });
+  var saveBtn=document.getElementById('att-save-btn');
+  var editBtn=document.getElementById('att-edit-btn');
+  if(saveBtn)saveBtn.style.display=lock?'none':'inline-flex';
+  if(editBtn)editBtn.style.display=lock?'inline-flex':'none';
+}
+function editPayrollAtt(){
+  lockPayrollAttFields(false);
 }
 async function deletePayrollEmp(empId){
   var per=v('pay-per'),k=attKey(per);
@@ -1552,13 +1575,57 @@ function renderPayroll(){
   var tG=0,tD=0,tN=0;
   var rows=recs.map(e=>{var a=attendance[k][e.id],p=calcPay(e,a);tG+=p.totalEarnings;tD+=p.totalDeductions;tN+=p.netPay;
     return'<tr><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+a.days+'</td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.basicPay)+'</td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.totalEarnings)+'</td><td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">₱'+fp(p.totalDeductions)+'</td><td style="font-weight:700;color:var(--green);font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.netPay)+'</td>'
-    +'<td><button class="btn bs br" onclick="deletePayrollEmp('+e.id+')">🗑 Delete</button></td></tr>';}).join('');
+    +'<td style="display:flex;gap:4px;white-space:nowrap"><button class="btn bs bo" onclick="openPayrollEdit('+e.id+')">✏️ Edit</button><button class="btn bs br" onclick="deletePayrollEmp('+e.id+')">🗑 Delete</button></td></tr>';}).join('');
   m.innerHTML='<div class="mc blue"><div class="ml">Employees</div><div class="mv">'+recs.length+'</div></div>'
   +'<div class="mc orange"><div class="ml">Total Gross</div><div class="mv">₱'+fp(tG)+'</div></div>'
   +'<div class="mc red"><div class="ml">Total Deductions</div><div class="mv">₱'+fp(tD)+'</div></div>'
   +'<div class="mc green"><div class="ml">Total Net Pay</div><div class="mv">₱'+fp(tN)+'</div></div>';
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Position</th><th>Days</th><th>Basic Pay</th><th>Total Earnings</th><th>Total Deductions</th><th>Net Pay</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
   +'<div style="margin-top:12px;text-align:right"><button class="btn br" onclick="deletePayrollPeriod()">🗑 Delete Entire Period</button></div>';
+}
+function openPayrollEdit(empId){
+  var per=v('pay-per'),k=attKey(per);
+  var e=employees.find(x=>x.id===empId);
+  var a=attendance[k]&&attendance[k][empId];
+  if(!e||!a)return;
+  document.getElementById('pedit-emp-id').value=empId;
+  document.getElementById('pedit-name').textContent=e.name+' — '+per;
+  document.getElementById('pedit-periodDays').value=a.periodDays||13;
+  document.getElementById('pedit-days').value=a.days||0;
+  document.getElementById('pedit-ot').value=a.ot||0;
+  document.getElementById('pedit-otNd').value=a.otNd||0;
+  document.getElementById('pedit-restDay').value=a.restDay||0;
+  document.getElementById('pedit-holiday').value=a.holiday||0;
+  document.getElementById('pedit-leave').value=a.leave||0;
+  document.getElementById('pedit-commission').value=a.commission||0;
+  document.getElementById('pedit-otherAdd').value=a.otherAdd||0;
+  document.getElementById('pedit-otherDed').value=a.otherDed||0;
+  document.getElementById('pedit-late').value=a.late||0;
+  payrollEditLiveCompute();
+  document.getElementById('payroll-edit-modal').style.display='flex';
+}
+function closePayrollEdit(){
+  document.getElementById('payroll-edit-modal').style.display='none';
+}
+function payrollEditLiveCompute(){
+  var empId=parseInt(document.getElementById('pedit-emp-id').value);
+  var e=employees.find(x=>x.id===empId);if(!e)return;
+  function gv(id){return parseFloat(document.getElementById(id).value)||0;}
+  var a={periodDays:gv('pedit-periodDays'),days:gv('pedit-days'),ot:gv('pedit-ot'),otNd:gv('pedit-otNd'),restDay:gv('pedit-restDay'),holiday:gv('pedit-holiday'),leave:gv('pedit-leave'),commission:gv('pedit-commission'),otherAdd:gv('pedit-otherAdd'),otherDed:gv('pedit-otherDed'),late:gv('pedit-late')};
+  var p=calcPay(e,a);
+  document.getElementById('pedit-preview').innerHTML='<strong>Preview:</strong> &nbsp;Daily rate: ₱'+fp(p.dr)+' &nbsp;|&nbsp; Basic: ₱'+fp(p.basicPay)+' &nbsp;|&nbsp; OT: ₱'+fp(p.otPay)+' &nbsp;|&nbsp; Total earnings: ₱'+fp(p.totalEarnings)+' &nbsp;|&nbsp; Deductions: <span style="color:var(--red)">₱'+fp(p.totalDeductions)+'</span> &nbsp;|&nbsp; <strong style="color:var(--green);font-size:13px">Net pay: ₱'+fp(p.netPay)+'</strong>';
+}
+async function savePayrollEdit(){
+  var empId=parseInt(document.getElementById('pedit-emp-id').value);
+  var per=v('pay-per'),k=attKey(per);
+  function gv(id){return parseFloat(document.getElementById(id).value)||0;}
+  var rec={periodDays:gv('pedit-periodDays'),days:gv('pedit-days'),ot:gv('pedit-ot'),otNd:gv('pedit-otNd'),restDay:gv('pedit-restDay'),holiday:gv('pedit-holiday'),leave:gv('pedit-leave'),commission:gv('pedit-commission'),otherAdd:gv('pedit-otherAdd'),otherDed:gv('pedit-otherDed'),late:gv('pedit-late')};
+  if(!attendance[k])attendance[k]={};
+  attendance[k][empId]=rec;
+  await api('POST','/api/attendance',{period:k,records:attendance[k]});
+  showSaveIndicator();
+  closePayrollEdit();
+  renderPayroll();
 }
 function exportPayrollCSV(){
   var per=v('pay-per'),k=attKey(per);
@@ -2320,5 +2387,37 @@ window.addEventListener('DOMContentLoaded',async function(){
   }
 });
 </script>
+
+<!-- PAYROLL EDIT MODAL -->
+<div id="payroll-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,0.55);z-index:300;align-items:center;justify-content:center;padding:16px;overflow-y:auto">
+  <div style="background:#fff;border-radius:14px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(10,22,40,0.18);margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;z-index:1">
+      <div style="font-size:15px;font-weight:700;color:var(--navy)">✏️ Edit Payroll Record</div>
+      <button onclick="closePayrollEdit()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1">×</button>
+    </div>
+    <div style="padding:1.5rem">
+      <input type="hidden" id="pedit-emp-id">
+      <div id="pedit-name" style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:14px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="f"><label>Working days in period</label><input id="pedit-periodDays" type="number" min="1" max="16" step="1" oninput="payrollEditLiveCompute()"></div>
+        <div class="f"><label>Days worked</label><input id="pedit-days" type="number" min="0" max="16" step="0.5" oninput="payrollEditLiveCompute()"></div>
+        <div class="f"><label>OT hours</label><input id="pedit-ot" type="number" min="0" step="0.5" oninput="payrollEditLiveCompute()"></div>
+        <div class="f"><label>OT Night Diff hrs</label><input id="pedit-otNd" type="number" min="0" step="0.5" oninput="payrollEditLiveCompute()"></div>
+        <div class="f"><label>Rest Day OT hrs</label><input id="pedit-restDay" type="number" min="0" step="0.5" oninput="payrollEditLiveCompute()"></div>
+        <div class="f"><label>Holiday pay (₱)</label><input id="pedit-holiday" type="number" min="0" step="0.01" oninput="payrollEditLiveCompute()"></div>
+        <div class="f"><label>Leave w/ pay (₱)</label><input id="pedit-leave" type="number" min="0" step="0.01" oninput="payrollEditLiveCompute()"></div>
+        <div class="f"><label>Commission (₱)</label><input id="pedit-commission" type="number" min="0" step="0.01" oninput="payrollEditLiveCompute()"></div>
+        <div class="f"><label>Other additionals (₱)</label><input id="pedit-otherAdd" type="number" min="0" step="0.01" oninput="payrollEditLiveCompute()"></div>
+        <div class="f"><label>Other deductions (₱)</label><input id="pedit-otherDed" type="number" min="0" step="0.01" oninput="payrollEditLiveCompute()"></div>
+        <div class="f"><label>Late / undertime (₱)</label><input id="pedit-late" type="number" min="0" step="0.01" oninput="payrollEditLiveCompute()"></div>
+      </div>
+      <div id="pedit-preview" style="font-size:12px;color:var(--muted);background:#f8fafc;padding:8px 12px;border-radius:4px;border:1px solid var(--border);margin-bottom:14px">—</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="closePayrollEdit()" style="padding:9px 18px;font-size:13px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:600;font-family:'IBM Plex Sans',sans-serif">Cancel</button>
+        <button onclick="savePayrollEdit()" style="padding:9px 20px;font-size:13px;border-radius:6px;border:none;background:var(--blue);color:#fff;cursor:pointer;font-weight:700;font-family:'IBM Plex Sans',sans-serif">💾 Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
