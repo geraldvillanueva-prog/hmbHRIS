@@ -438,7 +438,8 @@ app.get('/api/attendance', requireAdminOrManagement, (req, res) => {
     result[r.period][r.employee_id] = {
       days: r.days, ot: r.ot, otNd: r.ot_nd, restDay: r.rest_day,
       holiday: r.holiday, leave: r.leave_pay, commission: r.commission,
-      otherAdd: r.other_add, otherDed: r.other_ded, late: r.late
+      otherAdd: r.other_add, otherDed: r.other_ded, late: r.late,
+      periodDays: r.period_days || 13
     };
   }
   res.json(result);
@@ -446,20 +447,26 @@ app.get('/api/attendance', requireAdminOrManagement, (req, res) => {
 
 app.post('/api/attendance', requireAdmin, (req, res) => {
   const { period, records } = req.body; // records: { empId: {...} }
-  const upsert = db.prepare(`INSERT INTO attendance (employee_id, period, days, ot, ot_nd, rest_day, holiday, leave_pay, commission, other_add, other_ded, late, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+  const upsert = db.prepare(`INSERT INTO attendance (employee_id, period, days, ot, ot_nd, rest_day, holiday, leave_pay, commission, other_add, other_ded, late, period_days, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
     ON CONFLICT(employee_id, period) DO UPDATE SET
     days=excluded.days, ot=excluded.ot, ot_nd=excluded.ot_nd, rest_day=excluded.rest_day,
     holiday=excluded.holiday, leave_pay=excluded.leave_pay, commission=excluded.commission,
-    other_add=excluded.other_add, other_ded=excluded.other_ded, late=excluded.late, updated_at=datetime('now')`);
+    other_add=excluded.other_add, other_ded=excluded.other_ded, late=excluded.late,
+    period_days=excluded.period_days, updated_at=datetime('now')`);
   const saveAll = db.transaction((recs) => {
     for (const [empId, a] of Object.entries(recs)) {
-      upsert.run(+empId, period, +a.days||0, +a.ot||0, +a.otNd||0, +a.restDay||0, +a.holiday||0, +a.leave||0, +a.commission||0, +a.otherAdd||0, +a.otherDed||0, +a.late||0);
+      upsert.run(+empId, period, +a.days||0, +a.ot||0, +a.otNd||0, +a.restDay||0, +a.holiday||0, +a.leave||0, +a.commission||0, +a.otherAdd||0, +a.otherDed||0, +a.late||0, +a.periodDays||13);
     }
   });
   saveAll(records);
   res.json({ success: true });
 });
+
+// Migrate attendance table — add period_days column if missing
+try {
+  db.exec(`ALTER TABLE attendance ADD COLUMN period_days INTEGER DEFAULT 13`);
+} catch(e) {}
 
 // Migrate existing time_logs table — add break columns if missing
 try {
@@ -786,7 +793,7 @@ app.get('/api/export', requireAdmin, (req, res) => {
       const r = {};
       for (const a of rows) {
         if (!r[a.period]) r[a.period] = {};
-        r[a.period][a.employee_id] = { days: a.days, ot: a.ot, otNd: a.ot_nd, restDay: a.rest_day, holiday: a.holiday, leave: a.leave_pay, commission: a.commission, otherAdd: a.other_add, otherDed: a.other_ded, late: a.late };
+        r[a.period][a.employee_id] = { days: a.days, ot: a.ot, otNd: a.ot_nd, restDay: a.rest_day, holiday: a.holiday, leave: a.leave_pay, commission: a.commission, otherAdd: a.other_add, otherDed: a.other_ded, late: a.late, periodDays: a.period_days || 13 };
       }
       return r;
     })(),
