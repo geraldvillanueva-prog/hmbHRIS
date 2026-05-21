@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HMB HRIS – Admin Panel</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -453,7 +454,12 @@ tr:hover td{background:#fafcff}
           </select>
         </div>
         <div class="f" style="max-width:180px"><label>Payroll date</label><input id="att-pdate" type="date"></div>
+        <div class="f" style="max-width:220px;align-self:flex-end">
+          <button class="btn ba" onclick="document.getElementById('xlsx-import-file').click()" style="width:100%">📥 Import from Excel</button>
+          <input type="file" id="xlsx-import-file" accept=".xlsx,.xls" style="display:none" onchange="importPayrollExcel(event)">
+        </div>
       </div>
+      <div id="xlsx-import-msg" style="display:none;margin-top:8px;padding:9px 13px;border-radius:5px;font-size:12.5px;border-left:3px solid"></div>
     </div>
     <div id="att-grid"><div class="empty">Add employees first.</div></div>
     <div style="margin-top:1rem;display:flex;gap:10px;align-items:center" class="no-print">
@@ -1407,14 +1413,15 @@ function exportDiscCSV(){
 function roundOT(h){return Math.round(h*2)/2;}
 function r2(n){return Math.round(n*100)/100;}
 function calcPay(e,a){
-  var dr=r2(e.smb/(a.periodDays||13)),basicPay=r2(e.smb/(a.periodDays||13)*(a.days||0));
+  var periodDays=parseInt(a.periodDays)||13;
+  var dr=r2(e.smb/periodDays),basicPay=r2(e.smb/periodDays*(a.days||0));
   var otHrs=(a.ot||0),otPay=r2((dr/8)*1.25*otHrs);
   var otNdHrs=roundOT(a.otNd||0),otNdPay=r2((dr/8)*1.25*1.10*otNdHrs);
   var restDayHrs=roundOT(a.restDay||0),restDayPay=r2((dr/8)*1.30*restDayHrs);
   var totalEarnings=r2(basicPay+(e.dm||0)+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
   var totalContrib=r2((e.sss||0)+(e.phic||0)+(e.hdmf||0));
   var totalDeductions=r2(totalContrib+(a.otherDed||0)+(e.wht||0)+(a.late||0));
-  return{dr,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayHrs,restDayPay,totalEarnings,totalContrib,totalDeductions,netPay:r2(totalEarnings-totalDeductions)};
+  return{dr,periodDays,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayHrs,restDayPay,totalEarnings,totalContrib,totalDeductions,netPay:r2(totalEarnings-totalDeductions)};
 }
 function getAtt(per,empId){var k=attKey(per);if(!attendance[k])attendance[k]={};if(!attendance[k][empId])attendance[k][empId]={days:0,ot:0,otNd:0,restDay:0,holiday:0,leave:0,commission:0,otherAdd:0,otherDed:0,late:0,periodDays:13};return attendance[k][empId];}
 
@@ -1551,20 +1558,19 @@ function renderPayroll(){
   if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';m.innerHTML='';return;}
   var tG=0,tD=0,tN=0;
   var rows=recs.map(e=>{var a=attendance[k][e.id],p=calcPay(e,a);tG+=p.totalEarnings;tD+=p.totalDeductions;tN+=p.netPay;
-    var periodDays=a.periodDays||13;
-    return'<tr><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td style="text-align:center">'+periodDays+'</td><td style="text-align:center">'+a.days+'</td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.dr)+'</td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.basicPay)+'</td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.totalEarnings)+'</td><td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">₱'+fp(p.totalDeductions)+'</td><td style="font-weight:700;color:var(--green);font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.netPay)+'</td>'
+    return'<tr><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+a.days+'</td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.basicPay)+'</td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.totalEarnings)+'</td><td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">₱'+fp(p.totalDeductions)+'</td><td style="font-weight:700;color:var(--green);font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.netPay)+'</td>'
     +'<td><button class="btn bs br" onclick="deletePayrollEmp('+e.id+')">🗑 Delete</button></td></tr>';}).join('');
   m.innerHTML='<div class="mc blue"><div class="ml">Employees</div><div class="mv">'+recs.length+'</div></div>'
   +'<div class="mc orange"><div class="ml">Total Gross</div><div class="mv">₱'+fp(tG)+'</div></div>'
   +'<div class="mc red"><div class="ml">Total Deductions</div><div class="mv">₱'+fp(tD)+'</div></div>'
   +'<div class="mc green"><div class="ml">Total Net Pay</div><div class="mv">₱'+fp(tN)+'</div></div>';
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Position</th><th title="Working days in the period (divisor for daily rate)">Period Days</th><th title="Actual days worked">Days Worked</th><th>Daily Rate</th><th>Basic Pay</th><th>Total Earnings</th><th>Total Deductions</th><th>Net Pay</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Position</th><th>Days</th><th>Basic Pay</th><th>Total Earnings</th><th>Total Deductions</th><th>Net Pay</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
   +'<div style="margin-top:12px;text-align:right"><button class="btn br" onclick="deletePayrollPeriod()">🗑 Delete Entire Period</button></div>';
 }
 function exportPayrollCSV(){
   var per=v('pay-per'),k=attKey(per);
-  var rows=[['Name','Position','Period Days','Days Worked','Daily Rate','Basic Pay','Total Earnings','Total Deductions','Net Pay']];
-  employees.filter(e=>attendance[k]&&attendance[k][e.id]).forEach(e=>{var a=attendance[k][e.id],p=calcPay(e,a);rows.push([e.name,e.pos||'',a.periodDays||13,a.days,p.dr.toFixed(2),p.basicPay.toFixed(2),p.totalEarnings.toFixed(2),p.totalDeductions.toFixed(2),p.netPay.toFixed(2)]);});
+  var rows=[['Name','Position','Days Worked','Basic Pay','Total Earnings','Total Deductions','Net Pay']];
+  employees.filter(e=>attendance[k]&&attendance[k][e.id]).forEach(e=>{var a=attendance[k][e.id],p=calcPay(e,a);rows.push([e.name,e.pos||'',a.days,p.basicPay.toFixed(2),p.totalEarnings.toFixed(2),p.totalDeductions.toFixed(2),p.netPay.toFixed(2)]);});
   downloadCSV('HMB_Payroll_'+per.replace(/[^a-zA-Z0-9]/g,'_')+'.csv',rows);
 }
 function exportPayrollCSVRpt(){var per=v('rpt-pay-per');document.getElementById('pay-per').value=per;exportPayrollCSV();}
@@ -1587,7 +1593,7 @@ function buildSlipHTML(e,a,per,pdate){
   +'</div><div class="slip-cols">'
   +'<div><div class="slip-sec-hd">EARNINGS</div><table class="slip-tbl">'
   +'<tr><td>SEMI-MONTHLY BASIC PAY</td><td class="val">'+fp(e.smb)+'</td></tr>'
-  +'<tr><td>DAILY RATE (÷'+( (a.periodDays||13) )+')</td><td class="val">'+fp(p.dr)+'</td></tr>'
+  +'<tr><td>DAILY RATE (÷'+p.periodDays+')</td><td class="val">'+fp(p.dr)+'</td></tr>'
   +'<tr><td>DAYS WORKED</td><td class="val">'+a.days+'</td></tr>'
   +'<tr><td>BASIC PAY</td><td class="val">'+fp(p.basicPay)+'</td></tr>'
   +'<tr><td>DEMINIMIS</td><td class="val">'+(e.dm?fp(e.dm):'-')+'</td></tr>'
@@ -2287,6 +2293,294 @@ async function mgmtUpdateLeave(id,status){
   mgmtRenderLeaves();
   mgmtRenderMetrics();
 }
+
+
+// ==================== EXCEL PAYROLL IMPORT ====================
+function showXlsxMsg(msg, ok) {
+  var el = document.getElementById('xlsx-import-msg');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.background = ok ? '#e8f5e9' : '#fff8e1';
+  el.style.color = ok ? 'var(--green)' : '#7b5800';
+  el.style.borderLeftColor = ok ? 'var(--green)' : 'var(--yellow)';
+  el.innerHTML = msg;
+}
+
+function normalizeNameForMatch(name) {
+  // "Arellano, Jeaneza Heunise Balintos" → "arellano jeaneza heunise balintos"
+  return name.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function fuzzyMatchEmployee(xlsxName) {
+  // Try to match xlsx name against employees list
+  var norm = normalizeNameForMatch(xlsxName);
+  var parts = norm.split(/[\s,]+/).filter(Boolean);
+  var lastName = parts[0]; // xlsx names are "Last, First..."
+
+  var best = null, bestScore = 0;
+  employees.forEach(function(e) {
+    var en = normalizeNameForMatch(e.name);
+    var eParts = en.split(/[\s,]+/).filter(Boolean);
+    var eLastName = eParts[0];
+    // Exact normalized match
+    if (en === norm) { best = e; bestScore = 100; return; }
+    // Last name + at least one more part match
+    var score = 0;
+    if (eLastName === lastName) score += 60;
+    parts.forEach(function(p) { if (p.length > 2 && en.includes(p)) score += 10; });
+    if (score > bestScore) { bestScore = score; best = e; }
+  });
+  return bestScore >= 60 ? best : null;
+}
+
+async function importPayrollExcel(evt) {
+  var file = evt.target.files[0];
+  evt.target.value = ''; // reset so same file can be re-imported
+  if (!file) return;
+
+  if (typeof XLSX === 'undefined') {
+    showXlsxMsg('⚠️ Excel library not loaded yet. Please wait a moment and try again.', false);
+    return;
+  }
+
+  showXlsxMsg('⏳ Reading Excel file…', true);
+
+  var reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      var data = new Uint8Array(e.target.result);
+      var wb = XLSX.read(data, { type: 'array' });
+
+      // Find PAYROLL REGISTER sheet (case-insensitive)
+      var regSheet = null, regName = null;
+      wb.SheetNames.forEach(function(n) {
+        if (n.toUpperCase().includes('PAYROLL REGISTER')) { regSheet = wb.Sheets[n]; regName = n; }
+      });
+      if (!regSheet) {
+        showXlsxMsg('❌ Could not find a "PAYROLL REGISTER" sheet in this file. Please check the Excel format.', false);
+        return;
+      }
+
+      var rows = XLSX.utils.sheet_to_json(regSheet, { header: 1, defval: '' });
+
+      // Find the header row — look for row containing "EMPLOYEE NAME" and "NO. OF DAYS WORKED"
+      var headerRowIdx = -1;
+      for (var i = 0; i < Math.min(rows.length, 15); i++) {
+        var rowStr = rows[i].join('|').toUpperCase();
+        if (rowStr.includes('EMPLOYEE NAME') && rowStr.includes('DAYS WORKED')) {
+          headerRowIdx = i;
+          break;
+        }
+      }
+      if (headerRowIdx < 0) {
+        showXlsxMsg('❌ Could not find the header row in PAYROLL REGISTER sheet.', false);
+        return;
+      }
+
+      // Map column indices from header row
+      // Row headerRowIdx = main headers, headerRowIdx+1 = sub-headers (HRS/AMT)
+      var hdr = rows[headerRowIdx].map(function(v) { return (v+'').trim().toUpperCase(); });
+      var sub = rows[headerRowIdx + 1] ? rows[headerRowIdx + 1].map(function(v) { return (v+'').trim().toUpperCase(); }) : [];
+
+      function colIdx(label, subLabel) {
+        // Find column by main header; if subLabel given, find the right sub-column
+        var matches = [];
+        hdr.forEach(function(h, i) { if (h.includes(label)) matches.push(i); });
+        if (!matches.length) return -1;
+        if (!subLabel || matches.length === 1) return matches[0];
+        // find sub-header match
+        for (var m of matches) {
+          if (sub[m] && sub[m].toUpperCase().includes(subLabel)) return m;
+          // look in next columns for the sub-header
+          for (var offset = 0; offset <= 3; offset++) {
+            if (sub[m + offset] && sub[m + offset].toUpperCase().includes(subLabel)) return m + offset;
+          }
+        }
+        return matches[0];
+      }
+
+      var C = {
+        name:      hdr.indexOf('EMPLOYEE NAME') >= 0 ? hdr.indexOf('EMPLOYEE NAME') : -1,
+        days:      colIdx('NO. OF DAYS WORKED'),
+        ot_hrs:    colIdx('REG OVERTIME', 'HRS'),
+        ot_amt:    colIdx('REG OVERTIME', 'AMT'),
+        otNd_hrs:  colIdx('NIGHT DIFF', 'HRS'),
+        otNd_amt:  colIdx('NIGHT DIFF', 'AMT'),
+        restDay_hrs: colIdx('REG REST DAY', 'HRS'),
+        restDay_amt: colIdx('REG REST DAY', 'AMT'),
+        holiday:   colIdx('HOLIDAY PAY'),
+        leave:     colIdx('LEAVE W'),
+        commission:colIdx('COMMISSION'),
+        otherAdd:  colIdx('OTHER ADDITIONALS'),
+        otherDed:  colIdx('OTHER DEDUCTIONS'),
+        late_hrs:  colIdx('LATE', 'HRS'),
+        late_amt:  colIdx('LATE', 'AMT'),
+        deminimis: colIdx('DEMINIMIS'),
+        smb:       colIdx('SEMI-MONTHLY BASIC PAY'),
+        periodDays: -1 // derived from header text
+      };
+
+      // Extract period days from sheet — look for "Reg Work Days: N Days" in any early row
+      var periodDays = 13; // fallback
+      for (var ri = 0; ri < Math.min(rows.length, 8); ri++) {
+        var rowText = rows[ri].join(' ');
+        var pdMatch = rowText.match(/Reg(?:ular)?\s+Work\s+Days[:\s]*(\d+)/i);
+        if (pdMatch) { periodDays = parseInt(pdMatch[1]); break; }
+      }
+      // Also try attendance summary sheet
+      if (periodDays === 13) {
+        var attSheet = null;
+        wb.SheetNames.forEach(function(n) {
+          if (n.toUpperCase().includes('ATTENDANCE')) attSheet = wb.Sheets[n];
+        });
+        if (attSheet) {
+          var attRows = XLSX.utils.sheet_to_json(attSheet, { header: 1, defval: '' });
+          for (var ri = 0; ri < Math.min(attRows.length, 10); ri++) {
+            var txt = attRows[ri].join(' ');
+            var m2 = txt.match(/Reg(?:ular)?\s+Work\s+Days[:\s]*(\d+)/i);
+            if (m2) { periodDays = parseInt(m2[1]); break; }
+          }
+        }
+      }
+
+      // Data rows start at headerRowIdx + 2 (skip main header + sub-header)
+      var dataStart = headerRowIdx + 2;
+      var matched = [], unmatched = [], skipped = 0;
+
+      for (var ri = dataStart; ri < rows.length; ri++) {
+        var row = rows[ri];
+        var nameVal = C.name >= 0 ? (row[C.name] + '').trim() : '';
+        if (!nameVal || nameVal.toUpperCase() === 'GRAND TOTAL' || !isNaN(parseFloat(nameVal))) {
+          skipped++;
+          continue;
+        }
+
+        var emp = fuzzyMatchEmployee(nameVal);
+        if (!emp) { unmatched.push(nameVal); continue; }
+
+        function getNum(col) {
+          if (col < 0) return 0;
+          var v = parseFloat(row[col]);
+          return isNaN(v) ? 0 : v;
+        }
+
+        // late amount: use AMT sub-col; combine Sales + Operations cols if two exist
+        var lateAmt = 0;
+        // Find all LATE columns
+        var lateCols = [];
+        hdr.forEach(function(h, i) { if (h.includes('LATE') || h.includes('UNDERTIME')) lateCols.push(i); });
+        // The AMT cols for late are usually offset +1 from HRS cols
+        // Look for sub-header AMT among late cols
+        lateCols.forEach(function(ci) {
+          for (var off = 0; off <= 2; off++) {
+            if (sub[ci+off] && sub[ci+off].toUpperCase() === 'AMT') {
+              lateAmt += getNum(ci + off);
+              break;
+            }
+          }
+        });
+
+        var rec = {
+          days:      getNum(C.days),
+          ot:        getNum(C.ot_hrs),
+          otNd:      getNum(C.otNd_hrs),
+          restDay:   getNum(C.restDay_hrs),
+          holiday:   getNum(C.holiday),
+          leave:     getNum(C.leave),
+          commission:getNum(C.commission),
+          otherAdd:  getNum(C.otherAdd),
+          otherDed:  getNum(C.otherDed),
+          late:      lateAmt,
+          periodDays: periodDays
+        };
+
+        matched.push({ emp: emp, rec: rec, xlsxName: nameVal });
+      }
+
+      if (!matched.length && !unmatched.length) {
+        showXlsxMsg('❌ No employee data rows found. Check that the sheet has data rows below the header.', false);
+        return;
+      }
+
+      // Show preview modal
+      showImportPreview(matched, unmatched, periodDays);
+
+    } catch(err) {
+      showXlsxMsg('❌ Error reading file: ' + err.message, false);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showImportPreview(matched, unmatched, periodDays) {
+  // Build or reuse a preview modal
+  var existing = document.getElementById('xlsx-preview-modal');
+  if (existing) existing.remove();
+
+  var rows = matched.map(function(m) {
+    return '<tr>'
+      + '<td><strong>' + m.emp.name + '</strong><br><span style="font-size:10px;color:var(--muted)">' + m.xlsxName + '</span></td>'
+      + '<td style="text-align:center">' + periodDays + '</td>'
+      + '<td style="text-align:center">' + m.rec.days + '</td>'
+      + '<td style="text-align:center">' + (m.rec.ot || '-') + '</td>'
+      + '<td style="text-align:center">' + (m.rec.otNd || '-') + '</td>'
+      + '<td style="text-align:center">' + (m.rec.holiday ? '₱'+m.rec.holiday.toFixed(2) : '-') + '</td>'
+      + '<td style="text-align:center">' + (m.rec.leave ? '₱'+m.rec.leave.toFixed(2) : '-') + '</td>'
+      + '<td style="text-align:center">' + (m.rec.late ? '₱'+m.rec.late.toFixed(2) : '-') + '</td>'
+      + '<td style="text-align:center">' + (m.rec.otherAdd ? '₱'+m.rec.otherAdd.toFixed(2) : '-') + '</td>'
+      + '<td style="text-align:center">' + (m.rec.otherDed ? '₱'+m.rec.otherDed.toFixed(2) : '-') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var unmatchedHtml = unmatched.length
+    ? '<div class="warnbox" style="margin-top:12px">⚠️ <strong>' + unmatched.length + ' name(s) not matched to any employee:</strong> '
+      + unmatched.map(function(n){return '<em>'+n+'</em>';}).join(', ')
+      + '. These will be skipped.</div>'
+    : '';
+
+  var modal = document.createElement('div');
+  modal.id = 'xlsx-preview-modal';
+  modal.className = 'modal-overlay open';
+  modal.innerHTML = '<div class="modal-box" style="max-width:900px">'
+    + '<div class="modal-title">📥 Import Payroll from Excel'
+    + '<button class="modal-close" onclick="document.getElementById(\'xlsx-preview-modal\').remove()">✕</button></div>'
+    + '<div class="infobox">Found <strong>' + matched.length + ' matched employee(s)</strong> with Period Days = <strong>' + periodDays + '</strong>. Review and confirm to apply to the current period.</div>'
+    + unmatchedHtml
+    + '<div style="overflow-x:auto;margin-top:12px"><table><thead><tr>'
+    + '<th>Employee</th><th>Period Days</th><th>Days Worked</th><th>OT Hrs</th><th>OT ND Hrs</th><th>Holiday</th><th>Leave</th><th>Late</th><th>Other Add</th><th>Other Ded</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + '<div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">'
+    + '<button class="btn" onclick="document.getElementById(\'xlsx-preview-modal\').remove()">Cancel</button>'
+    + '<button class="btn bp" onclick="applyImportedPayroll()">✅ Apply to Current Period</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(modal);
+
+  // Store matched data for apply step
+  window._xlsxImportData = matched;
+}
+
+async function applyImportedPayroll() {
+  var matched = window._xlsxImportData;
+  if (!matched || !matched.length) return;
+
+  var per = document.getElementById('att-per').value;
+  var k = attKey(per);
+  if (!attendance[k]) attendance[k] = {};
+
+  matched.forEach(function(m) {
+    attendance[k][m.emp.id] = m.rec;
+  });
+
+  // Save to server
+  await api('POST', '/api/attendance', { period: k, records: attendance[k] });
+  showSaveIndicator();
+
+  document.getElementById('xlsx-preview-modal').remove();
+  renderPayrollAttGrid();
+  showXlsxMsg('✅ Imported ' + matched.length + ' employee record(s) into <strong>' + per + '</strong>. Review values and click Save.', true);
+}
+
 
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded',async function(){
