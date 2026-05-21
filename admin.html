@@ -1414,7 +1414,7 @@ function roundOT(h){return Math.round(h*2)/2;}
 function r2(n){return Math.round(n*100)/100;}
 function calcPay(e,a){
   var periodDays=parseInt(a.periodDays)||13;
-  var dr=r2(e.smb/periodDays),basicPay=r2(e.smb/periodDays*(a.days||0));
+  var dr=r2(e.smb/periodDays),basicPay=r2((e.smb/periodDays)*(a.days||0));
   var otHrs=(a.ot||0),otPay=r2((dr/8)*1.25*otHrs);
   var otNdHrs=roundOT(a.otNd||0),otNdPay=r2((dr/8)*1.25*1.10*otNdHrs);
   var restDayHrs=roundOT(a.restDay||0),restDayPay=r2((dr/8)*1.30*restDayHrs);
@@ -2452,6 +2452,8 @@ async function importPayrollExcel(evt) {
         matched.push({
           emp: emp,
           xlsxName: nameVal,
+          dm:  g(35),   // Deminimis — synced to employee profile on apply
+          wht: g(33),   // WHT tax — synced to employee profile on apply
           rec: {
             days:       g(9),
             ot:         g(13),   // OT hours
@@ -2500,6 +2502,8 @@ function showImportPreview(matched, unmatched, periodDays, cutOff) {
       + '<td style="text-align:center">' + (r.late ? '\u20b1' + r.late.toFixed(2) : '-') + '</td>'
       + '<td style="text-align:center">' + (r.otherAdd ? '\u20b1' + r.otherAdd.toFixed(2) : '-') + '</td>'
       + '<td style="text-align:center">' + (r.otherDed ? '\u20b1' + r.otherDed.toFixed(2) : '-') + '</td>'
+      + '<td style="text-align:center;color:var(--blue)">' + (m.dm ? '\u20b1' + m.dm.toFixed(2) : '-') + '</td>'
+      + '<td style="text-align:center;color:var(--blue)">' + (m.wht ? '\u20b1' + m.wht.toFixed(2) : '-') + '</td>'
       + '</tr>';
   }).join('');
 
@@ -2519,7 +2523,7 @@ function showImportPreview(matched, unmatched, periodDays, cutOff) {
     + '<div class="infobox">Found <strong>' + matched.length + ' matched employee(s)</strong> \u2014 Period Days: <strong>' + periodDays + '</strong>. Review then click Apply.</div>'
     + unmatchedHtml
     + '<div style="overflow-x:auto;margin-top:12px"><table><thead><tr>'
-    + '<th>Employee</th><th>Period Days</th><th>Days Worked</th><th>OT Hrs</th><th>ND OT Hrs</th><th>Holiday</th><th>Leave</th><th>Late</th><th>Other Add</th><th>Other Ded</th>'
+    + '<th>Employee</th><th>Period Days</th><th>Days Worked</th><th>OT Hrs</th><th>ND OT Hrs</th><th>Holiday</th><th>Leave</th><th>Late/UT</th><th>Other Add</th><th>Other Ded</th><th>Deminimis</th><th>WHT</th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table></div>'
     + '<div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">'
     + '<button class="btn" onclick="document.getElementById(\'xlsx-preview-modal\').remove()">Cancel</button>'
@@ -2535,12 +2539,27 @@ async function applyImportedPayroll() {
   var per = document.getElementById('att-per').value;
   var k = attKey(per);
   if (!attendance[k]) attendance[k] = {};
+  // Apply attendance records
   matched.forEach(function(m) { attendance[k][m.emp.id] = m.rec; });
   await api('POST', '/api/attendance', { period: k, records: attendance[k] });
+  // Sync deminimis and WHT from Excel into each employee profile
+  var empUpdates = [];
+  matched.forEach(function(m) {
+    var e = employees.find(function(x){ return x.id === m.emp.id; });
+    if (!e) return;
+    var changed = false;
+    if (m.dm > 0 && e.dm !== m.dm) { e.dm = m.dm; changed = true; }
+    if (m.wht > 0 && e.wht !== m.wht) { e.wht = m.wht; changed = true; }
+    if (changed) empUpdates.push(e);
+  });
+  if (empUpdates.length) {
+    await api('POST', '/api/employees', employees);
+  }
   showSaveIndicator();
   document.getElementById('xlsx-preview-modal').remove();
   renderPayrollAttGrid();
-  showXlsxMsg('\u2705 Imported ' + matched.length + ' employee record(s) into <strong>' + per + '</strong>. Review and click Save.', true);
+  var updMsg = empUpdates.length ? ' (<strong>' + empUpdates.length + '</strong> employee deminimis/WHT value(s) updated)' : '';
+  showXlsxMsg('\u2705 Imported ' + matched.length + ' employee record(s) into <strong>' + per + '</strong>.' + updMsg + ' Review and click Save.', true);
 }
 
 
