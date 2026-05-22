@@ -448,7 +448,7 @@ tr:hover td{background:#fafcff}
             <option>Apr. 1 - Apr. 15, 2026</option>
             <option>Apr. 16 - Apr. 30, 2026</option>
             <option>May. 1 - May. 15, 2026</option>
-            <option>May. 16 - May. 31, 2026</option>
+            <option selected>May. 16 - May. 31, 2026</option>
             <option>Jun. 1 - Jun. 15, 2026</option>
             <option>Jun. 16 - Jun. 30, 2026</option>
           </select>
@@ -476,13 +476,7 @@ tr:hover td{background:#fafcff}
       <div class="row">
         <div class="f" style="max-width:260px"><label>Period</label>
           <select id="pay-per" onchange="renderPayroll()">
-            <option>Mar. 16 - Mar. 31, 2026</option>
-            <option>Apr. 1 - Apr. 15, 2026</option>
-            <option>Apr. 16 - Apr. 30, 2026</option>
-            <option>May. 1 - May. 15, 2026</option>
             <option>May. 16 - May. 31, 2026</option>
-            <option>Jun. 1 - Jun. 15, 2026</option>
-            <option>Jun. 16 - Jun. 30, 2026</option>
           </select>
         </div>
         <button class="btn no-print" onclick="window.print()" style="align-self:flex-end">🖨 Print</button>
@@ -497,7 +491,6 @@ tr:hover td{background:#fafcff}
   <div id="sec-send" class="sec">
     <div class="page-title">Send Pay Slips</div>
     <div class="page-sub">Generate and send pay slips via email</div>
-    <div id="send-approval-notice" style="margin-bottom:14px"></div>
     <div class="card no-print">
       <div class="row" style="align-items:flex-end">
         <div class="f" style="max-width:260px"><label>Period</label>
@@ -506,7 +499,7 @@ tr:hover td{background:#fafcff}
             <option>Apr. 1 - Apr. 15, 2026</option>
             <option>Apr. 16 - Apr. 30, 2026</option>
             <option>May. 1 - May. 15, 2026</option>
-            <option>May. 16 - May. 31, 2026</option>
+            <option selected>May. 16 - May. 31, 2026</option>
             <option>Jun. 1 - Jun. 15, 2026</option>
             <option>Jun. 16 - Jun. 30, 2026</option>
           </select>
@@ -1618,7 +1611,7 @@ function buildSlipHTML(e,a,per,pdate){
   +'<tr class="total-row"><td class="bold">TOTAL DEDUCTIONS</td><td class="val bold">'+fp(p.totalDeductions)+'</td></tr>'
   +'</table></div></div>'
   +'<div class="slip-net-grid"><div class="slip-net-lbl">NET PAY</div><div class="slip-net-val">₱'+fp(p.netPay)+'</div></div>'
-  +'<div class="slip-notes">Load Allowance: ₱'+fp(e.load)+'/mo. &nbsp;|&nbsp; HDMF MPL: ₱'+fp(e.mpl)+'/mo.</div>'
+  +'<div class="slip-notes">Load Allowance: ₱'+fp(e.load)+'/semi mo. &nbsp;|&nbsp; HDMF MPL: ₱'+fp(e.mpl)+'/semi mo.</div>'
   +'<div class="slip-sigs"><div><div style="color:#666;font-size:10px;text-transform:uppercase">PREPARED BY:</div><div class="slip-sig-name">'+setup.prep+'</div></div>'
   +'<div><div style="color:#666;font-size:10px;text-transform:uppercase">APPROVED BY:</div><div class="slip-sig-name">'+setup.appr+'</div></div>'
   +'</div></div>';
@@ -1638,28 +1631,15 @@ function buildSlipText(e,a,per,pdate){
 }
 function renderSendList(){
   var per=v('send-per'),k=attKey(per),pdate=v('att-pdate');
-  var approved=!!payslipApprovals[k];
-  var notice=document.getElementById('send-approval-notice');
-  if(notice){
-    if(approved){
-      notice.innerHTML='<div class="infobox" style="background:#e8f5e9;color:#1b5e20;border-left-color:#2e7d32">✅ <strong>Management has approved payslip sending</strong> for this period. You may now send payslips.</div>';
-    } else {
-      notice.innerHTML='<div class="warnbox">🔒 <strong>Awaiting management approval.</strong> Payslip sending for <strong>'+per+'</strong> has not yet been approved by management. Please ask management to approve via the Management Console before sending.</div>';
-    }
-  }
-  // Toggle Send All button
   var sendAllBtn=document.getElementById('send-all-btn');
-  if(sendAllBtn){sendAllBtn.disabled=!approved;sendAllBtn.style.opacity=approved?'1':'0.45';sendAllBtn.title=approved?'':'Management approval required';}
-
+  if(sendAllBtn){sendAllBtn.disabled=false;sendAllBtn.style.opacity='1';sendAllBtn.title='';}
   var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
   var w=document.getElementById('send-wrap');
   if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';return;}
   w.innerHTML=recs.map(e=>{
     var a=attendance[k][e.id],p=calcPay(e,a);
     var sent=payslipHistory.some(h=>h.empId===e.id&&h.period===per);
-    var btnHtml=approved
-      ? '<button class="btn bs bp" onclick="sendOne('+e.id+',\''+per+'\',\''+pdate+'\')">Send</button>'
-      : '<button class="btn bs" disabled style="opacity:0.45;cursor:not-allowed" title="Management approval required">🔒 Locked</button>';
+    var btnHtml='<button class="btn bs bp" onclick="sendOne('+e.id+',\''+per+'\',\''+pdate+'\')">Send</button>';
     return'<div style="margin-bottom:1.5rem">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;gap:8px" class="no-print">'
     +'<div><strong style="font-size:14px">'+e.name+'</strong> <span style="color:var(--muted);font-size:12px">'+(e.pos||'')+'</span>'
@@ -1681,7 +1661,6 @@ function showSendMsg(msg,ok){
 }
 async function sendOne(empId,per,pdate){
   var k=attKey(per);
-  if(!payslipApprovals[k]){alert('This period has not been approved by management yet. Please ask management to approve payslip sending first.');return;}
   var e=employees.find(x=>x.id===empId);
   if(!e||!e.email){alert('No email address for this employee.');return;}
   var k=attKey(per),a=attendance[k]&&attendance[k][empId];
@@ -1701,7 +1680,7 @@ async function sendOne(empId,per,pdate){
   total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
   wht_tax:e.wht?fp(e.wht):'-',late_undertime:a.late?fp(a.late):'-',
   total_deductions:fp(p.totalDeductions),net_pay:'₱'+fp(p.netPay),
-  notes:'Load Allowance: ₱'+fp(e.load)+'/mo. | HDMF MPL: ₱'+fp(e.mpl)+'/mo.'
+  notes:'Load Allowance: ₱'+fp(e.load)+'/semi mo. | HDMF MPL: ₱'+fp(e.mpl)+'/semi mo.'
 });}
     catch(err){alert('Email failed: '+(err.text||err));return;}
   }
@@ -1714,7 +1693,6 @@ async function sendOne(empId,per,pdate){
 }
 async function sendAll(){
   var per=v('send-per'),k=attKey(per),pdate=v('att-pdate');
-  if(!payslipApprovals[k]){showSendMsg('🔒 Management approval required before sending payslips for this period.',false);return;}
   var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.email);
   if(!recs.length){showSendMsg('No employees with email for this period.',false);return;}
   for(var i=0;i<recs.length;i++)await sendOne(recs[i].id,per,pdate);
