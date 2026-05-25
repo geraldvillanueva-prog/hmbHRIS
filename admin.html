@@ -941,6 +941,19 @@ tr:hover td{background:#fafcff}
         <button class="btn" style="align-self:flex-end" onclick="closeLocEdit()">Cancel</button>
         <span class="ok-msg" id="loc-edit-ok">Saved!</span>
       </div>
+      <div id="loc-edit-days-wrap" style="display:none;margin-top:10px">
+        <label style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.04em;display:block;margin-bottom:6px">🗓️ ALLOWED WFH DAYS</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="loc-day-cb" value="1"> Mon</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="loc-day-cb" value="2"> Tue</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="loc-day-cb" value="3"> Wed</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="loc-day-cb" value="4"> Thu</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="loc-day-cb" value="5"> Fri</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="loc-day-cb" value="6"> Sat</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="loc-day-cb" value="0"> Sun</label>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:5px">Leave all unchecked to allow WFH on any day.</div>
+      </div>
       <div class="infobox" id="loc-edit-hint" style="margin-top:10px"></div>
     </div>
 
@@ -1129,9 +1142,10 @@ function toggleLocEditFields(){
   var pol = v('loc-edit-policy');
   document.getElementById('loc-edit-lat-wrap').style.display = pol==='wfh' ? '' : 'none';
   document.getElementById('loc-edit-lng-wrap').style.display = pol==='wfh' ? '' : 'none';
+  document.getElementById('loc-edit-days-wrap').style.display = pol==='wfh' ? '' : 'none';
   var hint = document.getElementById('loc-edit-hint');
   if(pol==='office') hint.textContent = '🏢 Employee must be within the office radius when punching in/out.';
-  else if(pol==='wfh') hint.textContent = '🏠 Enter the employee\'s home coordinates. They must punch from within the set radius. Recommended: 300–500m.';
+  else if(pol==='wfh') hint.textContent = '🏠 Enter the employee\'s home coordinates. They must punch from within the set radius. Select which days WFH is allowed, or leave all unchecked for any day.';
   else hint.textContent = '🚗 No restriction. GPS is captured and logged per punch for audit purposes.';
 }
 async function saveOfficeLocation(){
@@ -1154,17 +1168,30 @@ function renderLocationTable(){
     if(p==='liaison') return '<span class="badge badge-orange">🚗 Liaison</span>';
     return '<span class="badge badge-blue">🏢 Office</span>';
   };
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Position</th><th>Policy</th><th>Home Coords</th><th>Radius</th><th></th></tr></thead><tbody>'
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Position</th><th>Policy</th><th>WFH Days</th><th>Home Coords</th><th>Radius</th><th></th></tr></thead><tbody>'
   +list.map(e=>{
     var pol = e.loc_policy||'office';
     var coords = (pol==='wfh'&&e.loc_lat&&e.loc_lng)
       ? '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px">'+parseFloat(e.loc_lat).toFixed(5)+', '+parseFloat(e.loc_lng).toFixed(5)+'</span>'
       : (pol==='office'?'<span style="color:var(--muted);font-size:11px">Uses office coords</span>':'<span style="color:var(--muted);font-size:11px">—</span>');
     var radius = e.loc_radius ? e.loc_radius+'m' : (pol==='office'?(officeLocation.radius||200)+'m':'—');
+    var DAY_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var wfhDaysHtml = '—';
+    if(pol==='wfh'){
+      if(e.loc_wfh_days){
+        var dayBadges = e.loc_wfh_days.split(',').map(function(d){
+          return '<span style="display:inline-block;background:#e8f5e9;color:var(--green);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;margin:1px">'+DAY_SHORT[parseInt(d)]+'</span>';
+        }).join(' ');
+        wfhDaysHtml = dayBadges;
+      } else {
+        wfhDaysHtml = '<span style="color:var(--muted);font-size:11px">Any day</span>';
+      }
+    }
     return '<tr>'
       +'<td><strong>'+e.name+'</strong></td>'
       +'<td>'+(e.pos||'—')+'</td>'
       +'<td>'+policyBadge(pol)+'</td>'
+      +'<td>'+wfhDaysHtml+'</td>'
       +'<td>'+coords+'</td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+radius+'</td>'
       +'<td><button class="btn bs" style="background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openLocEdit('+e.id+')">✏️ Edit Policy</button></td></tr>';
@@ -1178,6 +1205,11 @@ function openLocEdit(empId){
   document.getElementById('loc-edit-lat').value = e.loc_lat||'';
   document.getElementById('loc-edit-lng').value = e.loc_lng||'';
   document.getElementById('loc-edit-radius').value = e.loc_radius||300;
+  // Populate WFH day checkboxes
+  var savedDays = e.loc_wfh_days ? e.loc_wfh_days.split(',').map(Number) : [];
+  document.querySelectorAll('.loc-day-cb').forEach(function(cb){
+    cb.checked = savedDays.includes(parseInt(cb.value));
+  });
   document.getElementById('loc-edit-card').style.display='';
   toggleLocEditFields();
   document.getElementById('loc-edit-card').scrollIntoView({behavior:'smooth'});
@@ -1193,11 +1225,17 @@ async function saveLocPolicy(){
   var lng = parseFloat(v('loc-edit-lng'))||null;
   var radius = parseInt(v('loc-edit-radius'))||300;
   if(pol==='wfh'&&(!lat||!lng)){alert('WFH policy requires home latitude and longitude.');return;}
-  e.loc_policy = pol;
-  e.loc_lat = (pol==='wfh'?lat:null);
-  e.loc_lng = (pol==='wfh'?lng:null);
-  e.loc_radius = radius;
-  await api('PUT','/api/employees/'+empId, {...e});
+  // Collect checked WFH days
+  var checkedDays = [];
+  document.querySelectorAll('.loc-day-cb:checked').forEach(function(cb){ checkedDays.push(cb.value); });
+  var wfhDays = (pol==='wfh' && checkedDays.length) ? checkedDays.join(',') : null;
+  e.loc_policy   = pol;
+  e.loc_lat      = (pol==='wfh'?lat:null);
+  e.loc_lng      = (pol==='wfh'?lng:null);
+  e.loc_radius   = radius;
+  e.loc_wfh_days = wfhDays;
+  e.locWfhDays   = wfhDays; // camelCase for server
+  await api('PUT','/api/employees/'+empId, {...e, locPolicy:pol, locLat:e.loc_lat, locLng:e.loc_lng, locRadius:radius, locWfhDays:wfhDays});
   flash('loc-edit-ok');showSaveIndicator();
   closeLocEdit();
   renderLocationTable();
