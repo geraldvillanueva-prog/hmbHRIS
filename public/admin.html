@@ -1069,6 +1069,7 @@ async function loadFromStorage(){
 // ==================== UTILS ====================
 function v(id){return(document.getElementById(id)||{}).value||'';}
 function fp(n){return(isNaN(n)||n===''||n===null)?'-':Number(n).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function peso(n){return(isNaN(n)||n===''||n===null)?'-':'₱'+fp(n);}
 function flash(id){var el=document.getElementById(id);if(!el)return;el.style.display='inline';setTimeout(()=>el.style.display='none',2200);}
 function fmtDate(d){if(!d)return'';try{var dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});}catch(e){return d;}}
 function fmtDT(iso){try{return new Date(iso).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return iso;}}
@@ -1247,7 +1248,7 @@ function renderEmpTable(){
   var w=document.getElementById('emp-wrap');
   if(!employees.length){w.innerHTML='<div class="empty">No employees yet.</div>';return;}
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Dept</th><th>Type</th><th>Semi-monthly</th><th>VL</th><th>SL</th><th>Email</th><th></th></tr></thead><tbody>'
-  +employees.map((e,i)=>'<tr><td style="color:var(--muted);font-family:\'IBM Plex Mono\',monospace">'+(i+1)+'</td><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+(e.dept||'—')+'</td><td><span class="badge badge-blue">'+((e.type||'Regular'))+'</span></td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(e.smb)+'</td><td>'+((e.vlBal||0))+'</td><td>'+((e.slBal||0))+'</td><td style="color:var(--blue)">'+(e.email||'<span style="color:var(--red)">no email</span>')+'</td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openEditEmp('+e.id+')">✏️ Edit</button><button class="btn bs br" onclick="removeEmp('+e.id+')">Remove</button></td></tr>').join('')
+  +employees.map((e,i)=>'<tr><td style="color:var(--muted);font-family:\'IBM Plex Mono\',monospace">'+(i+1)+'</td><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+(e.dept||'—')+'</td><td><span class="badge badge-blue">'+((e.type||'Regular'))+'</span></td><td style="font-family:\'IBM Plex Mono\',monospace">'+peso(e.smb)+'</td><td>'+((e.vlBal||0))+'</td><td>'+((e.slBal||0))+'</td><td style="color:var(--blue)">'+(e.email||'<span style="color:var(--red)">no email</span>')+'</td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openEditEmp('+e.id+')">✏️ Edit</button><button class="btn bs br" onclick="removeEmp('+e.id+')">Remove</button></td></tr>').join('')
   +'</tbody></table></div>';
 }
 
@@ -1281,7 +1282,7 @@ function render201(){
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
     <div class="card"><div class="card-title">⚠️ Disciplinary Records (${discs.length})</div>${discs.length?'<table><thead><tr><th>Date</th><th>Offense</th><th>Sanction</th><th>Status</th></tr></thead><tbody>'+discs.map(d=>'<tr><td>'+fmtDate(d.date)+'</td><td>'+d.type+'</td><td>'+d.sanction+'</td><td><span class="badge '+(d.status==='Open'?'badge-red':'badge-green')+'">'+d.status+'</span></td></tr>').join('')+'</tbody></table>':'<div style="color:var(--muted);font-size:12px">No records.</div>'}</div>
-    <div class="card"><div class="card-title">💰 Pay Slip History (${slips.length})</div>${slips.length?'<table><thead><tr><th>Period</th><th>Net Pay</th><th>Sent</th></tr></thead><tbody>'+slips.map(h=>'<tr><td>'+h.period+'</td><td style="font-weight:700;color:var(--green)">₱'+fp(h.netPay)+'</td><td style="font-size:11px">'+fmtDT(h.sentAt)+'</td></tr>').join('')+'</tbody></table>':'<div style="color:var(--muted);font-size:12px">No pay slips sent.</div>'}</div>
+    <div class="card"><div class="card-title">💰 Pay Slip History (${slips.length})</div>${slips.length?'<table><thead><tr><th>Period</th><th>Net Pay</th><th>Sent</th></tr></thead><tbody>'+slips.map(h=>'<tr><td>'+h.period+'</td><td style="font-weight:700;color:var(--green)">'+peso(h.netPay)+'</td><td style="font-size:11px">'+fmtDT(h.sentAt)+'</td></tr>').join('')+'</tbody></table>':'<div style="color:var(--muted);font-size:12px">No pay slips sent.</div>'}</div>
   </div>`;
 }
 function infoRow(label,val){return`<div style="padding:6px 0;border-bottom:1px solid var(--border)"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700">${label}</div><div style="font-size:13px;margin-top:2px">${val||'—'}</div></div>`;}
@@ -1494,14 +1495,14 @@ function renderPayrollAttGrid(){
     +'<table id="payroll-enc-table" style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">'
     +'<thead>'
     +'<tr style="background:var(--navy);color:#fff">'
-    +'<th rowspan="2" style="text-align:left;padding:8px 10px;min-width:170px;position:sticky;left:0;z-index:2;background:var(--navy);color:#fff">EMPLOYEE NAME</th>'
-    +'<th rowspan="2" style="padding:8px 6px;min-width:70px;color:#fff">SEMI-MO<br>BASIC</th>'
-    +'<th rowspan="2" style="padding:8px 6px;min-width:65px;color:#fff">DAILY<br>RATE</th>'
-    +'<th rowspan="2" style="padding:8px 6px;min-width:65px;color:#fff">DAYS<br>WORKED</th>'
+    +'<th rowspan="2" style="text-align:left;padding:8px 10px;min-width:170px;position:sticky;left:0;z-index:2;background:var(--navy);color:#fff;vertical-align:middle">EMPLOYEE NAME</th>'
+    +'<th rowspan="2" style="padding:8px 6px;min-width:70px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">SEMI-MO BASIC</th>'
+    +'<th rowspan="2" style="padding:8px 6px;min-width:65px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">DAILY RATE</th>'
+    +'<th rowspan="2" style="padding:8px 6px;min-width:65px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">DAYS WORKED</th>'
     +'<th colspan="5" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#1565c0;color:#fff">EARNINGS</th>'
     +'<th colspan="3" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#2e7d32;color:#fff">ALLOWANCES / ADD-ONS</th>'
     +'<th colspan="3" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#c62828;color:#fff">DEDUCTIONS</th>'
-    +'<th rowspan="2" style="padding:8px 6px;min-width:90px;background:#00695c;color:#fff">NET PAY</th>'
+    +'<th rowspan="2" style="padding:8px 6px;min-width:90px;background:#00695c;color:#fff;vertical-align:middle;text-align:center">NET PAY</th>'
     +'</tr>'
     +'<tr style="font-size:10px;color:#fff">'
     // Earnings sub-cols
@@ -1541,9 +1542,9 @@ function renderPayrollAttGrid(){
       +'<div style="font-weight:700;color:var(--navy);font-size:12.5px">'+e.name+'</div>'
       +'<div style="font-size:10px;color:var(--muted)">'+(e.pos||'')+'</div></td>'
       // Semi-monthly basic
-      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace">₱'+fp(e.smb)+'</td>'
+      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace">'+peso(e.smb)+'</td>'
       // Daily rate (live)
-      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace" id="dr_'+e.id+'">₱'+fp(dr)+'</td>'
+      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace" id="dr_'+e.id+'">'+peso(dr)+'</td>'
       // Days worked
       +'<td style="padding:3px 5px">'
         +'<input type="number" id="att_'+e.id+'_days" value="'+a.days+'" min="0" max="22" step="0.5" '
@@ -1566,13 +1567,13 @@ function renderPayrollAttGrid(){
       // Other add ₱
       +'<td style="padding:3px 5px">'+inp('otherAdd',a.otherAdd,0.01)+'</td>'
       // Deminimis (from employee profile, shown read-only but editable per period via otherAdd — shown as info)
-      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace;color:var(--muted)">'+((e.dm||0)>0?'₱'+fp(e.dm):'-')+'</td>'
+      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace;color:var(--muted)">'+((e.dm||0)>0?peso(e.dm):'-')+'</td>'
       // Other ded ₱
       +'<td style="padding:3px 5px">'+inp('otherDed',a.otherDed,0.01)+'</td>'
       // Late/undertime ₱
       +'<td style="padding:3px 5px">'+inp('late',a.late,0.01)+'</td>'
       // WHT (from employee profile)
-      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace;color:var(--muted)">'+((e.wht||0)>0?'₱'+fp(e.wht):'-')+'</td>'
+      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace;color:var(--muted)">'+((e.wht||0)>0?peso(e.wht):'-')+'</td>'
       // Net pay (live)
       +'<td style="padding:5px 8px;text-align:right;font-weight:700;font-family:\'IBM Plex Mono\',monospace;color:var(--green);background:#f0fff4" id="netpay_'+e.id+'">—</td>'
       +'</tr>'
@@ -1613,7 +1614,7 @@ function applySharedPeriodDays(){
     if(el)el.value=pd;
     // Update daily rate display
     var drEl=document.getElementById('dr_'+e.id);
-    if(drEl)drEl.textContent='₱'+fp(e.smb/pd);
+    if(drEl)drEl.innerHTML=peso(e.smb/pd);
     liveCompute(e.id);
   });
   updatePayrollTotals();
@@ -1633,9 +1634,9 @@ function updatePayrollTotals(){
     totNet+=p.netPay;
   });
   var td=document.getElementById('tot_days');if(td)td.textContent=totDays;
-  var ta=document.getElementById('tot_add');if(ta)ta.textContent='₱'+fp(totAdd);
-  var tded=document.getElementById('tot_ded');if(tded)tded.textContent='₱'+fp(totDed);
-  var tn=document.getElementById('tot_net');if(tn)tn.textContent='₱'+fp(totNet);
+  var ta=document.getElementById('tot_add');if(ta)ta.textContent=peso(totAdd);
+  var tded=document.getElementById('tot_ded');if(tded)tded.textContent=peso(totDed);
+  var tn=document.getElementById('tot_net');if(tn)tn.textContent=peso(totNet);
 }
 function liveCompute(empId){
   var e=employees.find(x=>x.id===empId);if(!e)return;
@@ -1644,11 +1645,11 @@ function liveCompute(empId){
   var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays};
   var p=calcPay(e,a);
   var drEl=document.getElementById('dr_'+empId);
-  if(drEl)drEl.textContent='&#x20b1;'+fp(p.dr);
+  if(drEl)drEl.innerHTML=peso(p.dr);
   // Table mode: update net pay cell
   var netEl=document.getElementById('netpay_'+empId);
   if(netEl){
-    netEl.textContent='&#x20b1;'+fp(p.netPay);
+    netEl.innerHTML=peso(p.netPay);
     netEl.title='Basic: &#x20b1;'+fp(p.basicPay)+' | OT: &#x20b1;'+fp(p.otPay)+' | Gross: &#x20b1;'+fp(p.totalEarnings)+' | Ded: &#x20b1;'+fp(p.totalDeductions);
   }
   // Legacy card mode fallback
@@ -1705,12 +1706,12 @@ function renderPayroll(){
   if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';m.innerHTML='';return;}
   var tG=0,tD=0,tN=0;
   var rows=recs.map(e=>{var a=attendance[k][e.id],p=calcPay(e,a);tG+=p.totalEarnings;tD+=p.totalDeductions;tN+=p.netPay;
-    return'<tr><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+a.days+'</td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.basicPay)+'</td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.totalEarnings)+'</td><td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">₱'+fp(p.totalDeductions)+'</td><td style="font-weight:700;color:var(--green);font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.netPay)+'</td>'
+    return'<tr><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+a.days+'</td><td style="font-family:\'IBM Plex Mono\',monospace">'+peso(p.basicPay)+'</td><td style="font-family:\'IBM Plex Mono\',monospace">'+peso(p.totalEarnings)+'</td><td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">'+peso(p.totalDeductions)+'</td><td style="font-weight:700;color:var(--green);font-family:\'IBM Plex Mono\',monospace">'+peso(p.netPay)+'</td>'
     +'<td><button class="btn bs br" onclick="deletePayrollEmp('+e.id+')">🗑 Delete</button></td></tr>';}).join('');
   m.innerHTML='<div class="mc blue"><div class="ml">Employees</div><div class="mv">'+recs.length+'</div></div>'
-  +'<div class="mc orange"><div class="ml">Total Gross</div><div class="mv">₱'+fp(tG)+'</div></div>'
-  +'<div class="mc red"><div class="ml">Total Deductions</div><div class="mv">₱'+fp(tD)+'</div></div>'
-  +'<div class="mc green"><div class="ml">Total Net Pay</div><div class="mv">₱'+fp(tN)+'</div></div>';
+  +'<div class="mc orange"><div class="ml">Total Gross</div><div class="mv">'+peso(tG)+'</div></div>'
+  +'<div class="mc red"><div class="ml">Total Deductions</div><div class="mv">'+peso(tD)+'</div></div>'
+  +'<div class="mc green"><div class="ml">Total Net Pay</div><div class="mv">'+peso(tN)+'</div></div>';
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Position</th><th>Days</th><th>Basic Pay</th><th>Total Earnings</th><th>Total Deductions</th><th>Net Pay</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
   +'<div style="margin-top:12px;text-align:right"><button class="btn br" onclick="deletePayrollPeriod()">🗑 Delete Entire Period</button></div>';
 }
@@ -1764,7 +1765,7 @@ function buildSlipHTML(e,a,per,pdate){
   +'<tr><td>LATE/UNDERTIME</td><td class="val">'+(a.late?fp(a.late):'-')+'</td></tr>'
   +'<tr class="total-row"><td class="bold">TOTAL DEDUCTIONS</td><td class="val bold">'+fp(p.totalDeductions)+'</td></tr>'
   +'</table></div></div>'
-  +'<div class="slip-net-grid"><div class="slip-net-lbl">NET PAY</div><div class="slip-net-val">₱'+fp(p.netPay)+'</div></div>'
+  +'<div class="slip-net-grid"><div class="slip-net-lbl">NET PAY</div><div class="slip-net-val">'+peso(p.netPay)+'</div></div>'
   +'<div class="slip-notes">Load Allowance: ₱'+fp(e.load)+'/mo. &nbsp;|&nbsp; HDMF MPL: ₱'+fp(e.mpl)+'/mo.</div>'
   +'<div class="slip-sigs"><div><div style="color:#666;font-size:10px;text-transform:uppercase">PREPARED BY:</div><div class="slip-sig-name">'+setup.prep+'</div></div>'
   +'<div><div style="color:#666;font-size:10px;text-transform:uppercase">APPROVED BY:</div><div class="slip-sig-name">'+setup.appr+'</div></div>'
@@ -1810,7 +1811,7 @@ function renderSendList(){
     return'<div style="margin-bottom:1.5rem">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;gap:8px" class="no-print">'
     +'<div><strong style="font-size:14px">'+e.name+'</strong> <span style="color:var(--muted);font-size:12px">'+(e.pos||'')+'</span>'
-    +' <span style="font-size:12px;margin-left:6px">Net: <strong style="color:var(--green)">₱'+fp(p.netPay)+'</strong></span>'
+    +' <span style="font-size:12px;margin-left:6px">Net: <strong style="color:var(--green)">'+peso(p.netPay)+'</strong></span>'
     +' '+(sent?'<span class="badge badge-green">Sent</span>':'<span class="badge badge-yellow">Not yet sent</span>')+'</div>'
     +'<div style="display:flex;gap:8px;align-items:center">'
     +'<span style="font-size:12px;color:'+(e.email?'var(--blue)':'var(--red)')+'">'+(e.email||'no email')+'</span>'
@@ -1877,9 +1878,9 @@ function renderHistory(){
   if(!filtered.length){w.innerHTML='<div class="empty">No history found.</div>';hm.innerHTML='';return;}
   var tN=filtered.reduce((s,h)=>s+h.netPay,0),tE=filtered.reduce((s,h)=>s+h.totalEarnings,0),tD=filtered.reduce((s,h)=>s+h.totalDeductions,0);
   hm.innerHTML='<div class="mc accent"><div class="ml">Pay slips</div><div class="mv">'+filtered.length+'</div></div>'
-  +'<div class="mc orange"><div class="ml">Total earnings</div><div class="mv">₱'+fp(tE)+'</div></div>'
-  +'<div class="mc red"><div class="ml">Total deductions</div><div class="mv">₱'+fp(tD)+'</div></div>'
-  +'<div class="mc green"><div class="ml">Total net paid</div><div class="mv">₱'+fp(tN)+'</div></div>';
+  +'<div class="mc orange"><div class="ml">Total earnings</div><div class="mv">'+peso(tE)+'</div></div>'
+  +'<div class="mc red"><div class="ml">Total deductions</div><div class="mv">'+peso(tD)+'</div></div>'
+  +'<div class="mc green"><div class="ml">Total net paid</div><div class="mv">'+peso(tN)+'</div></div>';
   var byPeriod={};
   filtered.forEach(h=>{if(!byPeriod[h.period])byPeriod[h.period]=[];byPeriod[h.period].push(h);});
   w.innerHTML=Object.keys(byPeriod).map(per=>{
@@ -1887,7 +1888,7 @@ function renderHistory(){
     return'<div class="card" style="margin-bottom:14px">'
     +'<div class="card-title" style="justify-content:space-between">'+per+' <span style="font-size:12px;color:var(--muted)">'+recs.length+' slip(s) · Total net: ₱'+fp(pNet)+'</span></div>'
     +'<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Net Pay</th><th>Gross</th><th>Deductions</th><th>Sent To</th><th>Sent At</th><th></th></tr></thead><tbody>'
-    +recs.map(h=>'<tr><td><strong>'+h.empName+'</strong><div style="font-size:11px;color:var(--muted)">'+h.empPos+'</div></td><td style="font-weight:700;color:var(--green);font-family:\'IBM Plex Mono\',monospace">₱'+fp(h.netPay)+'</td><td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(h.totalEarnings)+'</td><td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">₱'+fp(h.totalDeductions)+'</td><td style="color:var(--blue);font-size:12px">'+h.emailSentTo+'</td><td style="font-size:11px">'+fmtDT(h.sentAt)+'</td><td><button class="btn bs bp" onclick="viewSlip(\''+h.empId+'\',\''+per+'\')">View</button></td></tr>').join('')
+    +recs.map(h=>'<tr><td><strong>'+h.empName+'</strong><div style="font-size:11px;color:var(--muted)">'+h.empPos+'</div></td><td style="font-weight:700;color:var(--green);font-family:\'IBM Plex Mono\',monospace">'+peso(h.netPay)+'</td><td style="font-family:\'IBM Plex Mono\',monospace">'+peso(h.totalEarnings)+'</td><td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">'+peso(h.totalDeductions)+'</td><td style="color:var(--blue);font-size:12px">'+h.emailSentTo+'</td><td style="font-size:11px">'+fmtDT(h.sentAt)+'</td><td><button class="btn bs bp" onclick="viewSlip(\''+h.empId+'\',\''+per+'\')">View</button></td></tr>').join('')
     +'</tbody></table></div></div>';
   }).join('');
 }
@@ -2244,7 +2245,7 @@ function mgmtRenderMetrics(){
     '<div class="mc blue"><div class="ml">Total Employees</div><div class="mv">'+totalEmp+'</div></div>'
    +'<div class="mc orange"><div class="ml">Pending Leaves</div><div class="mv">'+pendingLeaves+'</div></div>'
    +'<div class="mc green"><div class="ml">Payslips Sent</div><div class="mv">'+sentSlips+'</div></div>'
-   +(totalNet?'<div class="mc accent"><div class="ml">Net Pay (Period)</div><div class="mv">₱'+fp(totalNet)+'</div></div>':'');
+   +(totalNet?'<div class="mc accent"><div class="ml">Net Pay (Period)</div><div class="mv">'+peso(totalNet)+'</div></div>':'');
 }
 
 function mgmtRenderPayroll(){
@@ -2259,9 +2260,9 @@ function mgmtRenderPayroll(){
   recs.forEach(e=>{var p=calcPay(e,attendance[k][e.id]);totE+=p.totalEarnings;totD+=p.totalDeductions;totN+=p.netPay;});
   metricsEl.innerHTML=
     '<div class="mc blue"><div class="ml">Employees</div><div class="mv">'+recs.length+'</div></div>'
-   +'<div class="mc green"><div class="ml">Total Earnings</div><div class="mv" style="font-size:16px">₱'+fp(totE)+'</div></div>'
-   +'<div class="mc red"><div class="ml">Total Deductions</div><div class="mv" style="font-size:16px">₱'+fp(totD)+'</div></div>'
-   +'<div class="mc accent"><div class="ml">Total Net Pay</div><div class="mv" style="font-size:16px">₱'+fp(totN)+'</div></div>';
+   +'<div class="mc green"><div class="ml">Total Earnings</div><div class="mv" style="font-size:16px">'+peso(totE)+'</div></div>'
+   +'<div class="mc red"><div class="ml">Total Deductions</div><div class="mv" style="font-size:16px">'+peso(totD)+'</div></div>'
+   +'<div class="mc accent"><div class="ml">Total Net Pay</div><div class="mv" style="font-size:16px">'+peso(totN)+'</div></div>';
   wrapEl.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
    +'<th>Employee</th><th>Position</th><th>Days</th><th>Basic Pay</th>'
    +'<th>Total Earnings</th><th>Total Deductions</th><th>Net Pay</th>'
@@ -2270,18 +2271,18 @@ function mgmtRenderPayroll(){
      var a=attendance[k][e.id],p=calcPay(e,a);
      return'<tr><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td>'
        +'<td>'+a.days+'</td>'
-       +'<td style="font-family:\'IBM Plex Mono\',monospace">₱'+fp(p.basicPay)+'</td>'
-       +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--green)">₱'+fp(p.totalEarnings)+'</td>'
-       +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">₱'+fp(p.totalDeductions)+'</td>'
-       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-weight:700;color:var(--navy)">₱'+fp(p.netPay)+'</td>'
+       +'<td style="font-family:\'IBM Plex Mono\',monospace">'+peso(p.basicPay)+'</td>'
+       +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--green)">'+peso(p.totalEarnings)+'</td>'
+       +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">'+peso(p.totalDeductions)+'</td>'
+       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-weight:700;color:var(--navy)">'+peso(p.netPay)+'</td>'
        +'</tr>';
    }).join('')
    +'<tr style="background:#f8fafc;font-weight:700">'
    +'<td colspan="3" style="text-align:right;padding-right:10px;font-size:11px;color:var(--muted)">TOTALS</td>'
    +'<td></td>'
-   +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--green)">₱'+fp(totE)+'</td>'
-   +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">₱'+fp(totD)+'</td>'
-   +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--navy)">₱'+fp(totN)+'</td>'
+   +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--green)">'+peso(totE)+'</td>'
+   +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--red)">'+peso(totD)+'</td>'
+   +'<td style="font-family:\'IBM Plex Mono\',monospace;color:var(--navy)">'+peso(totN)+'</td>'
    +'</tr>'
    +'</tbody></table></div>';
 }
@@ -2316,7 +2317,7 @@ function mgmtRenderSlips(){
        +'<td><strong>'+e.name+'</strong></td>'
        +'<td>'+(e.pos||'—')+'</td>'
        +'<td style="font-size:11px;color:'+(e.email?'var(--blue)':'var(--red)')+'">'+(e.email||'⚠ no email')+'</td>'
-       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-weight:700;color:var(--green)">₱'+fp(p.netPay)+'</td>'
+       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-weight:700;color:var(--green)">'+peso(p.netPay)+'</td>'
        +'<td>'+(sent?'<span class="badge badge-green">✓ Sent</span>':'<span class="badge badge-yellow">Pending</span>')+'</td>'
        +'<td><button class="btn bs bp" onclick="mgmtSendOne('+e.id+',\''+per+'\',\''+pdate+'\')">'+(sent?'Resend':'📧 Send')+'</button>'
        +' <span id="mgmt-sent_'+e.id+'" style="display:none;font-size:11px;color:var(--green);font-weight:700">✓ Sent!</span>'
