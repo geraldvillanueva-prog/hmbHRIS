@@ -441,6 +441,7 @@ input:focus,select:focus,textarea:focus{
   <button class="tab-btn" onclick="goTab('team',this)">👥 My Team</button>
   <button class="tab-btn" onclick="goTab('timeinout',this)">🕐 My Time In/Out</button>
   <button class="tab-btn" onclick="goTab('payslips',this)">💰 My Payslips</button>
+  <button class="tab-btn" onclick="goTab('account',this)">🔐 My Account</button>
 </div>
 
 <!-- ════════ TAB 1: LEAVE APPROVALS ════════ -->
@@ -645,10 +646,102 @@ input:focus,select:focus,textarea:focus{
   </div>
 </div>
 
+<!-- ════════ TAB 5: MY ACCOUNT ════════ -->
+<div class="tab-content" id="tab-account">
+  <div class="panel" style="max-width:500px">
+    <div class="panel-title"><div class="panel-title-left">🔐 Change Password</div></div>
+    <div class="alert alert-ok" id="pwd-ok"></div>
+    <div class="alert alert-err" id="pwd-err"></div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Current Password</label>
+      <input type="password" id="pwd-current" placeholder="Enter your current password" autocomplete="current-password" style="font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);width:100%;font-family:'IBM Plex Sans',sans-serif">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">New Password</label>
+      <input type="password" id="pwd-new" placeholder="At least 8 characters" autocomplete="new-password" oninput="checkPwdStrength(this.value)" style="font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);width:100%;font-family:'IBM Plex Sans',sans-serif">
+    </div>
+    <div id="pwd-strength-bar" style="height:4px;border-radius:2px;background:#dce3ec;margin-bottom:6px;overflow:hidden;transition:all .3s">
+      <div id="pwd-strength-fill" style="height:100%;width:0%;border-radius:2px;transition:width .3s,background .3s"></div>
+    </div>
+    <div id="pwd-strength-label" style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;min-height:14px"></div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Confirm New Password</label>
+      <input type="password" id="pwd-confirm" placeholder="Re-enter new password" autocomplete="new-password" style="font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);width:100%;font-family:'IBM Plex Sans',sans-serif">
+    </div>
+    <button id="btn-change-pwd" onclick="changePassword()" style="padding:10px 18px;font-size:13px;border-radius:6px;border:none;cursor:pointer;font-weight:700;font-family:'IBM Plex Sans',sans-serif;background:#7b1fa2;color:#fff;display:inline-flex;align-items:center;gap:6px;width:100%;justify-content:center">🔒 Update Password</button>
+  </div>
+  <div class="panel" style="max-width:500px">
+    <div class="panel-title"><div class="panel-title-left">👤 Account Info</div></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Username</span>
+        <span style="font-size:13px;font-weight:700;color:var(--navy);font-family:'IBM Plex Mono',monospace" id="acct-username">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Role</span>
+        <span class="badge badge-purple" id="acct-role">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 var user = null;
 var allLeaves = [];
 var currentFilter = 'All';
+
+// ── CHANGE PASSWORD ────────────────────────────────────────────────────────────
+function checkPwdStrength(val){
+  var fill=document.getElementById('pwd-strength-fill');
+  var label=document.getElementById('pwd-strength-label');
+  if(!val){fill.style.width='0%';label.textContent='';return;}
+  var score=0;
+  if(val.length>=8)score++;
+  if(val.length>=12)score++;
+  if(/[A-Z]/.test(val))score++;
+  if(/[0-9]/.test(val))score++;
+  if(/[^A-Za-z0-9]/.test(val))score++;
+  var pct=['0%','20%','40%','65%','85%','100%'][score];
+  var color=['#dce3ec','var(--red)','var(--orange)','var(--yellow)','var(--accent)','var(--green)'][score];
+  var lbl=['','Weak','Fair','Moderate','Strong','Very Strong'][score];
+  fill.style.width=pct;fill.style.background=color;
+  label.textContent=lbl;label.style.color=color;
+}
+function showPwdMsg(msg,ok){
+  var el=document.getElementById(ok?'pwd-ok':'pwd-err');
+  var other=document.getElementById(ok?'pwd-err':'pwd-ok');
+  other.style.display='none';other.classList.remove('alert-show','alert-hide');
+  el.textContent=msg;el.classList.remove('alert-hide');
+  el.style.display='block';el.classList.add('alert-show');
+  setTimeout(()=>{
+    el.classList.remove('alert-show');el.classList.add('alert-hide');
+    setTimeout(()=>{el.style.display='none';el.classList.remove('alert-hide');},250);
+  },5000);
+}
+async function changePassword(){
+  var current=document.getElementById('pwd-current').value;
+  var newPwd=document.getElementById('pwd-new').value;
+  var confirm=document.getElementById('pwd-confirm').value;
+  if(!current){showPwdMsg('Please enter your current password.',false);return;}
+  if(newPwd.length<8){showPwdMsg('New password must be at least 8 characters.',false);return;}
+  if(newPwd!==confirm){showPwdMsg('New passwords do not match.',false);return;}
+  if(newPwd===current){showPwdMsg('New password must differ from your current password.',false);return;}
+  var btn=document.getElementById('btn-change-pwd');
+  btn.disabled=true;btn.textContent='Updating…';
+  try{
+    var res=await fetch('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword:current,newPassword:newPwd})});
+    var data=await res.json();
+    if(data.success){
+      showPwdMsg('✅ Password updated successfully!',true);
+      document.getElementById('pwd-current').value='';
+      document.getElementById('pwd-new').value='';
+      document.getElementById('pwd-confirm').value='';
+      checkPwdStrength('');
+    }else{showPwdMsg('❌ '+(data.error||'Failed to update password.'),false);}
+  }catch(e){showPwdMsg('❌ Connection error. Please try again.',false);}
+  btn.disabled=false;btn.innerHTML='🔒 Update Password';
+}
+
 
 // ── CLOCK ──────────────────────────────────────────────────────────────────────
 var _lastClockStr = '';
@@ -684,6 +777,11 @@ async function init(){
     user=data;
     document.getElementById('sup-name-display').textContent=data.username;
     document.getElementById('sup-initials').textContent=data.username.slice(0,2).toUpperCase();
+    // Account tab
+    var au=document.getElementById('acct-username');
+    var ar=document.getElementById('acct-role');
+    if(au)au.textContent=data.username;
+    if(ar)ar.textContent=(data.role||'supervisor').charAt(0).toUpperCase()+(data.role||'supervisor').slice(1);
     // Set default dates for leave filing
     var today=new Date().toISOString().slice(0,10);
     var fromEl=document.getElementById('sup-lv-from');
