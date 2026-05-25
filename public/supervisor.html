@@ -409,6 +409,20 @@ input:focus,select:focus,textarea:focus{
 /* ── BTN PRESS DEPTH ── */
 .btn-primary:active,.btn-approve:active,.btn-deny:active{transform:scale(0.96) translateY(1px)!important}
 
+/* ── GPS STATUS BAR ── */
+.gps-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;font-size:11.5px;font-weight:600;margin-bottom:10px;font-family:'IBM Plex Mono',monospace;transition:all .3s}
+.gps-bar.gps-ok{background:#e8f5e9;color:var(--green);border:1px solid #a5d6a7}
+.gps-bar.gps-warn{background:#fff8e1;color:#7b5800;border:1px solid #ffe082}
+.gps-bar.gps-err{background:#ffebee;color:var(--red);border:1px solid #ef9a9a}
+.gps-bar.gps-loading{background:#e3f2fd;color:#0d47a1;border:1px solid #90caf9}
+.gps-bar.gps-liaison{background:#f3e5f5;color:#6a1b9a;border:1px solid #ce93d8}
+.gps-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.gps-dot-ok{background:var(--green);animation:pulse 1.5s infinite}
+.gps-dot-warn{background:#f57f17}
+.gps-dot-err{background:var(--red)}
+.gps-dot-loading{background:#1565c0;animation:pulse 1s infinite}
+.gps-dot-liaison{background:#7b1fa2}
+
 </style>
 </head>
 <body>
@@ -588,6 +602,10 @@ input:focus,select:focus,textarea:focus{
     </div>
     <div class="alert alert-ok" id="time-ok"></div>
     <div class="alert alert-err" id="time-err"></div>
+    <div id="gps-status-bar" class="gps-bar gps-loading" style="display:none">
+      <span class="gps-dot gps-dot-loading" id="gps-dot"></span>
+      <span id="gps-status-text">Checking location…</span>
+    </div>
 
     <!-- Punch grid: 3 columns -->
     <div class="punch-grid">
@@ -789,6 +807,8 @@ async function init(){
     if(fromEl)fromEl.value=today;
     if(toEl)toEl.value=today;
     supComputeDays();
+    await loadOfficeCoords();
+    if(data.employee_id) startGpsWatch();
     await loadLeaves();
     if(data.employee_id){await loadStatus();await loadHistory();}
   }catch(e){
@@ -1096,32 +1116,170 @@ function setEnabled(btnId, enabled){
   if (!btn.classList.contains('done')) btn.disabled = !enabled;
 }
 
+// ── GPS ENGINE ─────────────────────────────────────────────────────────────────
+var _gpsCache = null;
+var _gpsWatcher = null;
+var _officeCoords = null;
+
+function haversineDistance(lat1, lng1, lat2, lng2){
+  var R = 6371000;
+  var dLat = (lat2-lat1)*Math.PI/180;
+  var dLng = (lng2-lng1)*Math.PI/180;
+  var a = Math.sin(dLat/2)*Math.sin(dLat/2)
+        + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)
+        * Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+async function loadOfficeCoords(){
+  try{
+    var r=await fetch('/api/settings');
+    var cfg=await r.json();
+    if(cfg&&cfg.office_lat&&cfg.office_lng){
+      _officeCoords={lat:parseFloat(cfg.office_lat),lng:parseFloat(cfg.office_lng),radius:parseInt(cfg.office_radius)||200};
+    }
+  }catch(e){}
+}
+
+function setGpsBar(state,text){
+  var bar=document.getElementById('gps-status-bar');
+  var dot=document.getElementById('gps-dot');
+  var lbl=document.getElementById('gps-status-text');
+  if(!bar)return;
+  bar.style.display='flex';
+  bar.className='gps-bar gps-'+state;
+  dot.className='gps-dot gps-dot-'+state;
+  lbl.textContent=text;
+}
+
+function startGpsWatch(){
+  if(!navigator.geolocation){setGpsBar('err','GPS not available on this device');return;}
+  var policy=(user&&user.loc_policy)||'office';
+  if(policy==='liaison') setGpsBar('liaison','📍 Liaison — logging location for audit');
+  else setGpsBar('loading','📡 Acquiring GPS…');
+  if(_gpsWatcher!==null)navigator.geolocation.clearWatch(_gpsWatcher);
+  _gpsWatcher=navigator.geolocation.watchPosition(
+    function(pos){
+      _gpsCache={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy,ts:Date.now()};
+      updateGpsBar();
+    },
+    function(err){
+      var msg=err.code===1?'🚫 Location access denied — please allow in browser settings'
+             :err.code===2?'📡 Cannot determine location — check device GPS'
+             :'📡 GPS timeout — retrying…';
+      setGpsBar('err',msg);
+      _gpsCache=null;
+    },
+    {enableHighAccuracy:true,maximumAge:20000,timeout:15000}
+  );
+}
+
+function updateGpsBar(){
+  if(!_gpsCache)return;
+  var policy=(user&&user.loc_policy)||'office';
+  var lat=_gpsCache.lat,lng=_gpsCache.lng,acc=Math.round(_gpsCache.accuracy);
+  if(policy==='liaison'){
+    setGpsBar('liaison','📍 Liaison · '+lat.toFixed(5)+', '+lng.toFixed(5)+' ±'+acc+'m');
+    return;
+  }
+  var targetLat,targetLng,allowedRadius,label;
+  if(policy==='wfh'){
+    targetLat=parseFloat(user.loc_lat);targetLng=parseFloat(user.loc_lng);
+    allowedRadius=parseInt(user.loc_radius)||300;label='Home';
+  } else {
+    if(!_officeCoords){setGpsBar('warn','⚠️ Office GPS not configured — contact Admin');return;}
+    targetLat=_officeCoords.lat;targetLng=_officeCoords.lng;
+    allowedRadius=_officeCoords.radius||200;label='Office';
+  }
+  if(isNaN(targetLat)||isNaN(targetLng)){setGpsBar('warn','⚠️ No '+label.toLowerCase()+' coordinates set — contact Admin');return;}
+  var dist=Math.round(haversineDistance(lat,lng,targetLat,targetLng));
+  if(dist<=allowedRadius) setGpsBar('ok','✅ Within '+label+' · '+dist+'m away ±'+acc+'m');
+  else setGpsBar('err','🚫 Too far from '+label+' · '+dist+'m away (max '+allowedRadius+'m)');
+}
+
+function getGpsCoords(){
+  return new Promise(function(resolve,reject){
+    if(!navigator.geolocation){reject('GPS not available on this device.');return;}
+    if(_gpsCache&&(Date.now()-_gpsCache.ts)<30000){resolve({lat:_gpsCache.lat,lng:_gpsCache.lng,accuracy:_gpsCache.accuracy});return;}
+    setGpsBar('loading','📡 Getting precise location…');
+    navigator.geolocation.getCurrentPosition(
+      function(pos){
+        _gpsCache={lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy,ts:Date.now()};
+        updateGpsBar();
+        resolve({lat:_gpsCache.lat,lng:_gpsCache.lng,accuracy:_gpsCache.accuracy});
+      },
+      function(err){
+        var msg=err.code===1?'Location access denied. Please allow location in your browser and try again.'
+               :'Cannot get your location. Check device GPS and try again.';
+        setGpsBar('err','🚫 '+msg);
+        reject(msg);
+      },
+      {enableHighAccuracy:true,maximumAge:15000,timeout:12000}
+    );
+  });
+}
+
+async function checkLocationPolicy(coords){
+  var policy=(user&&user.loc_policy)||'office';
+  if(policy==='liaison')return{allowed:true,coords};
+  var targetLat,targetLng,allowedRadius,label;
+  if(policy==='wfh'){
+    targetLat=parseFloat(user.loc_lat);targetLng=parseFloat(user.loc_lng);
+    allowedRadius=parseInt(user.loc_radius)||300;label='your registered home';
+  } else {
+    if(!_officeCoords)return{allowed:false,message:'Office GPS coordinates are not configured. Please contact your HR Admin.'};
+    targetLat=_officeCoords.lat;targetLng=_officeCoords.lng;
+    allowedRadius=_officeCoords.radius||200;label='the office';
+  }
+  if(isNaN(targetLat)||isNaN(targetLng))return{allowed:false,message:'Your '+(policy==='wfh'?'home':'office')+' location is not set up. Contact HR Admin.'};
+  var dist=Math.round(haversineDistance(coords.lat,coords.lng,targetLat,targetLng));
+  if(dist<=allowedRadius)return{allowed:true,coords,dist};
+  return{allowed:false,message:'📍 You are '+dist+'m from '+label+' (allowed: '+allowedRadius+'m). Move closer and try again.',dist};
+}
+
 async function doPunch(endpoint, btnId){
   var btn = document.getElementById(btnId);
   btn.disabled = true;
   addRipple(btn);
+
+  var coords;
+  try { coords = await getGpsCoords(); }
+  catch(gpsErr){ showTimeMsg('❌ '+gpsErr,false); btn.disabled=false; return; }
+
+  var check = await checkLocationPolicy(coords);
+  if(!check.allowed){
+    showTimeMsg('❌ '+check.message,false);
+    setGpsBar('err','🚫 '+check.message);
+    btn.disabled=false; return;
+  }
+
   try {
-    var res = await fetch('/api/timelogs/'+endpoint, { method: 'POST' });
+    var res = await fetch('/api/timelogs/'+endpoint, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lat:coords.lat,lng:coords.lng,accuracy:coords.accuracy})
+    });
     var data = await res.json();
     if (data.success) {
       btn.classList.add('just-done');
       setTimeout(()=>btn.classList.remove('just-done'),400);
       spawnConfetti(btn);
       if(window.exciteChar)window.exciteChar();
-      showTimeMsg('✅ ' + labelFor(endpoint) + ' recorded at ' + data.time, true);
-      var s2 = await fetch('/api/timelogs/status').then(r=>r.json());
+      var distNote = check.dist!=null?' ('+check.dist+'m from target)':'';
+      showTimeMsg('✅ '+labelFor(endpoint)+' recorded at '+data.time+distNote,true);
+      var s2=await fetch('/api/timelogs/status').then(r=>r.json());
       applyStatus(s2);
       await loadHistory();
     } else {
-      showTimeMsg('❌ ' + data.error, false);
-      btn.disabled = false;
+      showTimeMsg('❌ '+data.error,false);
+      btn.disabled=false;
     }
   } catch(e) {
-    var msg = (e && e.message && e.message.toLowerCase().includes('failed to fetch'))
-      ? '❌ Cannot reach server. Make sure the HRIS server is running (node server.js).'
-      : '❌ Connection error: ' + (e && e.message || e);
-    showTimeMsg(msg, false);
-    btn.disabled = false;
+    var msg=(e&&e.message&&e.message.toLowerCase().includes('failed to fetch'))
+      ?'❌ Cannot reach server. Make sure the HRIS server is running (node server.js).'
+      :'❌ Connection error: '+(e&&e.message||e);
+    showTimeMsg(msg,false);
+    btn.disabled=false;
   }
 }
 

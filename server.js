@@ -324,7 +324,21 @@ app.post('/api/logout', (req, res) => {
 });
 
 app.get('/api/me', requireAuth, (req, res) => {
-  res.json(req.session.user);
+  const u = req.session.user;
+  // Augment with location policy fields from the linked employee record
+  if (u.employee_id) {
+    const emp = db.prepare('SELECT loc_policy, loc_lat, loc_lng, loc_radius FROM employees WHERE id=?').get(u.employee_id);
+    if (emp) {
+      return res.json({
+        ...u,
+        loc_policy: emp.loc_policy || 'office',
+        loc_lat:    emp.loc_lat    || null,
+        loc_lng:    emp.loc_lng    || null,
+        loc_radius: emp.loc_radius || 300
+      });
+    }
+  }
+  res.json(u);
 });
 
 // ─── USER MANAGEMENT (Admin) ──────────────────────────────────────────────────
@@ -471,10 +485,16 @@ app.post('/api/employees', requireAdmin, (req, res) => {
 app.put('/api/employees/:id', requireAdmin, (req, res) => {
   const e = req.body;
   const shiftId = e.shiftId ? parseInt(e.shiftId) : null;
+  const locPolicy = e.locPolicy || 'office';
+  const locLat    = (e.locLat  !== undefined && e.locLat  !== '') ? parseFloat(e.locLat)  : null;
+  const locLng    = (e.locLng  !== undefined && e.locLng  !== '') ? parseFloat(e.locLng)  : null;
+  const locRadius = e.locRadius ? parseInt(e.locRadius) : 300;
   db.prepare(`UPDATE employees SET name=?,pos=?,dept=?,type=?,start=?,bank=?,email=?,mobile=?,emergency=?,address=?,tin=?,
-    smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,vl_bal=?,sl_bal=?,shift_id=? WHERE id=?`).run(
+    smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,vl_bal=?,sl_bal=?,shift_id=?,
+    loc_policy=?,loc_lat=?,loc_lng=?,loc_radius=? WHERE id=?`).run(
     e.name,e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',e.tin||'',
-    +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0, shiftId, req.params.id
+    +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0, shiftId,
+    locPolicy, locLat, locLng, locRadius, req.params.id
   );
   res.json({ success: true });
 });
@@ -491,7 +511,11 @@ function mapEmployee(e) {
     emergency: e.emergency, address: e.address, tin: e.tin,
     smb: e.smb, sss: e.sss, phic: e.phic, hdmf: e.hdmf, mpl: e.mpl,
     dm: e.dm, load: e.load, wht: e.wht, vlBal: e.vl_bal, slBal: e.sl_bal, active: e.active,
-    shiftId: e.shift_id || null
+    shiftId: e.shift_id || null,
+    locPolicy: e.loc_policy || 'office',
+    locLat:    e.loc_lat    || null,
+    locLng:    e.loc_lng    || null,
+    locRadius: e.loc_radius || 300
   };
 }
 
@@ -554,6 +578,20 @@ try {
   db.exec(`ALTER TABLE employees ADD COLUMN shift_id INTEGER`);
 } catch(e) {}
 
+// Migrate employees table — add location policy columns if missing
+try { db.exec(`ALTER TABLE employees ADD COLUMN loc_policy TEXT DEFAULT 'office'`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN loc_lat REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN loc_lng REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN loc_radius INTEGER DEFAULT 300`); } catch(e) {}
+
+// Migrate time_logs table — add GPS columns for audit trail
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN lat REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN lng REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN accuracy REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN timeout_lat REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN timeout_lng REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN timeout_accuracy REAL`); } catch(e) {}
+
 // ─── TIME LOGS ────────────────────────────────────────────────────────────────
 // Get logs — admin gets all with filters, employees/supervisors get their own
 app.get('/api/timelogs', requireAuth, (req, res) => {
@@ -598,7 +636,8 @@ app.post('/api/timelogs/timein', requireAuth, (req, res) => {
     return res.json({ success: false, error: 'Already timed in. Please time out first.' });
   }
   const now = nowPH();
-  db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in) VALUES (?,?,?)').run(empId, today, now);
+  const { lat = null, lng = null, accuracy = null } = req.body;
+  db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in, lat, lng, accuracy) VALUES (?,?,?,?,?,?)').run(empId, today, now, lat, lng, accuracy);
   const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
   broadcastPunch({ type: 'punch', event: 'timein', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: today });
   res.json({ success: true, time: now });
@@ -612,6 +651,7 @@ app.post('/api/timelogs/lunch-out', requireAuth, (req, res) => {
   if (!row || !row.time_in || row.time_out) return res.json({ success: false, error: 'No active shift found.' });
   if (row.lunch_out) return res.json({ success: false, error: 'Lunch Out already recorded.' });
   const now = nowPH();
+  // GPS coords accepted for future per-punch audit columns; primary GPS stored at Time In
   db.prepare('UPDATE time_logs SET lunch_out=? WHERE id=?').run(now, row.id);
   const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
   broadcastPunch({ type: 'punch', event: 'lunch-out', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
@@ -668,7 +708,9 @@ app.post('/api/timelogs/timeout', requireAuth, (req, res) => {
   if (!row || !row.time_in) return res.json({ success: false, error: 'No active time-in found for today.' });
   if (row.time_out) return res.json({ success: false, error: 'Already timed out for today.' });
   const now = nowPH();
-  db.prepare('UPDATE time_logs SET time_out=? WHERE id=?').run(now, row.id);
+  const { lat = null, lng = null, accuracy = null } = req.body;
+  // Store timeout GPS in dedicated columns; timein GPS is preserved in lat/lng/accuracy
+  db.prepare('UPDATE time_logs SET time_out=?, timeout_lat=?, timeout_lng=?, timeout_accuracy=? WHERE id=?').run(now, lat, lng, accuracy, row.id);
   const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
   broadcastPunch({ type: 'punch', event: 'timeout', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
   res.json({ success: true, time: now });
