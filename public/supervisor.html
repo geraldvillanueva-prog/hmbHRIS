@@ -1182,6 +1182,18 @@ function updateGpsBar(){
     setGpsBar('liaison','📍 Liaison · '+lat.toFixed(5)+', '+lng.toFixed(5)+' ±'+acc+'m');
     return;
   }
+  // WFH: check allowed day first
+  if(policy==='wfh'&&user.loc_wfh_days){
+    var DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var allowedDays=user.loc_wfh_days.split(',').map(Number);
+    var phDate=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Manila'}));
+    var dow=phDate.getDay();
+    if(!allowedDays.includes(dow)){
+      var allowedNames=allowedDays.map(function(d){return DAY_NAMES[d];}).join(', ');
+      setGpsBar('err','🗓️ WFH not allowed today ('+DAY_NAMES[dow]+'). Allowed: '+allowedNames);
+      return;
+    }
+  }
   var targetLat,targetLng,allowedRadius,label;
   if(policy==='wfh'){
     targetLat=parseFloat(user.loc_lat);targetLng=parseFloat(user.loc_lng);
@@ -1222,6 +1234,17 @@ function getGpsCoords(){
 async function checkLocationPolicy(coords){
   var policy=(user&&user.loc_policy)||'office';
   if(policy==='liaison')return{allowed:true,coords};
+  // WFH: check allowed days before checking distance
+  if(policy==='wfh'&&user.loc_wfh_days){
+    var DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var allowedDays=user.loc_wfh_days.split(',').map(Number);
+    var phDate=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Manila'}));
+    var dow=phDate.getDay();
+    if(!allowedDays.includes(dow)){
+      var allowedNames=allowedDays.map(function(d){return DAY_NAMES[d];}).join(', ');
+      return{allowed:false,message:'🗓️ WFH is only allowed on: '+allowedNames+'. Today is '+DAY_NAMES[dow]+'.'};
+    }
+  }
   var targetLat,targetLng,allowedRadius,label;
   if(policy==='wfh'){
     targetLat=parseFloat(user.loc_lat);targetLng=parseFloat(user.loc_lng);

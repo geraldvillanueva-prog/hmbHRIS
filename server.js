@@ -327,14 +327,15 @@ app.get('/api/me', requireAuth, (req, res) => {
   const u = req.session.user;
   // Augment with location policy fields from the linked employee record
   if (u.employee_id) {
-    const emp = db.prepare('SELECT loc_policy, loc_lat, loc_lng, loc_radius FROM employees WHERE id=?').get(u.employee_id);
+    const emp = db.prepare('SELECT loc_policy, loc_lat, loc_lng, loc_radius, loc_wfh_days FROM employees WHERE id=?').get(u.employee_id);
     if (emp) {
       return res.json({
         ...u,
-        loc_policy: emp.loc_policy || 'office',
-        loc_lat:    emp.loc_lat    || null,
-        loc_lng:    emp.loc_lng    || null,
-        loc_radius: emp.loc_radius || 300
+        loc_policy:    emp.loc_policy    || 'office',
+        loc_lat:       emp.loc_lat       || null,
+        loc_lng:       emp.loc_lng       || null,
+        loc_radius:    emp.loc_radius    || 300,
+        loc_wfh_days:  emp.loc_wfh_days  || null  // e.g. "1,3" = Mon+Wed; null = any day
       });
     }
   }
@@ -484,17 +485,19 @@ app.post('/api/employees', requireAdmin, (req, res) => {
 
 app.put('/api/employees/:id', requireAdmin, (req, res) => {
   const e = req.body;
-  const shiftId = e.shiftId ? parseInt(e.shiftId) : null;
+  const shiftId   = e.shiftId ? parseInt(e.shiftId) : null;
   const locPolicy = e.locPolicy || 'office';
   const locLat    = (e.locLat  !== undefined && e.locLat  !== '') ? parseFloat(e.locLat)  : null;
   const locLng    = (e.locLng  !== undefined && e.locLng  !== '') ? parseFloat(e.locLng)  : null;
   const locRadius = e.locRadius ? parseInt(e.locRadius) : 300;
+  // locWfhDays: comma-separated day numbers "1,3" or null; only meaningful for wfh policy
+  const locWfhDays = (locPolicy === 'wfh' && e.locWfhDays) ? e.locWfhDays : null;
   db.prepare(`UPDATE employees SET name=?,pos=?,dept=?,type=?,start=?,bank=?,email=?,mobile=?,emergency=?,address=?,tin=?,
     smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,vl_bal=?,sl_bal=?,shift_id=?,
-    loc_policy=?,loc_lat=?,loc_lng=?,loc_radius=? WHERE id=?`).run(
+    loc_policy=?,loc_lat=?,loc_lng=?,loc_radius=?,loc_wfh_days=? WHERE id=?`).run(
     e.name,e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',e.tin||'',
     +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0, shiftId,
-    locPolicy, locLat, locLng, locRadius, req.params.id
+    locPolicy, locLat, locLng, locRadius, locWfhDays, req.params.id
   );
   res.json({ success: true });
 });
@@ -512,10 +515,11 @@ function mapEmployee(e) {
     smb: e.smb, sss: e.sss, phic: e.phic, hdmf: e.hdmf, mpl: e.mpl,
     dm: e.dm, load: e.load, wht: e.wht, vlBal: e.vl_bal, slBal: e.sl_bal, active: e.active,
     shiftId: e.shift_id || null,
-    locPolicy: e.loc_policy || 'office',
-    locLat:    e.loc_lat    || null,
-    locLng:    e.loc_lng    || null,
-    locRadius: e.loc_radius || 300
+    locPolicy:  e.loc_policy  || 'office',
+    locLat:     e.loc_lat     || null,
+    locLng:     e.loc_lng     || null,
+    locRadius:  e.loc_radius  || 300,
+    locWfhDays: e.loc_wfh_days || null   // e.g. "1,3" = Mon+Wed; null = any day
   };
 }
 
@@ -583,6 +587,9 @@ try { db.exec(`ALTER TABLE employees ADD COLUMN loc_policy TEXT DEFAULT 'office'
 try { db.exec(`ALTER TABLE employees ADD COLUMN loc_lat REAL`); } catch(e) {}
 try { db.exec(`ALTER TABLE employees ADD COLUMN loc_lng REAL`); } catch(e) {}
 try { db.exec(`ALTER TABLE employees ADD COLUMN loc_radius INTEGER DEFAULT 300`); } catch(e) {}
+// Comma-separated day numbers: 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+// Empty/null = no day restriction (WFH allowed any day)
+try { db.exec(`ALTER TABLE employees ADD COLUMN loc_wfh_days TEXT`); } catch(e) {}
 
 // Migrate time_logs table — add GPS columns for audit trail
 try { db.exec(`ALTER TABLE time_logs ADD COLUMN lat REAL`); } catch(e) {}
@@ -635,10 +642,24 @@ app.post('/api/timelogs/timein', requireAuth, (req, res) => {
   if (row && !row.time_out) {
     return res.json({ success: false, error: 'Already timed in. Please time out first.' });
   }
+
+  // WFH day restriction — server-side enforcement
+  const emp = db.prepare('SELECT name, pos, dept, loc_policy, loc_wfh_days FROM employees WHERE id=?').get(empId);
+  if (emp && emp.loc_policy === 'wfh' && emp.loc_wfh_days) {
+    const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const allowedDays = emp.loc_wfh_days.split(',').map(Number);
+    // todayPH() returns YYYY-MM-DD; use Date to get day-of-week in PH time
+    const todayDate = new Date(today + 'T00:00:00+08:00');
+    const todayDow  = todayDate.getDay(); // 0=Sun … 6=Sat
+    if (!allowedDays.includes(todayDow)) {
+      const allowedNames = allowedDays.map(d => DAY_NAMES[d]).join(', ');
+      return res.json({ success: false, error: `WFH is only allowed on: ${allowedNames}. Today is ${DAY_NAMES[todayDow]}.` });
+    }
+  }
+
   const now = nowPH();
   const { lat = null, lng = null, accuracy = null } = req.body;
   db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in, lat, lng, accuracy) VALUES (?,?,?,?,?,?)').run(empId, today, now, lat, lng, accuracy);
-  const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
   broadcastPunch({ type: 'punch', event: 'timein', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: today });
   res.json({ success: true, time: now });
 });
