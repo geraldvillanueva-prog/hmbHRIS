@@ -1302,5 +1302,96 @@ document.querySelectorAll('.bal-value').forEach(function(el){
 });
 
 </script>
+
+<!-- ══════════════════════════════════════════════════════════
+     WEBSOCKET LIVE SYNC — Employee Portal
+     Keeps this tab's punch state live in real time.
+     If the server restarts, auto-reconnect every 5 s.
+══════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  var RECONNECT_DELAY = 5000;
+  var _ws = null;
+  var _dead = false; // set true on logout so we stop reconnecting
+
+  function wsConnect(){
+    if(_dead) return;
+    var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    var url   = proto + '://' + location.host;
+    try { _ws = new WebSocket(url); } catch(e){ return; }
+
+    _ws.onopen = function(){
+      showWsStatus(true);
+    };
+
+    _ws.onmessage = function(evt){
+      var msg;
+      try { msg = JSON.parse(evt.data); } catch(e){ return; }
+
+      if(msg.type === 'connected') return; // handshake ack
+
+      if(msg.type === 'punch'){
+        // Only react to events that affect THIS employee's own status
+        if(window.user && msg.employeeId === window.user.employee_id){
+          // Re-fetch status from server (authoritative) and re-render
+          loadStatus();
+          loadHistory();
+          // Flash a subtle indicator so employee knows sync is live
+          flashSyncDot();
+        }
+      }
+    };
+
+    _ws.onclose = function(){
+      showWsStatus(false);
+      if(!_dead) setTimeout(wsConnect, RECONNECT_DELAY);
+    };
+
+    _ws.onerror = function(){
+      try { _ws.close(); } catch(e){}
+    };
+  }
+
+  /* ── Small green/red dot in the topbar ── */
+  function injectSyncDot(){
+    if(document.getElementById('ws-sync-dot')) return;
+    var dot = document.createElement('span');
+    dot.id = 'ws-sync-dot';
+    dot.title = 'Live sync status';
+    dot.style.cssText =
+      'display:inline-block;width:8px;height:8px;border-radius:50%;'
+      +'background:#ef9a9a;margin-left:8px;vertical-align:middle;'
+      +'transition:background .4s;flex-shrink:0';
+    var right = document.querySelector('.topbar-right');
+    if(right) right.insertBefore(dot, right.firstChild);
+  }
+  function showWsStatus(ok){
+    var dot = document.getElementById('ws-sync-dot');
+    if(!dot) return;
+    dot.style.background = ok ? '#a5d6a7' : '#ef9a9a';
+    dot.title = ok ? 'Live sync: connected' : 'Live sync: reconnecting…';
+  }
+  function flashSyncDot(){
+    var dot = document.getElementById('ws-sync-dot');
+    if(!dot) return;
+    dot.style.background = '#80deea';
+    setTimeout(function(){ dot.style.background = '#a5d6a7'; }, 600);
+  }
+
+  // Stop reconnecting on logout
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.btn-logout');
+    if(btn) _dead = true;
+  });
+
+  // Boot after the page authenticates (user variable is set in DOMContentLoaded)
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      injectSyncDot();
+      wsConnect();
+    }, 800);
+  });
+})();
+</script>
 </body>
 </html>

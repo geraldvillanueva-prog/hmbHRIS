@@ -4,9 +4,51 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const { WebSocketServer } = require('ws');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ─── HTTP + WEBSOCKET SERVER SETUP ───────────────────────────────────────────
+const server = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+
+// Store connected clients: Map<ws, { userId, role, employeeId, supervisorSubIds }>
+const clients = new Map();
+
+// Broadcast a punch event to all supervisors who manage the punching employee,
+// and to all admin connections.
+function broadcastPunch(payload) {
+  for (const [ws, meta] of clients) {
+    if (ws.readyState !== 1) continue; // 1 = OPEN
+    const isAdmin = meta.role === 'admin';
+    const isSupervisorOfEmployee =
+      meta.role === 'supervisor' &&
+      meta.supervisorSubIds &&
+      meta.supervisorSubIds.includes(payload.employeeId);
+    // Also echo back to the punching employee so their own portal stays live
+    const isSelf = meta.employeeId === payload.employeeId;
+    if (isAdmin || isSupervisorOfEmployee || isSelf) {
+      ws.send(JSON.stringify(payload));
+    }
+  }
+}
+
+// HTTP upgrade → WebSocket (manual so we can share express-session)
+server.on('upgrade', (req, socket, head) => {
+  // Parse session cookie manually using express-session's store
+  sessionParser(req, {}, () => {
+    if (!req.session || !req.session.user) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req);
+    });
+  });
+});
 
 // ─── DATABASE SETUP ───────────────────────────────────────────────────────────
 const dbPath = path.join(__dirname, 'db', 'hris.db');
@@ -214,13 +256,38 @@ if (settingCount.c === 0) {
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(session({
+const sessionParser = session({
   secret: process.env.SESSION_SECRET || 'hmb-hris-secret-2024',
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 8 * 60 * 60 * 1000 } // 8 hours
-}));
+});
+app.use(sessionParser);
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ─── WEBSOCKET CONNECTION HANDLER ────────────────────────────────────────────
+wss.on('connection', (ws, req) => {
+  const user = req.session.user;
+  // Fetch supervisor's subordinate employee IDs so we can filter broadcasts
+  let supervisorSubIds = [];
+  if (user.role === 'supervisor') {
+    supervisorSubIds = db.prepare(
+      'SELECT employee_id FROM supervisor_subordinates WHERE supervisor_user_id=?'
+    ).all(user.id).map(r => r.employee_id);
+  }
+  clients.set(ws, {
+    userId:           user.id,
+    role:             user.role,
+    employeeId:       user.employee_id || null,
+    supervisorSubIds: supervisorSubIds
+  });
+
+  ws.on('close', () => clients.delete(ws));
+  ws.on('error', () => clients.delete(ws));
+
+  // Send a welcome/connected confirmation
+  ws.send(JSON.stringify({ type: 'connected', message: 'WebSocket connected' }));
+});
 
 // ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
@@ -532,6 +599,8 @@ app.post('/api/timelogs/timein', requireAuth, (req, res) => {
   }
   const now = nowPH();
   db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in) VALUES (?,?,?)').run(empId, today, now);
+  const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
+  broadcastPunch({ type: 'punch', event: 'timein', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: today });
   res.json({ success: true, time: now });
 });
 
@@ -544,6 +613,8 @@ app.post('/api/timelogs/lunch-out', requireAuth, (req, res) => {
   if (row.lunch_out) return res.json({ success: false, error: 'Lunch Out already recorded.' });
   const now = nowPH();
   db.prepare('UPDATE time_logs SET lunch_out=? WHERE id=?').run(now, row.id);
+  const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
+  broadcastPunch({ type: 'punch', event: 'lunch-out', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
   res.json({ success: true, time: now });
 });
 
@@ -556,6 +627,8 @@ app.post('/api/timelogs/lunch-in', requireAuth, (req, res) => {
   if (row.lunch_in) return res.json({ success: false, error: 'Lunch In already recorded.' });
   const now = nowPH();
   db.prepare('UPDATE time_logs SET lunch_in=? WHERE id=?').run(now, row.id);
+  const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
+  broadcastPunch({ type: 'punch', event: 'lunch-in', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
   res.json({ success: true, time: now });
 });
 
@@ -568,6 +641,8 @@ app.post('/api/timelogs/merienda-out', requireAuth, (req, res) => {
   if (row.merienda_out) return res.json({ success: false, error: 'Merienda Out already recorded.' });
   const now = nowPH();
   db.prepare('UPDATE time_logs SET merienda_out=? WHERE id=?').run(now, row.id);
+  const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
+  broadcastPunch({ type: 'punch', event: 'merienda-out', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
   res.json({ success: true, time: now });
 });
 
@@ -580,6 +655,8 @@ app.post('/api/timelogs/merienda-in', requireAuth, (req, res) => {
   if (row.merienda_in) return res.json({ success: false, error: 'Merienda In already recorded.' });
   const now = nowPH();
   db.prepare('UPDATE time_logs SET merienda_in=? WHERE id=?').run(now, row.id);
+  const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
+  broadcastPunch({ type: 'punch', event: 'merienda-in', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
   res.json({ success: true, time: now });
 });
 
@@ -592,6 +669,8 @@ app.post('/api/timelogs/timeout', requireAuth, (req, res) => {
   if (row.time_out) return res.json({ success: false, error: 'Already timed out for today.' });
   const now = nowPH();
   db.prepare('UPDATE time_logs SET time_out=? WHERE id=?').run(now, row.id);
+  const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
+  broadcastPunch({ type: 'punch', event: 'timeout', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
   res.json({ success: true, time: now });
 });
 
@@ -869,9 +948,55 @@ app.delete('/api/shifts/:id', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
+// ─── LIVE ATTENDANCE SNAPSHOT (supervisor/admin) ─────────────────────────────
+// Returns today's punch status for all subordinates (or all employees for admin)
+app.get('/api/timelogs/live', requireAdminOrSupervisor, (req, res) => {
+  const today = todayPH();
+  let empIds;
+  if (req.session.user.role === 'admin') {
+    empIds = db.prepare('SELECT id FROM employees WHERE active=1').all().map(e => e.id);
+  } else {
+    empIds = db.prepare(
+      'SELECT employee_id FROM supervisor_subordinates WHERE supervisor_user_id=?'
+    ).all(req.session.user.id).map(r => r.employee_id);
+  }
+  if (!empIds.length) return res.json([]);
+  const placeholders = empIds.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT t.*, e.name as emp_name, e.pos as emp_pos, e.dept as emp_dept
+    FROM time_logs t
+    JOIN employees e ON t.employee_id = e.id
+    WHERE t.employee_id IN (${placeholders}) AND t.log_date = ?
+    ORDER BY e.name ASC
+  `).all(...empIds, today);
+  // Also include employees with no punch today (so supervisor sees "not yet in")
+  const punchedIds = new Set(rows.map(r => r.employee_id));
+  const allEmps = db.prepare(
+    `SELECT id, name, pos, dept FROM employees WHERE id IN (${placeholders}) AND active=1`
+  ).all(...empIds);
+  const result = allEmps.map(e => {
+    const row = rows.find(r => r.employee_id === e.id);
+    return {
+      employeeId:  e.id,
+      empName:     e.name,
+      empPos:      e.pos || '',
+      empDept:     e.dept || '',
+      timeIn:      row ? row.time_in      || null : null,
+      lunchOut:    row ? row.lunch_out    || null : null,
+      lunchIn:     row ? row.lunch_in     || null : null,
+      meriendaOut: row ? row.merienda_out || null : null,
+      meriendaIn:  row ? row.merienda_in  || null : null,
+      timeOut:     row ? row.time_out     || null : null,
+      logDate:     today
+    };
+  });
+  res.json(result);
+});
+
 // ─── START SERVER ─────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`\n🚀 HMB HRIS Server running on http://localhost:${PORT}`);
+  console.log(`🔌 WebSocket live sync enabled on ws://localhost:${PORT}`);
   console.log(`📁 Database: ${dbPath}`);
   console.log(`👤 Default admin login: admin / admin123\n`);
 });
