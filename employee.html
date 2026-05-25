@@ -437,6 +437,7 @@ input:focus,select:focus,textarea:focus{
   <button class="tab-btn" onclick="goTab('leavefile',this)">📝 File a Leave</button>
   <button class="tab-btn" onclick="goTab('leavebal',this)">🌴 Leave Balance</button>
   <button class="tab-btn" onclick="goTab('payslips',this)">💰 Payslip History</button>
+  <button class="tab-btn" onclick="goTab('account',this)">🔐 My Account</button>
 </div>
 
 <!-- ════════════ TAB 1: TIME IN / OUT ════════════ -->
@@ -597,6 +598,45 @@ input:focus,select:focus,textarea:focus{
   </div>
 </div>
 
+<!-- ════════════ TAB 5: MY ACCOUNT ════════════ -->
+<div class="tab-content" id="tab-account">
+  <div class="panel" style="max-width:460px">
+    <div class="panel-title">🔐 Change Password</div>
+    <div class="alert alert-ok" id="pwd-ok"></div>
+    <div class="alert alert-err" id="pwd-err"></div>
+    <div class="f">
+      <label>Current Password</label>
+      <input type="password" id="pwd-current" placeholder="Enter your current password" autocomplete="current-password">
+    </div>
+    <div class="f">
+      <label>New Password</label>
+      <input type="password" id="pwd-new" placeholder="At least 8 characters" autocomplete="new-password" oninput="checkPwdStrength(this.value)">
+    </div>
+    <div id="pwd-strength-bar" style="height:4px;border-radius:2px;background:#dce3ec;margin:-6px 0 10px;overflow:hidden;transition:all .3s">
+      <div id="pwd-strength-fill" style="height:100%;width:0%;border-radius:2px;transition:width .3s,background .3s"></div>
+    </div>
+    <div id="pwd-strength-label" style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;min-height:14px"></div>
+    <div class="f">
+      <label>Confirm New Password</label>
+      <input type="password" id="pwd-confirm" placeholder="Re-enter new password" autocomplete="new-password">
+    </div>
+    <button class="btn btn-primary" id="btn-change-pwd" onclick="changePassword()" style="width:100%;justify-content:center;margin-top:4px">🔒 Update Password</button>
+  </div>
+  <div class="panel" style="max-width:460px">
+    <div class="panel-title">👤 Account Info</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Username</span>
+        <span style="font-size:13px;font-weight:700;color:var(--navy);font-family:'IBM Plex Mono',monospace" id="acct-username">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <span style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Role</span>
+        <span class="badge badge-blue" id="acct-role">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 var user = null;
 
@@ -660,6 +700,11 @@ async function init(){
     user=data;
     document.getElementById('emp-name-display').textContent=data.username;
     document.getElementById('emp-initials').textContent=data.username.slice(0,2).toUpperCase();
+    // Account tab
+    var au=document.getElementById('acct-username');
+    var ar=document.getElementById('acct-role');
+    if(au)au.textContent=data.username;
+    if(ar)ar.textContent=(data.role||'employee').charAt(0).toUpperCase()+(data.role||'employee').slice(1);
     var today=new Date().toISOString().slice(0,10);
     document.getElementById('lv-from').value=today;
     document.getElementById('lv-to').value=today;
@@ -1064,6 +1109,58 @@ function fmtDate(d){
 async function doLogout(){
   await fetch('/api/logout',{method:'POST'});
   window.location.href='/';
+}
+
+// ── CHANGE PASSWORD ────────────────────────────────────────────────────────────
+function checkPwdStrength(val){
+  var fill=document.getElementById('pwd-strength-fill');
+  var label=document.getElementById('pwd-strength-label');
+  if(!val){fill.style.width='0%';label.textContent='';return;}
+  var score=0;
+  if(val.length>=8)score++;
+  if(val.length>=12)score++;
+  if(/[A-Z]/.test(val))score++;
+  if(/[0-9]/.test(val))score++;
+  if(/[^A-Za-z0-9]/.test(val))score++;
+  var pct=['0%','20%','40%','65%','85%','100%'][score];
+  var color=['#dce3ec','var(--red)','var(--orange)','var(--yellow)','var(--accent)','var(--green)'][score];
+  var lbl=['','Weak','Fair','Moderate','Strong','Very Strong'][score];
+  fill.style.width=pct;fill.style.background=color;
+  label.textContent=lbl;label.style.color=color;
+}
+function showPwdMsg(msg,ok){
+  var el=document.getElementById(ok?'pwd-ok':'pwd-err');
+  var other=document.getElementById(ok?'pwd-err':'pwd-ok');
+  other.style.display='none';other.classList.remove('alert-show','alert-hide');
+  el.textContent=msg;el.classList.remove('alert-hide');
+  el.style.display='block';el.classList.add('alert-show');
+  setTimeout(()=>{
+    el.classList.remove('alert-show');el.classList.add('alert-hide');
+    setTimeout(()=>{el.style.display='none';el.classList.remove('alert-hide');},250);
+  },5000);
+}
+async function changePassword(){
+  var current=document.getElementById('pwd-current').value;
+  var newPwd=document.getElementById('pwd-new').value;
+  var confirm=document.getElementById('pwd-confirm').value;
+  if(!current){showPwdMsg('Please enter your current password.',false);return;}
+  if(newPwd.length<8){showPwdMsg('New password must be at least 8 characters.',false);return;}
+  if(newPwd!==confirm){showPwdMsg('New passwords do not match.',false);return;}
+  if(newPwd===current){showPwdMsg('New password must differ from your current password.',false);return;}
+  var btn=document.getElementById('btn-change-pwd');
+  btn.disabled=true;btn.textContent='Updating…';
+  try{
+    var res=await fetch('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword:current,newPassword:newPwd})});
+    var data=await res.json();
+    if(data.success){
+      showPwdMsg('✅ Password updated successfully!',true);
+      document.getElementById('pwd-current').value='';
+      document.getElementById('pwd-new').value='';
+      document.getElementById('pwd-confirm').value='';
+      checkPwdStrength('');
+    }else{showPwdMsg('❌ '+(data.error||'Failed to update password.'),false);}
+  }catch(e){showPwdMsg('❌ Connection error. Please try again.',false);}
+  btn.disabled=false;btn.innerHTML='🔒 Update Password';
 }
 
 
