@@ -534,9 +534,27 @@ input:focus,select:focus,textarea:focus{
 <!-- ════════ TAB 3: MY TEAM ════════ -->
 <div class="tab-content" id="tab-team">
   <div class="panel wide">
-    <div class="panel-title"><div class="panel-title-left">👥 My Subordinates</div></div>
+    <div class="panel-title">
+      <div class="panel-title-left">👥 My Subordinates</div>
+    </div>
     <div id="team-wrap"><div class="empty">Loading…</div></div>
   </div>
+
+  <!-- ── LIVE ATTENDANCE BOARD (WebSocket-powered) ── -->
+  <div class="panel wide">
+    <div class="panel-title" style="justify-content:space-between">
+      <div class="panel-title-left">
+        🟢 Live Team Attendance
+        <span id="live-att-dot" title="Live sync" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef9a9a;margin-left:8px;vertical-align:middle;transition:background .4s"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="live-att-ts" style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></span>
+        <button class="filter-btn" style="font-size:11px" onclick="loadLiveAttendance()">↻ Refresh</button>
+      </div>
+    </div>
+    <div id="live-att-wrap"><div class="empty">Loading live attendance…</div></div>
+  </div>
+
   <div class="panel wide">
     <div class="panel-title"><div class="panel-title-left">📋 Team Leave Summary</div></div>
     <div id="team-leave-wrap"><div class="empty">Loading…</div></div>
@@ -1401,6 +1419,246 @@ if(badge){
   document.head.appendChild(style);
 }
 
+</script>
+
+<!-- ══════════════════════════════════════════════════════════
+     LIVE ATTENDANCE + WEBSOCKET — Supervisor Portal
+══════════════════════════════════════════════════════════ -->
+<script>
+// ── LIVE ATTENDANCE BOARD ─────────────────────────────────────────────────────
+async function loadLiveAttendance(){
+  var w = document.getElementById('live-att-wrap');
+  if(!w) return;
+  try {
+    var res = await fetch('/api/timelogs/live');
+    if(!res.ok){ w.innerHTML='<div class="empty">Could not load live attendance.</div>'; return; }
+    var rows = await res.json();
+    renderLiveAttendance(rows);
+    var ts = document.getElementById('live-att-ts');
+    if(ts) ts.textContent = 'Updated ' + new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+  } catch(e){
+    w.innerHTML='<div class="empty">Live attendance unavailable.</div>';
+  }
+}
+
+function statusLabel(row){
+  if(!row.timeIn)      return { text:'Not yet in',    cls:'badge-gray',   icon:'⬜' };
+  if(row.timeOut)      return { text:'Shift complete', cls:'badge-blue',   icon:'✅' };
+  if(row.lunchOut  && !row.lunchIn)    return { text:'Lunch break',    cls:'badge-yellow', icon:'🍽️' };
+  if(row.meriendaOut && !row.meriendaIn) return { text:'Merienda break', cls:'badge-yellow', icon:'☕' };
+  return { text:'Working',      cls:'badge-green',  icon:'🟢' };
+}
+
+function renderLiveAttendance(rows){
+  var w = document.getElementById('live-att-wrap');
+  if(!w) return;
+  if(!rows.length){ w.innerHTML='<div class="empty">No subordinates assigned.</div>'; return; }
+  var in_count   = rows.filter(r=>r.timeIn && !r.timeOut).length;
+  var out_count  = rows.filter(r=>r.timeOut).length;
+  var none_count = rows.filter(r=>!r.timeIn).length;
+
+  var summaryHtml =
+    '<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">'
+    +'<div style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">🟢 Working: '+in_count+'</div>'
+    +'<div style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">✅ Done: '+out_count+'</div>'
+    +'<div style="background:#f0f4f8;color:#6b7c93;border:1px solid #dce3ec;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">⬜ Not in: '+none_count+'</div>'
+    +'</div>';
+
+  var tableHtml = '<div style="overflow-x:auto"><table style="min-width:660px"><thead><tr>'
+    +'<th>Employee</th>'
+    +'<th style="text-align:center">Status</th>'
+    +'<th style="text-align:center">Time In</th>'
+    +'<th style="text-align:center">Lunch Out</th>'
+    +'<th style="text-align:center">Lunch In</th>'
+    +'<th style="text-align:center">Merienda Out</th>'
+    +'<th style="text-align:center">Merienda In</th>'
+    +'<th style="text-align:center">Time Out</th>'
+    +'</tr></thead><tbody>'
+    +rows.map(function(r){
+      var s = statusLabel(r);
+      var rowBg = r.timeIn && !r.timeOut ? '#f1fff4' : '';
+      return '<tr id="live-row-'+r.employeeId+'" style="background:'+rowBg+'">'
+        +'<td><strong>'+escHtml(r.empName)+'</strong>'
+        +(r.empPos ? '<br><span style="font-size:10px;color:var(--muted)">'+escHtml(r.empPos)+'</span>' : '')+'</td>'
+        +'<td style="text-align:center"><span class="badge '+s.cls+'">'+s.icon+' '+s.text+'</span></td>'
+        +liveCell(r.timeIn,   'var(--green)')
+        +liveCell(r.lunchOut, 'var(--orange)')
+        +liveCell(r.lunchIn,  '#0277bd')
+        +liveCell(r.meriendaOut, 'var(--orange)')
+        +liveCell(r.meriendaIn,  '#0277bd')
+        +liveCell(r.timeOut,  'var(--muted)')
+        +'</tr>';
+    }).join('')
+    +'</tbody></table></div>';
+
+  w.innerHTML = summaryHtml + tableHtml;
+}
+
+function liveCell(val, color){
+  return '<td class="mono" style="text-align:center;font-size:11px;color:'
+    +(val ? color : '#dce3ec')+';font-weight:'+(val?'700':'400')+'">'
+    +(val||'—')+'</td>';
+}
+
+// Patch loadTeam so it also loads live attendance
+var _origLoadTeam = window.loadTeam;
+window.loadTeam = async function(){
+  if(typeof _origLoadTeam === 'function') await _origLoadTeam();
+  await loadLiveAttendance();
+};
+
+// Update a single row in the live table when a WebSocket punch event arrives
+function applyLivePunch(msg){
+  var w = document.getElementById('live-att-wrap');
+  if(!w || !w.querySelector('table')) {
+    // Table not rendered yet — do a full reload
+    loadLiveAttendance();
+    return;
+  }
+  // Fetch updated row for just this employee
+  fetch('/api/timelogs/live').then(function(r){ return r.json(); }).then(function(rows){
+    var updated = rows.find(function(r){ return r.employeeId === msg.employeeId; });
+    if(!updated) return;
+    var existingRow = document.getElementById('live-row-'+msg.employeeId);
+    if(existingRow){
+      var s = statusLabel(updated);
+      var rowBg = updated.timeIn && !updated.timeOut ? '#f1fff4' : '';
+      existingRow.style.background = rowBg;
+      existingRow.innerHTML =
+        '<td><strong>'+escHtml(updated.empName)+'</strong>'
+        +(updated.empPos ? '<br><span style="font-size:10px;color:var(--muted)">'+escHtml(updated.empPos)+'</span>' : '')+'</td>'
+        +'<td style="text-align:center"><span class="badge '+s.cls+'">'+s.icon+' '+s.text+'</span></td>'
+        +liveCell(updated.timeIn,   'var(--green)')
+        +liveCell(updated.lunchOut, 'var(--orange)')
+        +liveCell(updated.lunchIn,  '#0277bd')
+        +liveCell(updated.meriendaOut, 'var(--orange)')
+        +liveCell(updated.meriendaIn,  '#0277bd')
+        +liveCell(updated.timeOut,  'var(--muted)')
+        +'</tr>';
+      // Flash yellow highlight
+      existingRow.style.transition = 'background .1s';
+      existingRow.style.background = '#fffde7';
+      setTimeout(function(){
+        existingRow.style.transition = 'background 1s';
+        existingRow.style.background = updated.timeIn && !updated.timeOut ? '#f1fff4' : '';
+      }, 600);
+    } else {
+      // New employee appeared — full refresh
+      loadLiveAttendance();
+    }
+    // Update summary counts
+    fetch('/api/timelogs/live').then(function(r2){ return r2.json(); }).then(renderLiveAttendance);
+    var ts = document.getElementById('live-att-ts');
+    if(ts) ts.textContent = 'Updated ' + new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+  });
+}
+
+// ── TOAST NOTIFICATION ───────────────────────────────────────────────────────
+function showPunchToast(msg){
+  var container = document.getElementById('ws-toast-container');
+  if(!container){
+    container = document.createElement('div');
+    container.id = 'ws-toast-container';
+    container.style.cssText =
+      'position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
+    document.body.appendChild(container);
+  }
+  var toast = document.createElement('div');
+  toast.style.cssText =
+    'background:#1a2332;color:#fff;padding:11px 16px;border-radius:10px;font-size:12.5px;font-family:\'IBM Plex Sans\',sans-serif;'
+    +'box-shadow:0 4px 20px rgba(10,22,40,0.25);display:flex;align-items:center;gap:10px;'
+    +'animation:toast-in .25s ease both;max-width:320px;pointer-events:auto;'
+    +'border-left:3px solid #a5d6a7';
+  toast.innerHTML = '<span style="font-size:16px">🔔</span><span>'+msg+'</span>';
+  if(!document.getElementById('ws-toast-style')){
+    var st = document.createElement('style');
+    st.id = 'ws-toast-style';
+    st.textContent = '@keyframes toast-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}'
+      +'@keyframes toast-out{from{opacity:1}to{opacity:0;transform:translateY(8px)}}';
+    document.head.appendChild(st);
+  }
+  container.appendChild(toast);
+  setTimeout(function(){
+    toast.style.animation = 'toast-out .3s ease forwards';
+    setTimeout(function(){ toast.remove(); }, 320);
+  }, 4500);
+}
+
+// ── WEBSOCKET CLIENT ─────────────────────────────────────────────────────────
+(function(){
+  var RECONNECT_DELAY = 5000;
+  var _ws = null;
+  var _dead = false;
+
+  function eventLabel(ev){
+    return {timein:'Timed In','lunch-out':'Lunch Out','lunch-in':'Lunch Back','merienda-out':'Merienda Out','merienda-in':'Merienda Back',timeout:'Timed Out'}[ev]||ev;
+  }
+
+  function wsConnect(){
+    if(_dead) return;
+    var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    var url   = proto + '://' + location.host;
+    try { _ws = new WebSocket(url); } catch(e){ return; }
+
+    _ws.onopen = function(){
+      setDot(true);
+    };
+
+    _ws.onmessage = function(evt){
+      var msg;
+      try { msg = JSON.parse(evt.data); } catch(e){ return; }
+      if(msg.type === 'connected') return;
+
+      if(msg.type === 'punch'){
+        // Update supervisor's own punch state if this is their own event
+        if(window.user && msg.employeeId === window.user.employee_id){
+          loadStatus();
+          loadHistory();
+        }
+        // Update the live attendance board
+        applyLivePunch(msg);
+        // Toast notification for subordinate punches
+        if(!window.user || msg.employeeId !== window.user.employee_id){
+          showPunchToast('<strong>'+escHtml(msg.empName)+'</strong> — '+eventLabel(msg.event)+' at '+msg.time);
+        }
+        // Flash the live dot
+        flashDot();
+      }
+    };
+
+    _ws.onclose = function(){
+      setDot(false);
+      if(!_dead) setTimeout(wsConnect, RECONNECT_DELAY);
+    };
+
+    _ws.onerror = function(){
+      try { _ws.close(); } catch(e){}
+    };
+  }
+
+  function setDot(ok){
+    var dot = document.getElementById('live-att-dot');
+    if(dot){ dot.style.background = ok ? '#a5d6a7' : '#ef9a9a'; dot.title = ok ? 'Live sync: connected' : 'Live sync: reconnecting…'; }
+  }
+  function flashDot(){
+    var dot = document.getElementById('live-att-dot');
+    if(!dot) return;
+    dot.style.background = '#80deea';
+    setTimeout(function(){ dot.style.background = '#a5d6a7'; }, 700);
+  }
+
+  document.addEventListener('click', function(e){
+    if(e.target.closest('.btn-logout')) _dead = true;
+  });
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      wsConnect();
+      // Pre-load live attendance if team tab is default-open
+      // (it's not, so load is deferred to when user switches to team tab)
+    }, 600);
+  });
+})();
 </script>
 </body>
 </html>
