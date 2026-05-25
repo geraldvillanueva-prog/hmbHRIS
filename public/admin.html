@@ -151,6 +151,15 @@ tr:hover td{background:#fafcff}
 .ll-item{display:flex;align-items:center;gap:5px;font-size:11px}
 .ll-dot{width:10px;height:10px;border-radius:50%}
 
+/* PAYROLL ENCODING SPREADSHEET TABLE */
+#payroll-enc-table th{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;border-right:1px solid rgba(255,255,255,0.15)}
+#payroll-enc-table td{vertical-align:middle;border-right:1px solid #edf2f7;border-bottom:1px solid #edf2f7}
+#payroll-enc-table input[type=number]{box-sizing:border-box;min-width:60px}
+#payroll-enc-table input[type=number]::-webkit-inner-spin-button{opacity:0.4}
+#payroll-enc-table input[type=number]:focus{outline:none;border-color:var(--blue)!important;background:#fff!important;box-shadow:0 0 0 2px rgba(21,101,192,.15)}
+#payroll-enc-table tbody tr:hover td{background:#e8f4ff!important}
+#payroll-enc-table tfoot td{border-top:2px solid var(--border)}
+
 @media print{
   .sidebar,.topbar,.btn,.no-print,.modal-overlay{display:none!important}
   .main{margin-left:0}
@@ -1466,48 +1475,189 @@ function autoComputeLeavePay(empId, per, dr){
 function renderPayrollAttGrid(){
   var per=v('att-per'),g=document.getElementById('att-grid');
   if(!employees.length){g.innerHTML='<div class="empty">Add employees first.</div>';return;}
-  g.innerHTML=employees.map(e=>{
-    var a=getAtt(per,e.id),periodDays=a.periodDays||13,dr=e.smb/periodDays;
+
+  // Shared period days input (one value for all)
+  var firstAtt=getAtt(per,employees[0].id);
+  var sharedPeriodDays=firstAtt.periodDays||13;
+
+  var headerHtml=
+    '<div class="card" style="margin-bottom:10px">'
+    +'<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+    +'<div class="f" style="max-width:180px"><label>Working days in period</label>'
+    +'<input type="number" id="shared_periodDays" value="'+sharedPeriodDays+'" min="1" max="16" step="1" '
+    +'oninput="applySharedPeriodDays()" style="font-weight:700;border-color:var(--blue)"></div>'
+    +'<div style="font-size:11px;color:var(--muted);padding-top:18px">Change this to update the daily rate for all employees at once.</div>'
+    +'</div></div>';
+
+  var tableHtml=
+    '<div style="overflow-x:auto">'
+    +'<table id="payroll-enc-table" style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">'
+    +'<thead>'
+    +'<tr style="background:var(--navy);color:#fff">'
+    +'<th rowspan="2" style="text-align:left;padding:8px 10px;min-width:170px;position:sticky;left:0;z-index:2;background:var(--navy)">EMPLOYEE NAME</th>'
+    +'<th rowspan="2" style="padding:8px 6px;min-width:70px">SEMI-MO<br>BASIC</th>'
+    +'<th rowspan="2" style="padding:8px 6px;min-width:65px">DAILY<br>RATE</th>'
+    +'<th rowspan="2" style="padding:8px 6px;min-width:65px">DAYS<br>WORKED</th>'
+    +'<th colspan="5" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#1565c0">EARNINGS</th>'
+    +'<th colspan="3" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#2e7d32">ALLOWANCES / ADD-ONS</th>'
+    +'<th colspan="3" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#c62828">DEDUCTIONS</th>'
+    +'<th rowspan="2" style="padding:8px 6px;min-width:90px;background:#00695c;color:#fff">NET PAY</th>'
+    +'</tr>'
+    +'<tr style="font-size:10px;background:#0d47a1;color:#e3f2fd">'
+    // Earnings sub-cols
+    +'<th style="padding:5px 6px;min-width:65px">OT HRS</th>'
+    +'<th style="padding:5px 6px;min-width:65px">ND-OT<br>HRS</th>'
+    +'<th style="padding:5px 6px;min-width:65px">REST DAY<br>OT HRS</th>'
+    +'<th style="padding:5px 6px;min-width:80px">HOLIDAY<br>PAY (₱)</th>'
+    +'<th style="padding:5px 6px;min-width:80px">LEAVE<br>W/PAY (₱)</th>'
+    // Allowances sub-cols
+    +'<th style="padding:5px 6px;min-width:80px;background:#388e3c">COMMISSION<br>(₱)</th>'
+    +'<th style="padding:5px 6px;min-width:80px;background:#388e3c">OTHER<br>ADD (₱)</th>'
+    +'<th style="padding:5px 6px;min-width:70px;background:#388e3c">DEMINIMIS<br>(₱)</th>'
+    // Deductions sub-cols
+    +'<th style="padding:5px 6px;min-width:80px;background:#b71c1c">OTHER<br>DED (₱)</th>'
+    +'<th style="padding:5px 6px;min-width:80px;background:#b71c1c">LATE/<br>UNDERTIME (₱)</th>'
+    +'<th style="padding:5px 6px;min-width:70px;background:#b71c1c">WHT<br>TAX (₱)</th>'
+    +'</tr></thead>'
+    +'<tbody>';
+
+  employees.forEach(function(e,idx){
+    var a=getAtt(per,e.id),periodDays=a.periodDays||sharedPeriodDays,dr=e.smb/periodDays;
     var lvComp=autoComputeLeavePay(e.id,per,dr);
-    // Use auto-computed value; if attendance already has a saved value use that,
-    // but seed with auto-computed if it's 0/missing (first load for this period)
     var lvVal=(a.leave&&a.leave>0)?a.leave:lvComp.amount;
-    // Build breakdown tooltip text
-    var lvBadge='';
-    if(lvComp.breakdown.length>0){
-      var bLines=lvComp.breakdown.map(function(b){return b.type+': '+b.days+' day'+(b.days!==1?'s':'')+' ('+fmtDate(b.from)+' – '+fmtDate(b.to)+')';}).join(' | ');
-      lvBadge='<span style="font-size:9.5px;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:10px;padding:1px 7px;margin-left:5px;font-weight:700;cursor:default;vertical-align:middle" title="Auto-computed from approved leaves: '+bLines+'">⚡ AUTO</span>';
+    var autoMark=lvComp.breakdown.length>0?'title="Auto-filled from approved leave(s)" style="border-color:#90caf9;background:#f0f7ff"':'';
+    var rowBg=idx%2===0?'#fff':'#f8fafc';
+
+    function inp(field,val,step,extra){
+      return '<input type="number" id="att_'+e.id+'_'+field+'" value="'+(val||0)+'" min="0" step="'+(step||0.5)+'" '
+        +(extra||'')+' oninput="liveCompute('+e.id+')" '
+        +'style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:3px;text-align:right;background:transparent">';
     }
-    return'<div class="card" style="margin-bottom:.75rem">'
-    +'<div style="font-weight:700;font-size:14px;color:var(--blue);margin-bottom:2px">'+e.name+'</div>'
-    +'<div style="font-size:11px;color:var(--muted);margin-bottom:.75rem">'+(e.pos||'')+'&nbsp;|&nbsp;Daily rate: ₱<span id="dr_'+e.id+'">'+fp(dr)+'</span>&nbsp;|&nbsp;Semi-monthly: ₱'+fp(e.smb)+'</div>'
-    +'<div class="row">'
-    +'<div class="f"><label>Working days in period</label><input type="number" id="att_'+e.id+'_periodDays" value="'+periodDays+'" min="1" max="16" step="1" oninput="recomputeLeave('+e.id+')"></div>'
-    +'<div class="f"><label>Days worked</label><input type="number" id="att_'+e.id+'_days" value="'+a.days+'" min="0" max="16" step="0.5" oninput="liveCompute('+e.id+')"></div>'
-    +'<div class="f"><label>OT hours</label><input type="number" id="att_'+e.id+'_ot" value="'+a.ot+'" min="0" step="0.5" oninput="liveCompute('+e.id+')"></div>'
-    +'<div class="f"><label>OT Night Diff hrs</label><input type="number" id="att_'+e.id+'_otNd" value="'+(a.otNd||0)+'" min="0" step="0.5" oninput="liveCompute('+e.id+')"></div>'
-    +'<div class="f"><label>Rest Day OT hrs</label><input type="number" id="att_'+e.id+'_restDay" value="'+(a.restDay||0)+'" min="0" step="0.5" oninput="liveCompute('+e.id+')"></div>'
-    +'</div><div class="row">'
-    +'<div class="f"><label>Holiday pay (₱)</label><input type="number" id="att_'+e.id+'_holiday" value="'+a.holiday+'" min="0" step="0.01" oninput="liveCompute('+e.id+')"></div>'
-    +'<div class="f"><label style="display:flex;align-items:center;gap:2px">Leave w/ pay (₱)'+lvBadge+'</label>'
-    +'<input type="number" id="att_'+e.id+'_leave" value="'+lvVal+'" min="0" step="0.01" oninput="liveCompute('+e.id+')" '
-    +(lvComp.breakdown.length>0?'style="border-color:#90caf9;background:#f0f7ff" title="Auto-filled from approved leave(s). You may override."':'')+'></div>'
-    +'<div class="f"><label>Commission (₱)</label><input type="number" id="att_'+e.id+'_commission" value="'+a.commission+'" min="0" step="0.01" oninput="liveCompute('+e.id+')"></div>'
-    +'<div class="f"><label>Other additionals (₱)</label><input type="number" id="att_'+e.id+'_otherAdd" value="'+a.otherAdd+'" min="0" step="0.01" oninput="liveCompute('+e.id+')"></div>'
-    +'<div class="f"><label>Other deductions (₱)</label><input type="number" id="att_'+e.id+'_otherDed" value="'+a.otherDed+'" min="0" step="0.01" oninput="liveCompute('+e.id+')"></div>'
-    +'<div class="f"><label>Late / undertime (₱)</label><input type="number" id="att_'+e.id+'_late" value="'+a.late+'" min="0" step="0.01" oninput="liveCompute('+e.id+')"></div>'
-    +'</div><div id="live_'+e.id+'" style="font-size:12px;color:var(--muted);background:#f8fafc;padding:6px 10px;border-radius:4px;border:1px solid var(--border)">—</div></div>';
-  }).join('');
+
+    tableHtml+=
+      '<tr id="row_'+e.id+'" style="background:'+rowBg+'" onmouseover="this.style.background=\'#e8f4ff\'" onmouseout="this.style.background=\''+rowBg+'\'">'
+      // Name & basic info
+      +'<td style="padding:5px 10px;position:sticky;left:0;background:'+rowBg+';z-index:1;border-right:2px solid var(--border)">'
+      +'<div style="font-weight:700;color:var(--navy);font-size:12.5px">'+e.name+'</div>'
+      +'<div style="font-size:10px;color:var(--muted)">'+(e.pos||'')+'</div></td>'
+      // Semi-monthly basic
+      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace">₱'+fp(e.smb)+'</td>'
+      // Daily rate (live)
+      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace" id="dr_'+e.id+'">₱'+fp(dr)+'</td>'
+      // Days worked
+      +'<td style="padding:3px 5px">'
+        +'<input type="number" id="att_'+e.id+'_days" value="'+a.days+'" min="0" max="22" step="0.5" '
+        +'oninput="liveCompute('+e.id+')" '
+        +'style="width:70px;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:3px;text-align:center;font-weight:700"></td>'
+      // OT hrs
+      +'<td style="padding:3px 5px">'+inp('ot',a.ot,0.5)+'</td>'
+      // ND OT hrs
+      +'<td style="padding:3px 5px">'+inp('otNd',a.otNd||0,0.5)+'</td>'
+      // Rest Day OT hrs
+      +'<td style="padding:3px 5px">'+inp('restDay',a.restDay||0,0.5)+'</td>'
+      // Holiday pay ₱
+      +'<td style="padding:3px 5px">'+inp('holiday',a.holiday,0.01)+'</td>'
+      // Leave w/ pay ₱
+      +'<td style="padding:3px 5px"><input type="number" id="att_'+e.id+'_leave" value="'+lvVal+'" min="0" step="0.01" '
+      +autoMark+' oninput="liveCompute('+e.id+')" '
+      +'style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:3px;text-align:right;background:transparent"></td>'
+      // Commission ₱
+      +'<td style="padding:3px 5px">'+inp('commission',a.commission,0.01)+'</td>'
+      // Other add ₱
+      +'<td style="padding:3px 5px">'+inp('otherAdd',a.otherAdd,0.01)+'</td>'
+      // Deminimis (from employee profile, shown read-only but editable per period via otherAdd — shown as info)
+      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace;color:var(--muted)">'+((e.dm||0)>0?'₱'+fp(e.dm):'-')+'</td>'
+      // Other ded ₱
+      +'<td style="padding:3px 5px">'+inp('otherDed',a.otherDed,0.01)+'</td>'
+      // Late/undertime ₱
+      +'<td style="padding:3px 5px">'+inp('late',a.late,0.01)+'</td>'
+      // WHT (from employee profile)
+      +'<td style="padding:5px 6px;text-align:right;font-family:\'IBM Plex Mono\',monospace;color:var(--muted)">'+((e.wht||0)>0?'₱'+fp(e.wht):'-')+'</td>'
+      // Net pay (live)
+      +'<td style="padding:5px 8px;text-align:right;font-weight:700;font-family:\'IBM Plex Mono\',monospace;color:var(--green);background:#f0fff4" id="netpay_'+e.id+'">—</td>'
+      +'</tr>'
+      // Expandable detail row for breakdown
+      +'<tr id="detail_'+e.id+'" style="background:#fffde7;display:none"><td colspan="15" style="padding:4px 10px;font-size:11px;color:#7b5800" id="detail_txt_'+e.id+'"></td></tr>';
+  });
+
+  tableHtml+='<tr style="background:#f0f4f8;font-weight:700;font-family:\'IBM Plex Mono\',monospace">'
+    +'<td style="padding:8px 10px;position:sticky;left:0;background:#f0f4f8;border-right:2px solid var(--border)">TOTALS</td>'
+    +'<td colspan="2"></td>'
+    +'<td id="tot_days" style="padding:8px 6px;text-align:center"></td>'
+    +'<td colspan="7"></td>'
+    +'<td id="tot_add" style="padding:8px 6px;text-align:right;color:var(--green)"></td>'
+    +'<td id="tot_ded" style="padding:8px 6px;text-align:right;color:var(--red)"></td>'
+    +'<td colspan="2"></td>'
+    +'<td id="tot_net" style="padding:8px 8px;text-align:right;color:var(--green)"></td>'
+    +'</tr>';
+
+  tableHtml+='</tbody></table></div>';
+
+  g.innerHTML=headerHtml+tableHtml;
+
+  // Also add hidden periodDays inputs per employee (used by save function)
+  employees.forEach(function(e){
+    var hidden=document.createElement('input');
+    hidden.type='hidden';
+    hidden.id='att_'+e.id+'_periodDays';
+    hidden.value=getAtt(per,e.id).periodDays||sharedPeriodDays;
+    g.appendChild(hidden);
+  });
+
   employees.forEach(e=>liveCompute(e.id));
+  updatePayrollTotals();
+}
+
+function applySharedPeriodDays(){
+  var pd=parseFloat(document.getElementById('shared_periodDays').value)||13;
+  var per=v('att-per');
+  employees.forEach(function(e){
+    var el=document.getElementById('att_'+e.id+'_periodDays');
+    if(el)el.value=pd;
+    // Update daily rate display
+    var drEl=document.getElementById('dr_'+e.id);
+    if(drEl)drEl.textContent='₱'+fp(e.smb/pd);
+    liveCompute(e.id);
+  });
+  updatePayrollTotals();
+}
+
+function updatePayrollTotals(){
+  var per=v('att-per');
+  var totDays=0,totAdd=0,totDed=0,totNet=0;
+  employees.forEach(function(e){
+    function gv(f){var el=document.getElementById('att_'+e.id+'_'+f);return el?parseFloat(el.value)||0:0;}
+    var periodDays=parseFloat((document.getElementById('att_'+e.id+'_periodDays')||{value:13}).value)||13;
+    var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays};
+    var p=calcPay(e,a);
+    totDays+=a.days;
+    totAdd+=p.totalEarnings;
+    totDed+=p.totalDeductions;
+    totNet+=p.netPay;
+  });
+  var td=document.getElementById('tot_days');if(td)td.textContent=totDays;
+  var ta=document.getElementById('tot_add');if(ta)ta.textContent='₱'+fp(totAdd);
+  var tded=document.getElementById('tot_ded');if(tded)tded.textContent='₱'+fp(totDed);
+  var tn=document.getElementById('tot_net');if(tn)tn.textContent='₱'+fp(totNet);
 }
 function liveCompute(empId){
   var e=employees.find(x=>x.id===empId);if(!e)return;
-  function gv(f){return parseFloat(document.getElementById('att_'+empId+'_'+f).value)||0;}
-  var periodDays=parseFloat(document.getElementById('att_'+empId+'_periodDays').value)||13;
+  function gv(f){var el=document.getElementById('att_'+empId+'_'+f);return el?parseFloat(el.value)||0:0;}
+  var periodDays=parseFloat((document.getElementById('att_'+empId+'_periodDays')||{value:13}).value)||13;
   var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays};
-  var p=calcPay(e,a),el=document.getElementById('live_'+empId);
-  var drEl=document.getElementById('dr_'+empId);if(drEl)drEl.textContent=fp(p.dr);
-  if(el)el.innerHTML='<strong>Preview:</strong> &nbsp;Daily rate: ₱'+fp(p.dr)+' &nbsp;|&nbsp; Basic: ₱'+fp(p.basicPay)+' &nbsp;|&nbsp; OT: ₱'+fp(p.otPay)+' &nbsp;|&nbsp; Total earnings: ₱'+fp(p.totalEarnings)+' &nbsp;|&nbsp; Deductions: <span style="color:var(--red)">₱'+fp(p.totalDeductions)+'</span> &nbsp;|&nbsp; <strong style="color:var(--green);font-size:13px">Net pay: ₱'+fp(p.netPay)+'</strong>';
+  var p=calcPay(e,a);
+  var drEl=document.getElementById('dr_'+empId);
+  if(drEl)drEl.textContent='&#x20b1;'+fp(p.dr);
+  // Table mode: update net pay cell
+  var netEl=document.getElementById('netpay_'+empId);
+  if(netEl){
+    netEl.textContent='&#x20b1;'+fp(p.netPay);
+    netEl.title='Basic: &#x20b1;'+fp(p.basicPay)+' | OT: &#x20b1;'+fp(p.otPay)+' | Gross: &#x20b1;'+fp(p.totalEarnings)+' | Ded: &#x20b1;'+fp(p.totalDeductions);
+  }
+  // Legacy card mode fallback
+  var el=document.getElementById('live_'+empId);
+  if(el)el.innerHTML='<strong>Preview:</strong> &nbsp;Daily rate: &#x20b1;'+fp(p.dr)+' &nbsp;|&nbsp; Basic: &#x20b1;'+fp(p.basicPay)+' &nbsp;|&nbsp; OT: &#x20b1;'+fp(p.otPay)+' &nbsp;|&nbsp; Total earnings: &#x20b1;'+fp(p.totalEarnings)+' &nbsp;|&nbsp; Deductions: <span style="color:var(--red)">&#x20b1;'+fp(p.totalDeductions)+'</span> &nbsp;|&nbsp; <strong style="color:var(--green);font-size:13px">Net pay: &#x20b1;'+fp(p.netPay)+'</strong>';
+  if(typeof updatePayrollTotals==='function')updatePayrollTotals();
 }
 function recomputeLeave(empId){
   // When periodDays changes, recalculate the daily rate and update leave field if it was auto-set
