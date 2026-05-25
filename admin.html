@@ -200,6 +200,7 @@ tr:hover td{background:#fafcff}
   <div class="sidebar-section">Settings</div>
   <div id="nav-users" class="nav-item" onclick="goSec('users',this)"><span class="nav-icon">🔐</span>User Accounts</div>
   <div id="nav-shifts" class="nav-item" onclick="goSec('shifts',this)"><span class="nav-icon">🕰️</span>Shift Management</div>
+  <div id="nav-location" class="nav-item" onclick="goSec('location',this)"><span class="nav-icon">📍</span>Location Policies</div>
   <div id="nav-setup" class="nav-item" onclick="goSec('setup',this)"><span class="nav-icon">⚙️</span>System Setup</div>
   <div class="sidebar-section" id="nav-mgmt-section" style="display:none">Management</div>
   <div id="nav-management" class="nav-item" style="display:none" onclick="goSec('management',this)"><span class="nav-icon">🏢</span>Management Console</div>
@@ -291,6 +292,18 @@ tr:hover td{background:#fafcff}
         <div class="f"><label>Address</label><input id="eaddress" placeholder=""></div>
         <div class="f"><label>TIN</label><input id="etin" placeholder=""></div>
       </div>
+      <div class="row">
+        <div class="f" style="max-width:200px"><label>📍 Location Policy</label>
+          <select id="eloc_policy" onchange="toggleAddLocFields()">
+            <option value="office">Office (GPS-restricted to office)</option>
+            <option value="wfh">WFH (GPS-restricted to home)</option>
+            <option value="liaison">Liaison (punch anywhere, logged)</option>
+          </select>
+        </div>
+        <div class="f" style="max-width:160px" id="eloc_home_wrap"><label>Home Latitude</label><input id="eloc_lat" type="number" placeholder="e.g. 15.9223" step="any"></div>
+        <div class="f" style="max-width:160px" id="eloc_lng_wrap"><label>Home Longitude</label><input id="eloc_lng" type="number" placeholder="e.g. 120.5765" step="any"></div>
+        <div class="f" style="max-width:140px"><label>Allowed Radius (m)</label><input id="eloc_radius" type="number" placeholder="300" value="300" min="50" step="10"></div>
+      </div>
       <button class="btn bp" onclick="addEmp()">+ Add Employee</button>
     </div>
     <div id="emp-wrap"><div class="empty">No employees added yet.</div></div>
@@ -341,6 +354,18 @@ tr:hover td{background:#fafcff}
           <div class="f"><label>SL Balance (days)</label><input id="edit-esl" type="number" step="0.5"></div>
           <div class="f"><label>TIN</label><input id="edit-etin"></div>
           <div class="f"><label>Address</label><input id="edit-eaddress"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>📍 Location Policy</label>
+            <select id="edit-eloc_policy" onchange="toggleEditLocFields()">
+              <option value="office">Office (GPS-restricted to office)</option>
+              <option value="wfh">WFH (GPS-restricted to home)</option>
+              <option value="liaison">Liaison (punch anywhere, logged)</option>
+            </select>
+          </div>
+          <div class="f" id="edit-eloc_home_wrap"><label>Home Latitude</label><input id="edit-eloc_lat" type="number" placeholder="e.g. 15.9223" step="any"></div>
+          <div class="f" id="edit-eloc_lng_wrap"><label>Home Longitude</label><input id="edit-eloc_lng" type="number" placeholder="e.g. 120.5765" step="any"></div>
+          <div class="f"><label>Allowed Radius (m)</label><input id="edit-eloc_radius" type="number" placeholder="300" min="50" step="10"></div>
         </div>
         <div id="edit-emp-err" style="display:none;background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:10px"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
@@ -865,6 +890,79 @@ tr:hover td{background:#fafcff}
   </div><!-- end content -->
 </div><!-- end main -->
 
+  <!-- LOCATION POLICIES SECTION -->
+  <div id="sec-location" class="sec" style="display:none">
+    <div class="page-title">📍 Location Policies</div>
+    <div class="page-sub">Control where employees can punch in and out based on GPS</div>
+
+    <div class="card">
+      <div class="card-title">🏢 Office GPS Coordinates</div>
+      <div class="infobox">Set your office location. All <strong>Office</strong>-policy employees must be within the allowed radius to punch in/out. Get coordinates from <a href="https://maps.google.com" target="_blank" style="color:var(--blue)">Google Maps</a> (right-click → "What's here?").</div>
+      <div class="row">
+        <div class="f" style="max-width:200px"><label>Office Latitude</label><input id="loc-office-lat" type="number" step="any" placeholder="e.g. 14.3517"></div>
+        <div class="f" style="max-width:200px"><label>Office Longitude</label><input id="loc-office-lng" type="number" step="any" placeholder="e.g. 121.0363"></div>
+        <div class="f" style="max-width:160px"><label>Office Radius (meters)</label><input id="loc-office-radius" type="number" value="200" min="50" step="10" placeholder="200"></div>
+        <button class="btn bp" style="align-self:flex-end" onclick="saveOfficeLocation()">💾 Save Office Location</button>
+        <span class="ok-msg" id="loc-office-ok">Saved!</span>
+      </div>
+      <div id="loc-office-preview" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👥 Employee Location Policy Overview</div>
+      <div class="row" style="margin-bottom:12px">
+        <div class="f" style="max-width:200px"><label>Filter by policy</label>
+          <select id="loc-filter" onchange="renderLocationTable()">
+            <option value="">All</option>
+            <option value="office">Office</option>
+            <option value="wfh">WFH</option>
+            <option value="liaison">Liaison</option>
+          </select>
+        </div>
+      </div>
+      <div id="loc-emp-wrap"><div class="empty">No employees yet.</div></div>
+    </div>
+
+    <div class="card" id="loc-edit-card" style="display:none">
+      <div class="card-title">✏️ Edit Location Policy — <span id="loc-edit-name" style="color:var(--accent)"></span></div>
+      <input type="hidden" id="loc-edit-id">
+      <div class="row">
+        <div class="f" style="max-width:220px"><label>Policy</label>
+          <select id="loc-edit-policy" onchange="toggleLocEditFields()">
+            <option value="office">Office (GPS-restricted to office)</option>
+            <option value="wfh">WFH (GPS-restricted to home)</option>
+            <option value="liaison">Liaison (punch anywhere, logged)</option>
+          </select>
+        </div>
+        <div class="f" style="max-width:170px" id="loc-edit-lat-wrap"><label>Home Latitude</label><input id="loc-edit-lat" type="number" step="any" placeholder="e.g. 15.9223"></div>
+        <div class="f" style="max-width:170px" id="loc-edit-lng-wrap"><label>Home Longitude</label><input id="loc-edit-lng" type="number" step="any" placeholder="e.g. 120.5765"></div>
+        <div class="f" style="max-width:150px"><label>Allowed Radius (m)</label><input id="loc-edit-radius" type="number" value="300" min="50" step="10"></div>
+        <button class="btn bp" style="align-self:flex-end" onclick="saveLocPolicy()">💾 Save</button>
+        <button class="btn" style="align-self:flex-end" onclick="closeLocEdit()">Cancel</button>
+        <span class="ok-msg" id="loc-edit-ok">Saved!</span>
+      </div>
+      <div class="infobox" id="loc-edit-hint" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">ℹ️ How GPS Restriction Works</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;font-size:12.5px">
+        <div style="background:#e3f2fd;border-radius:8px;padding:14px;border-left:4px solid var(--blue)">
+          <div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏢 Office</div>
+          Punch is accepted only when the employee is within the office radius. GPS coordinates are checked against the office location set above. Rejected punches show distance and direction.
+        </div>
+        <div style="background:#e8f5e9;border-radius:8px;padding:14px;border-left:4px solid var(--green)">
+          <div style="font-weight:700;color:var(--green);margin-bottom:6px">🏠 WFH</div>
+          Punch is accepted only from within the employee's registered home coordinates. Set home lat/lng per employee. Radius is configurable (recommended 300–500m to account for GPS drift).
+        </div>
+        <div style="background:#fff3e0;border-radius:8px;padding:14px;border-left:4px solid var(--orange)">
+          <div style="font-weight:700;color:var(--orange);margin-bottom:6px">🚗 Liaison</div>
+          No location restriction. Employee can punch from anywhere. GPS coordinates are still captured and logged with every punch for audit purposes. Supervisors can review punch locations.
+        </div>
+      </div>
+    </div>
+  </div>
+
 <!-- MANAGEMENT CONSOLE SECTION (injected into content above via JS) -->
 <template id="tpl-management">
   <div id="sec-management" class="sec">
@@ -1010,6 +1108,101 @@ async function doLogout(){
   window.location.href='/';
 }
 
+// ==================== LOCATION POLICIES ====================
+var officeLocation = {lat: null, lng: null, radius: 200};
+
+function toggleAddLocFields(){
+  var pol = (document.getElementById('eloc_policy')||{}).value;
+  var hw = document.getElementById('eloc_home_wrap');
+  var lw = document.getElementById('eloc_lng_wrap');
+  if(hw) hw.style.display = pol==='wfh' ? '' : 'none';
+  if(lw) lw.style.display = pol==='wfh' ? '' : 'none';
+}
+function toggleEditLocFields(){
+  var pol = (document.getElementById('edit-eloc_policy')||{}).value;
+  var hw = document.getElementById('edit-eloc_home_wrap');
+  var lw = document.getElementById('edit-eloc_lng_wrap');
+  if(hw) hw.style.display = pol==='wfh' ? '' : 'none';
+  if(lw) lw.style.display = pol==='wfh' ? '' : 'none';
+}
+function toggleLocEditFields(){
+  var pol = v('loc-edit-policy');
+  document.getElementById('loc-edit-lat-wrap').style.display = pol==='wfh' ? '' : 'none';
+  document.getElementById('loc-edit-lng-wrap').style.display = pol==='wfh' ? '' : 'none';
+  var hint = document.getElementById('loc-edit-hint');
+  if(pol==='office') hint.textContent = '🏢 Employee must be within the office radius when punching in/out.';
+  else if(pol==='wfh') hint.textContent = '🏠 Enter the employee\'s home coordinates. They must punch from within the set radius. Recommended: 300–500m.';
+  else hint.textContent = '🚗 No restriction. GPS is captured and logged per punch for audit purposes.';
+}
+async function saveOfficeLocation(){
+  var lat = parseFloat(document.getElementById('loc-office-lat').value);
+  var lng = parseFloat(document.getElementById('loc-office-lng').value);
+  var radius = parseInt(document.getElementById('loc-office-radius').value)||200;
+  if(isNaN(lat)||isNaN(lng)){alert('Please enter valid latitude and longitude.');return;}
+  officeLocation={lat,lng,radius};
+  await api('POST','/api/settings',{office_lat:lat,office_lng:lng,office_radius:radius});
+  flash('loc-office-ok');showSaveIndicator();
+  document.getElementById('loc-office-preview').textContent = '📌 Saved: '+lat.toFixed(6)+', '+lng.toFixed(6)+' · Radius: '+radius+'m';
+}
+function renderLocationTable(){
+  var filter = v('loc-filter');
+  var w = document.getElementById('loc-emp-wrap');
+  var list = employees.filter(e => !filter || (e.loc_policy||'office') === filter);
+  if(!list.length){w.innerHTML='<div class="empty">No employees match this filter.</div>';return;}
+  var policyBadge = function(p){
+    if(p==='wfh') return '<span class="badge badge-green">🏠 WFH</span>';
+    if(p==='liaison') return '<span class="badge badge-orange">🚗 Liaison</span>';
+    return '<span class="badge badge-blue">🏢 Office</span>';
+  };
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Position</th><th>Policy</th><th>Home Coords</th><th>Radius</th><th></th></tr></thead><tbody>'
+  +list.map(e=>{
+    var pol = e.loc_policy||'office';
+    var coords = (pol==='wfh'&&e.loc_lat&&e.loc_lng)
+      ? '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px">'+parseFloat(e.loc_lat).toFixed(5)+', '+parseFloat(e.loc_lng).toFixed(5)+'</span>'
+      : (pol==='office'?'<span style="color:var(--muted);font-size:11px">Uses office coords</span>':'<span style="color:var(--muted);font-size:11px">—</span>');
+    var radius = e.loc_radius ? e.loc_radius+'m' : (pol==='office'?(officeLocation.radius||200)+'m':'—');
+    return '<tr>'
+      +'<td><strong>'+e.name+'</strong></td>'
+      +'<td>'+(e.pos||'—')+'</td>'
+      +'<td>'+policyBadge(pol)+'</td>'
+      +'<td>'+coords+'</td>'
+      +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+radius+'</td>'
+      +'<td><button class="btn bs" style="background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openLocEdit('+e.id+')">✏️ Edit Policy</button></td></tr>';
+  }).join('')+'</tbody></table></div>';
+}
+function openLocEdit(empId){
+  var e = employees.find(x=>x.id===empId); if(!e)return;
+  document.getElementById('loc-edit-id').value = empId;
+  document.getElementById('loc-edit-name').textContent = e.name;
+  document.getElementById('loc-edit-policy').value = e.loc_policy||'office';
+  document.getElementById('loc-edit-lat').value = e.loc_lat||'';
+  document.getElementById('loc-edit-lng').value = e.loc_lng||'';
+  document.getElementById('loc-edit-radius').value = e.loc_radius||300;
+  document.getElementById('loc-edit-card').style.display='';
+  toggleLocEditFields();
+  document.getElementById('loc-edit-card').scrollIntoView({behavior:'smooth'});
+}
+function closeLocEdit(){
+  document.getElementById('loc-edit-card').style.display='none';
+}
+async function saveLocPolicy(){
+  var empId = parseInt(v('loc-edit-id'));
+  var e = employees.find(x=>x.id===empId); if(!e)return;
+  var pol = v('loc-edit-policy');
+  var lat = parseFloat(v('loc-edit-lat'))||null;
+  var lng = parseFloat(v('loc-edit-lng'))||null;
+  var radius = parseInt(v('loc-edit-radius'))||300;
+  if(pol==='wfh'&&(!lat||!lng)){alert('WFH policy requires home latitude and longitude.');return;}
+  e.loc_policy = pol;
+  e.loc_lat = (pol==='wfh'?lat:null);
+  e.loc_lng = (pol==='wfh'?lng:null);
+  e.loc_radius = radius;
+  await api('PUT','/api/employees/'+empId, {...e});
+  flash('loc-edit-ok');showSaveIndicator();
+  closeLocEdit();
+  renderLocationTable();
+}
+
 // ==================== API HELPERS ==============
 async function api(method,url,body){
   var opts={method,headers:{'Content-Type':'application/json'}};
@@ -1058,6 +1251,13 @@ async function loadFromStorage(){
       setVal('co-name',setup.name);setVal('co-tin',setup.tin);setVal('co-addr1',setup.addr1);setVal('co-addr2',setup.addr2);setVal('co-prep',setup.prep);setVal('co-appr',setup.appr);
       setVal('ejs-svc',emailCfg.svc);setVal('ejs-tpl',emailCfg.tpl);setVal('ejs-key',emailCfg.key);
       if(emailCfg.key)try{emailjs.init({publicKey:emailCfg.key});}catch(e){}
+      // Load office GPS location
+      if(cfg.office_lat&&cfg.office_lng){
+        officeLocation={lat:parseFloat(cfg.office_lat),lng:parseFloat(cfg.office_lng),radius:parseInt(cfg.office_radius)||200};
+        setVal('loc-office-lat',cfg.office_lat);setVal('loc-office-lng',cfg.office_lng);setVal('loc-office-radius',cfg.office_radius||200);
+        var prev=document.getElementById('loc-office-preview');
+        if(prev)prev.textContent='📌 Saved: '+parseFloat(cfg.office_lat).toFixed(6)+', '+parseFloat(cfg.office_lng).toFixed(6)+' · Radius: '+(cfg.office_radius||200)+'m';
+      }
     }
     // Re-compute nextId
     if(employees.length)nextId=Math.max(...employees.map(e=>e.id))+1;
@@ -1111,6 +1311,7 @@ function goSec(name,el){
   if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();}
   if(name==='users'){populateTlEmpFilter();loadUsers();}
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();}
+  if(name==='location'){renderLocationTable();}
   if(name==='management'){mgmtRenderMetrics();mgmtRenderPayroll();mgmtRenderSlips();mgmtRenderLeaves();}
 }
 function goITab(group,name,el){
@@ -1158,7 +1359,7 @@ async function saveEmail(){
 async function addEmp(){
   var name=v('en');
   if(!name){alert('Full name is required.');return;}
-  var emp={name,pos:v('epos'),dept:v('edept'),type:v('etype'),start:v('estart'),bank:v('ebank'),email:v('eemail'),mobile:v('emobile'),emergency:v('eemergency'),address:v('eaddress'),tin:v('etin'),smb:parseFloat(v('esmb'))||0,sss:parseFloat(v('esss'))||0,phic:parseFloat(v('ephic'))||0,hdmf:parseFloat(v('ehdmf'))||0,mpl:parseFloat(v('empl'))||0,dm:parseFloat(v('edm'))||0,load:parseFloat(v('eload'))||0,wht:parseFloat(v('ewht'))||0,vlBal:v('evl')===''?0:parseFloat(v('evl')),slBal:v('esl')===''?0:parseFloat(v('esl'))};
+  var emp={name,pos:v('epos'),dept:v('edept'),type:v('etype'),start:v('estart'),bank:v('ebank'),email:v('eemail'),mobile:v('emobile'),emergency:v('eemergency'),address:v('eaddress'),tin:v('etin'),smb:parseFloat(v('esmb'))||0,sss:parseFloat(v('esss'))||0,phic:parseFloat(v('ephic'))||0,hdmf:parseFloat(v('ehdmf'))||0,mpl:parseFloat(v('empl'))||0,dm:parseFloat(v('edm'))||0,load:parseFloat(v('eload'))||0,wht:parseFloat(v('ewht'))||0,vlBal:v('evl')===''?0:parseFloat(v('evl')),slBal:v('esl')===''?0:parseFloat(v('esl')),loc_policy:v('eloc_policy')||'office',loc_lat:v('eloc_policy')==='wfh'?(parseFloat(v('eloc_lat'))||null):null,loc_lng:v('eloc_policy')==='wfh'?(parseFloat(v('eloc_lng'))||null):null,loc_radius:parseInt(v('eloc_radius'))||300};
   var r=await api('POST','/api/employees',emp);
   if(r.success){
     ['en','epos','edept','estart','ebank','eemail','emobile','eemergency','eaddress','etin','esmb','esss','ephic','ehdmf','empl','edm','eload','ewht'].forEach(id=>{var el=document.getElementById(id);if(el)el.value='';});
@@ -1192,6 +1393,12 @@ function openEditEmp(id){
   document.getElementById('edit-evl').value=e.vlBal||0;
   document.getElementById('edit-esl').value=e.slBal||0;
   document.getElementById('edit-emp-err').style.display='none';
+  // Location policy fields
+  document.getElementById('edit-eloc_policy').value=e.loc_policy||'office';
+  document.getElementById('edit-eloc_lat').value=e.loc_lat||'';
+  document.getElementById('edit-eloc_lng').value=e.loc_lng||'';
+  document.getElementById('edit-eloc_radius').value=e.loc_radius||300;
+  toggleEditLocFields();
   document.getElementById('edit-emp-modal').style.display='flex';
 }
 function closeEditEmp(){
@@ -1222,7 +1429,11 @@ async function saveEditEmp(){
     load:parseFloat(document.getElementById('edit-eload').value)||0,
     wht:parseFloat(document.getElementById('edit-ewht').value)||0,
     vlBal:document.getElementById('edit-evl').value===''?0:parseFloat(document.getElementById('edit-evl').value),
-    slBal:document.getElementById('edit-esl').value===''?0:parseFloat(document.getElementById('edit-esl').value)
+    slBal:document.getElementById('edit-esl').value===''?0:parseFloat(document.getElementById('edit-esl').value),
+    loc_policy:document.getElementById('edit-eloc_policy').value||'office',
+    loc_lat:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lat').value)||null):null,
+    loc_lng:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lng').value)||null):null,
+    loc_radius:parseInt(document.getElementById('edit-eloc_radius').value)||300
   };
   var btn=document.getElementById('edit-emp-save-btn');
   btn.disabled=true;btn.textContent='Saving…';
@@ -2738,6 +2949,7 @@ window.addEventListener('DOMContentLoaded',async function(){
     populateAllSelects();
     populateTlEmpFilter();
     populateShiftSelects();
+    toggleAddLocFields();
     var today=new Date().toISOString().slice(0,10);
     document.getElementById('att-pdate').value=today;
     document.getElementById('att-month').value=today.slice(0,7);
