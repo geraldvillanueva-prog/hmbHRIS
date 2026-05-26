@@ -1248,6 +1248,25 @@ async function api(method,url,body){
   var r=await fetch(url,opts);
   return r.json();
 }
+// Normalize employee record: accept both camelCase (server) and snake_case field names
+function normalizeEmp(e){
+  if(!e) return e;
+  // loc_policy: accept locPolicy or loc_policy; default 'office'
+  if(!e.loc_policy && e.locPolicy) e.loc_policy = e.locPolicy;
+  if(!e.locPolicy && e.loc_policy) e.locPolicy = e.loc_policy;
+  // loc_lat / loc_lng
+  if(e.loc_lat==null && e.locLat!=null) e.loc_lat = e.locLat;
+  if(e.locLat==null && e.loc_lat!=null) e.locLat = e.loc_lat;
+  if(e.loc_lng==null && e.locLng!=null) e.loc_lng = e.locLng;
+  if(e.locLng==null && e.loc_lng!=null) e.locLng = e.loc_lng;
+  // loc_radius
+  if(!e.loc_radius && e.locRadius) e.loc_radius = e.locRadius;
+  if(!e.locRadius && e.loc_radius) e.locRadius = e.loc_radius;
+  // loc_wfh_days
+  if(!e.loc_wfh_days && e.locWfhDays) e.loc_wfh_days = e.locWfhDays;
+  if(!e.locWfhDays && e.loc_wfh_days) e.locWfhDays = e.loc_wfh_days;
+  return e;
+}
 
 function showSaveIndicator(){
   var el=document.getElementById('save-indicator');
@@ -1271,7 +1290,7 @@ async function loadFromStorage(){
       api('GET','/api/settings'),
       api('GET','/api/shifts')
     ]);
-    employees=emps||[];
+    employees=(emps||[]).map(normalizeEmp);
     attendance=att||{};
     leaveRecords=leaves||[];
     perfRecords=perfs||[];
@@ -1397,7 +1416,8 @@ async function saveEmail(){
 async function addEmp(){
   var name=v('en');
   if(!name){alert('Full name is required.');return;}
-  var emp={name,pos:v('epos'),dept:v('edept'),type:v('etype'),start:v('estart'),bank:v('ebank'),email:v('eemail'),mobile:v('emobile'),emergency:v('eemergency'),address:v('eaddress'),tin:v('etin'),smb:parseFloat(v('esmb'))||0,sss:parseFloat(v('esss'))||0,phic:parseFloat(v('ephic'))||0,hdmf:parseFloat(v('ehdmf'))||0,mpl:parseFloat(v('empl'))||0,dm:parseFloat(v('edm'))||0,load:parseFloat(v('eload'))||0,wht:parseFloat(v('ewht'))||0,vlBal:v('evl')===''?0:parseFloat(v('evl')),slBal:v('esl')===''?0:parseFloat(v('esl')),loc_policy:v('eloc_policy')||'office',loc_lat:v('eloc_policy')==='wfh'?(parseFloat(v('eloc_lat'))||null):null,loc_lng:v('eloc_policy')==='wfh'?(parseFloat(v('eloc_lng'))||null):null,loc_radius:parseInt(v('eloc_radius'))||300};
+  var _lp=v('eloc_policy')||'office',_ll=_lp==='wfh'?(parseFloat(v('eloc_lat'))||null):null,_lng2=_lp==='wfh'?(parseFloat(v('eloc_lng'))||null):null,_lr=parseInt(v('eloc_radius'))||300;
+  var emp={name,pos:v('epos'),dept:v('edept'),type:v('etype'),start:v('estart'),bank:v('ebank'),email:v('eemail'),mobile:v('emobile'),emergency:v('eemergency'),address:v('eaddress'),tin:v('etin'),smb:parseFloat(v('esmb'))||0,sss:parseFloat(v('esss'))||0,phic:parseFloat(v('ephic'))||0,hdmf:parseFloat(v('ehdmf'))||0,mpl:parseFloat(v('empl'))||0,dm:parseFloat(v('edm'))||0,load:parseFloat(v('eload'))||0,wht:parseFloat(v('ewht'))||0,vlBal:v('evl')===''?0:parseFloat(v('evl')),slBal:v('esl')===''?0:parseFloat(v('esl')),loc_policy:_lp,loc_lat:_ll,loc_lng:_lng2,loc_radius:_lr,locPolicy:_lp,locLat:_ll,locLng:_lng2,locRadius:_lr};
   var r=await api('POST','/api/employees',emp);
   if(r.success){
     ['en','epos','edept','estart','ebank','eemail','emobile','eemergency','eaddress','etin','esmb','esss','ephic','ehdmf','empl','edm','eload','ewht'].forEach(id=>{var el=document.getElementById(id);if(el)el.value='';});
@@ -1471,7 +1491,11 @@ async function saveEditEmp(){
     loc_policy:document.getElementById('edit-eloc_policy').value||'office',
     loc_lat:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lat').value)||null):null,
     loc_lng:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lng').value)||null):null,
-    loc_radius:parseInt(document.getElementById('edit-eloc_radius').value)||300
+    loc_radius:parseInt(document.getElementById('edit-eloc_radius').value)||300,
+    locPolicy:document.getElementById('edit-eloc_policy').value||'office',
+    locLat:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lat').value)||null):null,
+    locLng:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lng').value)||null):null,
+    locRadius:parseInt(document.getElementById('edit-eloc_radius').value)||300
   };
   var btn=document.getElementById('edit-emp-save-btn');
   btn.disabled=true;btn.textContent='Saving…';
@@ -1490,7 +1514,7 @@ async function saveEditEmp(){
 }
 async function reloadEmployees(){
   var r=await api('GET','/api/employees');
-  employees=r||[];
+  employees=(r||[]).map(normalizeEmp);
   populateAllSelects();
 }
 function renderEmpTable(){

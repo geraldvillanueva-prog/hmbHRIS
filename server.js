@@ -323,6 +323,19 @@ app.post('/api/logout', (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/api/change-password', requireAuth, (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.json({ success: false, error: 'Missing required fields.' });
+  if (newPassword.length < 8) return res.json({ success: false, error: 'New password must be at least 8 characters.' });
+  const userId = req.session.user.id;
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!user) return res.json({ success: false, error: 'User not found.' });
+  if (!bcrypt.compareSync(currentPassword, user.password)) return res.json({ success: false, error: 'Current password is incorrect.' });
+  const hash = bcrypt.hashSync(newPassword, 10);
+  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, userId);
+  res.json({ success: true });
+});
+
 app.get('/api/me', requireAuth, (req, res) => {
   const u = req.session.user;
   // Augment with location policy fields from the linked employee record
