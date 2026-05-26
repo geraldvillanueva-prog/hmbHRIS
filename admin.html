@@ -1134,10 +1134,29 @@ async function saveOfficeLocation(){
   var lng = parseFloat(document.getElementById('loc-office-lng').value);
   var radius = parseInt(document.getElementById('loc-office-radius').value)||200;
   if(isNaN(lat)||isNaN(lng)){alert('Please enter valid latitude and longitude.');return;}
-  officeLocation={lat,lng,radius};
-  await api('POST','/api/settings',{office_lat:lat,office_lng:lng,office_radius:radius});
-  flash('loc-office-ok');showSaveIndicator();
-  document.getElementById('loc-office-preview').textContent = '📌 Saved: '+lat.toFixed(6)+', '+lng.toFixed(6)+' · Radius: '+radius+'m';
+  var prev = document.getElementById('loc-office-preview');
+  var btn = document.querySelector('[onclick="saveOfficeLocation()"]');
+  if(btn){btn.disabled=true;btn.textContent='Saving...';}
+  try{
+    await api('POST','/api/settings',{office_lat:lat,office_lng:lng,office_radius:radius});
+    var check = await api('GET','/api/settings');
+    var savedLat = check && parseFloat(check.office_lat);
+    var savedLng = check && parseFloat(check.office_lng);
+    var mismatch = isNaN(savedLat)||isNaN(savedLng)||Math.abs(savedLat-lat)>0.000001||Math.abs(savedLng-lng)>0.000001;
+    if(mismatch){
+      if(prev)prev.innerHTML='<span style="color:var(--red)">&#9888; Values did not persist &mdash; check server.js /api/settings POST handler (must merge keys, not replace the full row).</span>';
+      alert('Warning: The office location did not persist.\nFix: the POST /api/settings handler in server.js must upsert individual keys, not overwrite the entire settings row.');
+      return;
+    }
+    officeLocation={lat,lng,radius};
+    flash('loc-office-ok');showSaveIndicator();
+    if(prev)prev.textContent='📌 Saved: '+lat.toFixed(6)+', '+lng.toFixed(6)+' · Radius: '+radius+'m';
+  }catch(e){
+    if(prev)prev.innerHTML='<span style="color:var(--red)">\u274c Error: '+(e.message||'Server unreachable')+'</span>';
+    alert('Failed to save office location: '+(e.message||'Server error'));
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='💾 Save Office Location';}
+  }
 }
 function renderLocationTable(){
   var filter = v('loc-filter');
