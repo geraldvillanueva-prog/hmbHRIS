@@ -1393,7 +1393,8 @@ async function changePassword(){
   btn.disabled=true;btn.textContent='Updating…';
   try{
     var res=await fetch('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword:current,newPassword:newPwd})});
-    var data=await res.json();
+    var data;
+    try{data=await res.json();}catch(parseErr){data={success:false,error:'Server returned an unexpected response (HTTP '+res.status+').'};}
     if(data.success){
       showPwdMsg('✅ Password updated successfully!',true);
       document.getElementById('pwd-current').value='';
@@ -1401,8 +1402,14 @@ async function changePassword(){
       document.getElementById('pwd-confirm').value='';
       checkPwdStrength('');
     }else{showPwdMsg('❌ '+(data.error||'Failed to update password.'),false);}
-  }catch(e){showPwdMsg('❌ Connection error. Please try again.',false);}
-  btn.disabled=false;btn.innerHTML='🔒 Update Password';
+  }catch(e){
+    var msg=e&&e.message&&(e.message.toLowerCase().includes('failed to fetch')||e.message.toLowerCase().includes('networkerror'))
+      ?'❌ Cannot reach the server. Please check your connection and try again.'
+      :'❌ '+(e.message||'Connection error. Please try again.');
+    showPwdMsg(msg,false);
+  }finally{
+    btn.disabled=false;btn.innerHTML='🔒 Update Password';
+  }
 }
 
 
