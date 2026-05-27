@@ -137,7 +137,8 @@ tr:hover td{background:#fafcff}
 .slip-net-lbl{background:#4caf50;color:#fff;font-weight:700;text-align:center;padding:6px;font-size:13px;border-radius:2px}
 .slip-net-val{background:#4caf50;color:#fff;font-weight:700;text-align:right;padding:6px 10px;font-size:13px;text-decoration:underline;border-radius:2px}
 .slip-sigs{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px;text-align:center;font-size:10px}
-.slip-sig-name{font-weight:700;font-size:11.5px;border-top:1px solid #888;padding-top:4px;margin-top:22px}
+.slip-sig-name{font-weight:700;font-size:11.5px;border-top:1px solid #888;padding-top:4px;margin-top:4px}
+.slip-sig-img{height:38px;max-width:140px;object-fit:contain;display:block;margin:0 auto 0}
 .slip-notes{font-size:9.5px;margin-top:8px;padding-top:6px;border-top:1px solid #ddd;color:#333}
 
 /* 201 FILE */
@@ -304,6 +305,9 @@ tr:hover td{background:#fafcff}
         <div class="f" style="max-width:160px" id="eloc_lng_wrap"><label>Home Longitude</label><input id="eloc_lng" type="number" placeholder="e.g. 120.5765" step="any"></div>
         <div class="f" style="max-width:140px"><label>Allowed Radius (m)</label><input id="eloc_radius" type="number" placeholder="300" value="300" min="50" step="10"></div>
       </div>
+      <div class="row">
+        <div class="f"><label>📝 Payslip Note (shown at bottom of pay slip)</label><input id="epayslipNote" placeholder="e.g. Load Allowance: ₱500/mo. | HDMF MPL: ₱1,000/mo."></div>
+      </div>
       <button class="btn bp" onclick="addEmp()">+ Add Employee</button>
     </div>
     <div id="emp-wrap"><div class="empty">No employees added yet.</div></div>
@@ -366,6 +370,9 @@ tr:hover td{background:#fafcff}
           <div class="f" id="edit-eloc_home_wrap"><label>Home Latitude</label><input id="edit-eloc_lat" type="number" placeholder="e.g. 15.9223" step="any"></div>
           <div class="f" id="edit-eloc_lng_wrap"><label>Home Longitude</label><input id="edit-eloc_lng" type="number" placeholder="e.g. 120.5765" step="any"></div>
           <div class="f"><label>Allowed Radius (m)</label><input id="edit-eloc_radius" type="number" placeholder="300" min="50" step="10"></div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div class="f"><label>📝 Payslip Note (shown at bottom of pay slip)</label><input id="edit-epayslipNote" placeholder="e.g. Load Allowance: ₱500/mo. | HDMF MPL: ₱1,000/mo."></div>
         </div>
         <div id="edit-emp-err" style="display:none;background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:10px"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
@@ -745,6 +752,32 @@ tr:hover td{background:#fafcff}
         <div class="f"><label>Prepared by</label><input id="co-prep" value="KMD. GRASPARIL"></div>
         <div class="f"><label>Approved by</label><input id="co-appr" value="KKM. BUÑAG"></div>
       </div>
+      <div class="row" style="align-items:flex-start">
+        <div class="f">
+          <label>✍️ E-Signature — Prepared by (KMD Grasparil)</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap">
+            <img id="prep-sig-preview" src="" alt="" style="height:50px;max-width:160px;object-fit:contain;border:1px solid var(--border);border-radius:4px;background:#fafafa;display:none">
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <button type="button" class="btn bs bp" onclick="document.getElementById('prep-sig-upload').click()">📁 Upload Signature</button>
+              <button type="button" class="btn bs br" id="prep-sig-clear" onclick="clearSig('prep')" style="display:none">✕ Remove</button>
+            </div>
+            <input type="file" id="prep-sig-upload" accept="image/*" style="display:none" onchange="loadSigFile(event,'prep')">
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">PNG or JPG with transparent background recommended</div>
+        </div>
+        <div class="f">
+          <label>✍️ E-Signature — Approved by (KKM Buñag)</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap">
+            <img id="appr-sig-preview" src="" alt="" style="height:50px;max-width:160px;object-fit:contain;border:1px solid var(--border);border-radius:4px;background:#fafafa;display:none">
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <button type="button" class="btn bs bp" onclick="document.getElementById('appr-sig-upload').click()">📁 Upload Signature</button>
+              <button type="button" class="btn bs br" id="appr-sig-clear" onclick="clearSig('appr')" style="display:none">✕ Remove</button>
+            </div>
+            <input type="file" id="appr-sig-upload" accept="image/*" style="display:none" onchange="loadSigFile(event,'appr')">
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">PNG or JPG with transparent background recommended</div>
+        </div>
+      </div>
       <button class="btn bp" onclick="saveSetup()">Save Company Info</button>
       <span class="ok-msg" id="setup-ok">Saved!</span>
     </div>
@@ -1051,7 +1084,7 @@ tr:hover td{background:#fafcff}
 var employees=[],attendance={},payslipHistory=[],nextId=1;
 var leaveRecords=[],perfRecords=[],discRecords=[];
 var payslipApprovals={};  // { [period_key]: true } — set by management
-var setup={name:'HMB Management Consultant',tin:'126-757-146-000',addr1:'21 B1 L5 Sta. Ana St',addr2:'Pacita 1B, San Pedro, Laguna',prep:'KMD. GRASPARIL',appr:'KKM. BUÑAG'};
+var setup={name:'HMB Management Consultant',tin:'126-757-146-000',addr1:'21 B1 L5 Sta. Ana St',addr2:'Pacita 1B, San Pedro, Laguna',prep:'KMD. GRASPARIL',appr:'KKM. BUÑAG',prepSig:'',apprSig:''};
 var emailCfg={svc:'service_egeu3v1',tpl:'template_7jtdhwe',key:'N1iAC7sZ5RVfPhug5'};
 var allTimeLogs=[];
 var shifts=[];
@@ -1302,10 +1335,13 @@ async function loadFromStorage(){
       nextShiftId=Math.max(...shifts.map(s=>s.id))+1;
     }
     if(cfg){
-      setup={name:cfg.co_name||'',tin:cfg.co_tin||'',addr1:cfg.co_addr1||'',addr2:cfg.co_addr2||'',prep:cfg.co_prep||'',appr:cfg.co_appr||''};
+      setup={name:cfg.co_name||'',tin:cfg.co_tin||'',addr1:cfg.co_addr1||'',addr2:cfg.co_addr2||'',prep:cfg.co_prep||'',appr:cfg.co_appr||'',prepSig:cfg.co_prep_sig||'',apprSig:cfg.co_appr_sig||''};
       emailCfg={svc:cfg.ejs_svc||'',tpl:cfg.ejs_tpl||'',key:cfg.ejs_key||''};
       var setVal=(id,v)=>{var el=document.getElementById(id);if(el)el.value=v;};
       setVal('co-name',setup.name);setVal('co-tin',setup.tin);setVal('co-addr1',setup.addr1);setVal('co-addr2',setup.addr2);setVal('co-prep',setup.prep);setVal('co-appr',setup.appr);
+      // Restore signature previews
+      if(setup.prepSig)applySigPreview('prep',setup.prepSig);
+      if(setup.apprSig)applySigPreview('appr',setup.apprSig);
       setVal('ejs-svc',emailCfg.svc);setVal('ejs-tpl',emailCfg.tpl);setVal('ejs-key',emailCfg.key);
       if(emailCfg.key)try{emailjs.init({publicKey:emailCfg.key});}catch(e){}
       // Load office GPS location
@@ -1401,8 +1437,8 @@ function populateAllSelects(){
 
 // ==================== SETUP ====================
 async function saveSetup(){
-  setup={name:v('co-name'),tin:v('co-tin'),addr1:v('co-addr1'),addr2:v('co-addr2'),prep:v('co-prep'),appr:v('co-appr')};
-  await api('POST','/api/settings',{co_name:setup.name,co_tin:setup.tin,co_addr1:setup.addr1,co_addr2:setup.addr2,co_prep:setup.prep,co_appr:setup.appr});
+  setup={name:v('co-name'),tin:v('co-tin'),addr1:v('co-addr1'),addr2:v('co-addr2'),prep:v('co-prep'),appr:v('co-appr'),prepSig:setup.prepSig||'',apprSig:setup.apprSig||''};
+  await api('POST','/api/settings',{co_name:setup.name,co_tin:setup.tin,co_addr1:setup.addr1,co_addr2:setup.addr2,co_prep:setup.prep,co_appr:setup.appr,co_prep_sig:setup.prepSig,co_appr_sig:setup.apprSig});
   flash('setup-ok');showSaveIndicator();
 }
 async function saveEmail(){
@@ -1411,16 +1447,43 @@ async function saveEmail(){
   await api('POST','/api/settings',{ejs_svc:emailCfg.svc,ejs_tpl:emailCfg.tpl,ejs_key:emailCfg.key});
   flash('email-ok');showSaveIndicator();
 }
+function loadSigFile(event,who){
+  var file=event.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var b64=e.target.result;
+    if(who==='prep')setup.prepSig=b64;else setup.apprSig=b64;
+    applySigPreview(who,b64);
+    saveSetup();
+  };
+  reader.readAsDataURL(file);
+}
+function applySigPreview(who,b64){
+  var img=document.getElementById(who+'-sig-preview');
+  var clr=document.getElementById(who+'-sig-clear');
+  if(img){img.src=b64;img.style.display='block';}
+  if(clr)clr.style.display='inline-flex';
+}
+function clearSig(who){
+  if(who==='prep')setup.prepSig='';else setup.apprSig='';
+  var img=document.getElementById(who+'-sig-preview');
+  var clr=document.getElementById(who+'-sig-clear');
+  var inp=document.getElementById(who+'-sig-upload');
+  if(img){img.src='';img.style.display='none';}
+  if(clr)clr.style.display='none';
+  if(inp)inp.value='';
+  saveSetup();
+}
 
 // ==================== EMPLOYEES ====================
 async function addEmp(){
   var name=v('en');
   if(!name){alert('Full name is required.');return;}
   var _lp=v('eloc_policy')||'office',_ll=_lp==='wfh'?(parseFloat(v('eloc_lat'))||null):null,_lng2=_lp==='wfh'?(parseFloat(v('eloc_lng'))||null):null,_lr=parseInt(v('eloc_radius'))||300;
-  var emp={name,pos:v('epos'),dept:v('edept'),type:v('etype'),start:v('estart'),bank:v('ebank'),email:v('eemail'),mobile:v('emobile'),emergency:v('eemergency'),address:v('eaddress'),tin:v('etin'),smb:parseFloat(v('esmb'))||0,sss:parseFloat(v('esss'))||0,phic:parseFloat(v('ephic'))||0,hdmf:parseFloat(v('ehdmf'))||0,mpl:parseFloat(v('empl'))||0,dm:parseFloat(v('edm'))||0,load:parseFloat(v('eload'))||0,wht:parseFloat(v('ewht'))||0,vlBal:v('evl')===''?0:parseFloat(v('evl')),slBal:v('esl')===''?0:parseFloat(v('esl')),loc_policy:_lp,loc_lat:_ll,loc_lng:_lng2,loc_radius:_lr,locPolicy:_lp,locLat:_ll,locLng:_lng2,locRadius:_lr};
+  var emp={name,pos:v('epos'),dept:v('edept'),type:v('etype'),start:v('estart'),bank:v('ebank'),email:v('eemail'),mobile:v('emobile'),emergency:v('eemergency'),address:v('eaddress'),tin:v('etin'),smb:parseFloat(v('esmb'))||0,sss:parseFloat(v('esss'))||0,phic:parseFloat(v('ephic'))||0,hdmf:parseFloat(v('ehdmf'))||0,mpl:parseFloat(v('empl'))||0,dm:parseFloat(v('edm'))||0,load:parseFloat(v('eload'))||0,wht:parseFloat(v('ewht'))||0,vlBal:v('evl')===''?0:parseFloat(v('evl')),slBal:v('esl')===''?0:parseFloat(v('esl')),loc_policy:_lp,loc_lat:_ll,loc_lng:_lng2,loc_radius:_lr,locPolicy:_lp,locLat:_ll,locLng:_lng2,locRadius:_lr,payslipNote:v('epayslipNote')||''};
   var r=await api('POST','/api/employees',emp);
   if(r.success){
-    ['en','epos','edept','estart','ebank','eemail','emobile','eemergency','eaddress','etin','esmb','esss','ephic','ehdmf','empl','edm','eload','ewht'].forEach(id=>{var el=document.getElementById(id);if(el)el.value='';});
+    ['en','epos','edept','estart','ebank','eemail','emobile','eemergency','eaddress','etin','esmb','esss','ephic','ehdmf','empl','edm','eload','ewht','epayslipNote'].forEach(id=>{var el=document.getElementById(id);if(el)el.value='';});
     document.getElementById('evl').value='0';document.getElementById('esl').value='0';
     await reloadEmployees();renderEmpTable();renderDashboard();showSaveIndicator();
   }else{alert('Error saving employee.');}
@@ -1456,6 +1519,7 @@ function openEditEmp(id){
   document.getElementById('edit-eloc_lat').value=e.loc_lat||'';
   document.getElementById('edit-eloc_lng').value=e.loc_lng||'';
   document.getElementById('edit-eloc_radius').value=e.loc_radius||300;
+  document.getElementById('edit-epayslipNote').value=e.payslipNote||'';
   toggleEditLocFields();
   document.getElementById('edit-emp-modal').style.display='flex';
 }
@@ -1495,7 +1559,8 @@ async function saveEditEmp(){
     locPolicy:document.getElementById('edit-eloc_policy').value||'office',
     locLat:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lat').value)||null):null,
     locLng:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lng').value)||null):null,
-    locRadius:parseInt(document.getElementById('edit-eloc_radius').value)||300
+    locRadius:parseInt(document.getElementById('edit-eloc_radius').value)||300,
+    payslipNote:document.getElementById('edit-epayslipNote').value||''
   };
   var btn=document.getElementById('edit-emp-save-btn');
   btn.disabled=true;btn.textContent='Saving…';
@@ -2039,9 +2104,13 @@ function buildSlipHTML(e,a,per,pdate){
   +'<tr class="total-row"><td class="bold">TOTAL DEDUCTIONS</td><td class="val bold">'+fp(p.totalDeductions)+'</td></tr>'
   +'</table></div></div>'
   +'<div class="slip-net-grid"><div class="slip-net-lbl">NET PAY</div><div class="slip-net-val">'+peso(p.netPay)+'</div></div>'
-  +'<div class="slip-notes">Load Allowance: ₱'+fp(e.load)+'/mo. &nbsp;|&nbsp; HDMF MPL: ₱'+fp(e.mpl)+'/mo.</div>'
-  +'<div class="slip-sigs"><div><div style="color:#666;font-size:10px;text-transform:uppercase">PREPARED BY:</div><div class="slip-sig-name">'+setup.prep+'</div></div>'
-  +'<div><div style="color:#666;font-size:10px;text-transform:uppercase">APPROVED BY:</div><div class="slip-sig-name">'+setup.appr+'</div></div>'
+  +'<div class="slip-notes">'+(e.payslipNote||'')+'</div>'
+  +'<div class="slip-sigs"><div>'
+  +(setup.prepSig?'<img src="'+setup.prepSig+'" class="slip-sig-img" alt="signature">':'<div style="height:38px"></div>')
+  +'<div class="slip-sig-name">'+setup.prep+'</div><div style="color:#666;font-size:10px;text-transform:uppercase;margin-top:2px">PREPARED BY</div></div>'
+  +'<div>'
+  +(setup.apprSig?'<img src="'+setup.apprSig+'" class="slip-sig-img" alt="signature">':'<div style="height:38px"></div>')
+  +'<div class="slip-sig-name">'+setup.appr+'</div><div style="color:#666;font-size:10px;text-transform:uppercase;margin-top:2px">APPROVED BY</div></div>'
   +'</div></div>';
 }
 function buildSlipText(e,a,per,pdate){
@@ -2055,7 +2124,7 @@ function buildSlipText(e,a,per,pdate){
   +'\nHoliday: '+fp(a.holiday)+'\nLeave w/pay: '+fp(a.leave)+'\nCommission: '+fp(a.commission)+'\nTOTAL EARNINGS: '+fp(p.totalEarnings)
   +'\n\n--- DEDUCTIONS ---\nSSS: '+fp(e.sss)+'\nPHIC: '+fp(e.phic)+'\nHDMF: '+fp(e.hdmf)
   +'\nOther deductions: '+fp(a.otherDed)+'\nWHT: '+fp(e.wht)+'\nLate: '+fp(a.late)+'\nTOTAL DEDUCTIONS: '+fp(p.totalDeductions)
-  +'\n\nNET PAY: ₱'+fp(p.netPay)+'\n\nPrepared by: '+setup.prep+'     Approved by: '+setup.appr;
+  +'\n\nNET PAY: ₱'+fp(p.netPay)+'\n'+(e.payslipNote?'\nNote: '+e.payslipNote+'\n':'')+'\nPrepared by: '+setup.prep+'     Approved by: '+setup.appr;
 }
 function renderSendList(){
   var per=v('send-per'),k=attKey(per),pdate=v('att-pdate');
@@ -2122,7 +2191,7 @@ async function sendOne(empId,per,pdate){
   total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
   wht_tax:e.wht?fp(e.wht):'-',late_undertime:a.late?fp(a.late):'-',
   total_deductions:fp(p.totalDeductions),net_pay:'₱'+fp(p.netPay),
-  notes:'Load Allowance: ₱'+fp(e.load)+'/mo. | HDMF MPL: ₱'+fp(e.mpl)+'/mo.'
+  notes:e.payslipNote||''
 });}
     catch(err){alert('Email failed: '+(err.text||err));return;}
   }
@@ -2640,7 +2709,7 @@ async function mgmtSendOne(empId,per,pdate){
       total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
       wht_tax:e.wht?fp(e.wht):'-',late_undertime:a.late?fp(a.late):'-',
       total_deductions:fp(p.totalDeductions),net_pay:'₱'+fp(p.netPay),
-      notes:'Load Allowance: ₱'+fp(e.load)+'/mo. | HDMF MPL: ₱'+fp(e.mpl)+'/mo.'
+      notes:e.payslipNote||''
     });}catch(err){alert('Email failed: '+(err.text||err));return;}
   }
   var rec={empId:e.id,empName:e.name,empPos:e.pos||'',period:per,pdate,sentAt:new Date().toISOString(),emailSentTo:e.email,basicPay:p.basicPay,totalEarnings:p.totalEarnings,totalDeductions:p.totalDeductions,netPay:p.netPay,attendance:JSON.parse(JSON.stringify(a)),employeeSnapshot:JSON.parse(JSON.stringify(e))};
