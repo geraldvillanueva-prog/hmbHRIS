@@ -2065,10 +2065,6 @@ function exportPayrollCSVRpt(){var per=v('rpt-pay-per');document.getElementById(
 function buildSlipHTML(e,a,per,pdate){
   var p=calcPay(e,a);
   return'<div class="slip-wrap">'
-  +'<div class="slip-top"><div><div class="slip-co-name">'+setup.name+'</div>'
-  +'<div class="slip-co-addr">'+setup.addr1+'<br>'+setup.addr2+'<br><em>TIN: '+setup.tin+'</em></div></div>'
-  +'<div style="text-align:center"><div class="slip-logo-box"><div style="font-size:11px;color:#90caf9;font-weight:700;line-height:1.4;letter-spacing:1px">▐▐▐<br>▐▐</div></div>'
-  +'<div class="slip-logo-text">HMB</div><div class="slip-logo-sub">TAX FIRM</div></div></div>'
   +'<div class="slip-info-grid">'
   +'<div class="slip-info-row"><span class="sik">NAME:</span><span>'+e.name+'</span></div>'
   +'<div class="slip-info-row"><span class="sik">CUT-OFF:</span><span>'+per+'</span></div>'
@@ -2115,8 +2111,7 @@ function buildSlipHTML(e,a,per,pdate){
 }
 function buildSlipText(e,a,per,pdate){
   var p=calcPay(e,a);
-  return setup.name+'\n'+setup.addr1+', '+setup.addr2+' | TIN: '+setup.tin
-  +'\n\nNAME: '+e.name+'\nPOSITION: '+(e.pos||'')+'\nBANK ACC: '+(e.bank||'')
+  return 'NAME: '+e.name+'\nPOSITION: '+(e.pos||'')+'\nBANK ACC: '+(e.bank||'')
   +'\nCUT-OFF: '+per+'\nPAYROLL DATE: '+(pdate||'')+'\nSTART DATE: '+(e.start||'')
   +'\n\n--- EARNINGS ---\nSemi-monthly: '+fp(e.smb)+'\nDaily rate: '+fp(p.dr)+'\nDays worked: '+a.days+'\nBasic pay: '+fp(p.basicPay)
   +'\nDeminimis: '+fp(e.dm)+'\nOther additionals: '+fp(a.otherAdd)+'\nOT ('+p.otHrs+'h): '+fp(p.otPay)
