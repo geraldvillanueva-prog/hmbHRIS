@@ -2191,7 +2191,9 @@ async function sendOne(empId,per,pdate){
   total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
   wht_tax:e.wht?fp(e.wht):'-',late_undertime:a.late?fp(a.late):'-',
   total_deductions:fp(p.totalDeductions),net_pay:'₱'+fp(p.netPay),
-  notes:e.payslipNote||''
+  notes:e.payslipNote||'',
+  prep_name:setup.prep,appr_name:setup.appr,
+  prep_sig:setup.prepSig||'',appr_sig:setup.apprSig||''
 });}
     catch(err){alert('Email failed: '+(err.text||err));return;}
   }
@@ -2709,7 +2711,9 @@ async function mgmtSendOne(empId,per,pdate){
       total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
       wht_tax:e.wht?fp(e.wht):'-',late_undertime:a.late?fp(a.late):'-',
       total_deductions:fp(p.totalDeductions),net_pay:'₱'+fp(p.netPay),
-      notes:e.payslipNote||''
+      notes:e.payslipNote||'',
+      prep_name:setup.prep,appr_name:setup.appr,
+      prep_sig:setup.prepSig||'',appr_sig:setup.apprSig||''
     });}catch(err){alert('Email failed: '+(err.text||err));return;}
   }
   var rec={empId:e.id,empName:e.name,empPos:e.pos||'',period:per,pdate,sentAt:new Date().toISOString(),emailSentTo:e.email,basicPay:p.basicPay,totalEarnings:p.totalEarnings,totalDeductions:p.totalDeductions,netPay:p.netPay,attendance:JSON.parse(JSON.stringify(a)),employeeSnapshot:JSON.parse(JSON.stringify(e))};
