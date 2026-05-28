@@ -2123,18 +2123,10 @@ function buildSlipText(e,a,per,pdate){
 }
 function renderSendList(){
   var per=v('send-per'),k=attKey(per),pdate=v('att-pdate');
-  var approved=!!payslipApprovals[k];
   var notice=document.getElementById('send-approval-notice');
-  if(notice){
-    if(approved){
-      notice.innerHTML='<div class="infobox" style="background:#e8f5e9;color:#1b5e20;border-left-color:#2e7d32">✅ <strong>Management has approved payslip sending</strong> for this period. You may now send payslips.</div>';
-    } else {
-      notice.innerHTML='<div class="warnbox">🔒 <strong>Awaiting management approval.</strong> Payslip sending for <strong>'+per+'</strong> has not yet been approved by management. Please ask management to approve via the Management Console before sending.</div>';
-    }
-  }
-  // Toggle Send All button
+  if(notice){notice.innerHTML='';}
   var sendAllBtn=document.getElementById('send-all-btn');
-  if(sendAllBtn){sendAllBtn.disabled=!approved;sendAllBtn.style.opacity=approved?'1':'0.45';sendAllBtn.title=approved?'':'Management approval required';}
+  if(sendAllBtn){sendAllBtn.disabled=false;sendAllBtn.style.opacity='1';sendAllBtn.title='';}
 
   var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
   var w=document.getElementById('send-wrap');
@@ -2142,9 +2134,7 @@ function renderSendList(){
   w.innerHTML=recs.map(e=>{
     var a=attendance[k][e.id],p=calcPay(e,a);
     var sent=payslipHistory.some(h=>h.empId===e.id&&h.period===per);
-    var btnHtml=approved
-      ? '<button class="btn bs bp" onclick="sendOne('+e.id+',\''+per+'\',\''+pdate+'\')">Send</button>'
-      : '<button class="btn bs" disabled style="opacity:0.45;cursor:not-allowed" title="Management approval required">🔒 Locked</button>';
+    var btnHtml='<button class="btn bs bp" onclick="sendOne('+e.id+',\''+per+'\',\''+pdate+'\')">Send</button>';
     return'<div style="margin-bottom:1.5rem">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;gap:8px" class="no-print">'
     +'<div><strong style="font-size:14px">'+e.name+'</strong> <span style="color:var(--muted);font-size:12px">'+(e.pos||'')+'</span>'
@@ -2166,7 +2156,6 @@ function showSendMsg(msg,ok){
 }
 async function sendOne(empId,per,pdate){
   var k=attKey(per);
-  if(!payslipApprovals[k]){alert('This period has not been approved by management yet. Please ask management to approve payslip sending first.');return;}
   var e=employees.find(x=>x.id===empId);
   if(!e||!e.email){alert('No email address for this employee.');return;}
   var k=attKey(per),a=attendance[k]&&attendance[k][empId];
@@ -2201,7 +2190,6 @@ async function sendOne(empId,per,pdate){
 }
 async function sendAll(){
   var per=v('send-per'),k=attKey(per),pdate=v('att-pdate');
-  if(!payslipApprovals[k]){showSendMsg('🔒 Management approval required before sending payslips for this period.',false);return;}
   var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.email);
   if(!recs.length){showSendMsg('No employees with email for this period.',false);return;}
   for(var i=0;i<recs.length;i++)await sendOne(recs[i].id,per,pdate);
