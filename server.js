@@ -656,19 +656,11 @@ app.post('/api/timelogs/timein', requireAuth, (req, res) => {
     return res.json({ success: false, error: 'Already timed in. Please time out first.' });
   }
 
-  // WFH day restriction — server-side enforcement
+  // WFH day restriction — on non-WFH days, allow normal office punch-in (do not block)
   const emp = db.prepare('SELECT name, pos, dept, loc_policy, loc_wfh_days FROM employees WHERE id=?').get(empId);
-  if (emp && emp.loc_policy === 'wfh' && emp.loc_wfh_days) {
-    const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    const allowedDays = emp.loc_wfh_days.split(',').map(Number);
-    // todayPH() returns YYYY-MM-DD; use Date to get day-of-week in PH time
-    const todayDate = new Date(today + 'T00:00:00+08:00');
-    const todayDow  = todayDate.getDay(); // 0=Sun … 6=Sat
-    if (!allowedDays.includes(todayDow)) {
-      const allowedNames = allowedDays.map(d => DAY_NAMES[d]).join(', ');
-      return res.json({ success: false, error: `WFH is only allowed on: ${allowedNames}. Today is ${DAY_NAMES[todayDow]}.` });
-    }
-  }
+  // (No action needed here — GPS validation is enforced client-side.
+  //  Employees with a WFH schedule who come to the office on non-WFH days
+  //  are simply treated as regular office attendees for that day.)
 
   const now = nowPH();
   const { lat = null, lng = null, accuracy = null } = req.body;
