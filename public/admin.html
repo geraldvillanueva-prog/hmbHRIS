@@ -7,6 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -2318,8 +2320,15 @@ async function loadTimeLogs(){
   w.innerHTML='<div style="overflow-x:auto"><table style="min-width:800px"><thead><tr>'
     +'<th>Employee</th><th>Date</th><th>Shift</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th>'
     +'<th style="color:var(--red)">Late / Undertime</th>'
+    +'<th>Route</th>'
     +'</tr></thead><tbody>'
-  +tableRows.map(({r,shift,lateMin})=>'<tr>'
+  +tableRows.map(function({r,shift,lateMin},rowIdx){
+    var hasGps=!!(r.time_in_lat||r.lunch_out_lat||r.merienda_out_lat||r.time_out_lat);
+    window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
+    var mapBtn=hasGps
+      ?'<td style="text-align:center"><button class="btn bs ba" title="View route on map" onclick="event.stopPropagation();openRouteMap(window._tlRows['+rowIdx+'])">📍 Map</button></td>'
+      :'<td style="text-align:center"><span style="font-size:10px;color:#dce3ec">no GPS</span></td>';
+    return'<tr style="cursor:'+(hasGps?'pointer':'default')+'" '+(hasGps?'onclick="openRouteMap(window._tlRows['+rowIdx+'])" title="Click to view route map"':'')+'>'
     +'<td><strong>'+r.emp_name+'</strong></td>'
     +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
     +'<td><span class="badge badge-blue" style="font-size:10px">'+shift.name+'<br><span style="font-weight:400;font-size:9px">'+shift.start+' – '+shift.end+'</span></span></td>'
@@ -2330,7 +2339,8 @@ async function loadTimeLogs(){
     +tlCell(r.merienda_in,'#0277bd')
     +tlCell(r.time_out,'var(--muted)')
     +'<td style="text-align:center">'+fmtLate(lateMin)+'</td>'
-    +'</tr>').join('')
+    +mapBtn
+    +'</tr>';}).join('')
   +'</tbody></table></div>';
 }
 function tlCell(val,color){
@@ -3039,6 +3049,118 @@ async function applyImportedPayroll() {
   showXlsxMsg('\u2705 Imported ' + matched.length + ' employee record(s) into <strong>' + per + '</strong>.' + updMsg + ' Review and click Save.', true);
 }
 
+
+// ==================== ROUTE MAP ====================
+(function(){
+  var _mapModal=null,_map=null,_mapLayers=[];
+  var PUNCH_COLORS={time_in:'#2e7d32',lunch_out:'#e65100',lunch_in:'#0277bd',merienda_out:'#e65100',merienda_in:'#0277bd',time_out:'#546e7a'};
+  var PUNCH_LABELS={time_in:'Time In',lunch_out:'Lunch Out',lunch_in:'Lunch In',merienda_out:'Merienda Out',merienda_in:'Merienda In',time_out:'Time Out'};
+
+  function ensureModal(){
+    if(document.getElementById('route-map-modal'))return;
+    var m=document.createElement('div');
+    m.id='route-map-modal';
+    m.style.cssText='display:none;position:fixed;inset:0;background:rgba(10,22,40,0.65);z-index:2000;align-items:center;justify-content:center;padding:16px';
+    m.innerHTML=
+      '<div style="background:#fff;border-radius:14px;max-width:720px;width:100%;max-height:90vh;overflow:hidden;box-shadow:0 8px 40px rgba(10,22,40,0.22);display:flex;flex-direction:column">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #dce3ec;flex-shrink:0">'
+      +'<div>'
+      +'<div id="rmap-title" style="font-size:15px;font-weight:700;color:#0a1628;font-family:\'IBM Plex Sans\',sans-serif"></div>'
+      +'<div id="rmap-sub" style="font-size:11px;color:#6b7c93;margin-top:2px;font-family:\'IBM Plex Mono\',monospace"></div>'
+      +'</div>'
+      +'<button onclick="window._closeRouteMap()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#6b7c93;line-height:1;padding:2px 6px">×</button>'
+      +'</div>'
+      +'<div id="rmap-legend" style="display:flex;gap:10px;flex-wrap:wrap;padding:8px 1.25rem;border-bottom:1px solid #f0f4f8;flex-shrink:0;font-family:\'IBM Plex Sans\',sans-serif;font-size:11.5px"></div>'
+      +'<div id="rmap-container" style="flex:1;min-height:380px;position:relative"></div>'
+      +'<div id="rmap-noloc" style="display:none;padding:2rem;text-align:center;color:#6b7c93;font-size:13px;font-family:\'IBM Plex Sans\',sans-serif">No GPS coordinates recorded for this time log entry.<br><span style="font-size:12px">Only liaison-policy employees with GPS-enabled punches show a route.</span></div>'
+      +'</div>';
+    document.body.appendChild(m);
+    m.addEventListener('click',function(e){if(e.target===m)window._closeRouteMap();});
+  }
+
+  window._closeRouteMap=function(){
+    var m=document.getElementById('route-map-modal');
+    if(m)m.style.display='none';
+    if(_map){_map.remove();_map=null;}
+    _mapLayers=[];
+  };
+
+  window.openRouteMap=function(row){
+    ensureModal();
+    var m=document.getElementById('route-map-modal');
+    var titleEl=document.getElementById('rmap-title');
+    var subEl=document.getElementById('rmap-sub');
+    var legendEl=document.getElementById('rmap-legend');
+    var containerEl=document.getElementById('rmap-container');
+    var nolocEl=document.getElementById('rmap-noloc');
+
+    // Build punch points from row
+    var KEYS=['time_in','lunch_out','lunch_in','merienda_out','merienda_in','time_out'];
+    var points=[];
+    KEYS.forEach(function(k){
+      var lat=parseFloat(row[k+'_lat']),lng=parseFloat(row[k+'_lng']);
+      if(!isNaN(lat)&&!isNaN(lng)&&lat!==0&&lng!==0){
+        points.push({key:k,label:PUNCH_LABELS[k],time:row[k],lat:lat,lng:lng,color:PUNCH_COLORS[k]});
+      }
+    });
+
+    titleEl.textContent=(row.emp_name||'Employee')+' – Route Map';
+    subEl.textContent=fmtDate(row.log_date);
+
+    if(!points.length){
+      containerEl.style.display='none';
+      nolocEl.style.display='block';
+      legendEl.innerHTML='';
+      m.style.display='flex';
+      return;
+    }
+    containerEl.style.display='block';
+    nolocEl.style.display='none';
+
+    // Legend
+    legendEl.innerHTML=points.map(function(p){
+      return'<span style="display:inline-flex;align-items:center;gap:5px">'
+        +'<span style="width:10px;height:10px;border-radius:50%;background:'+p.color+';display:inline-block;flex-shrink:0"></span>'
+        +'<strong>'+p.label+'</strong>'+(p.time?' <span style="color:#6b7c93">'+p.time+'</span>':'')
+        +'</span>';
+    }).join('<span style="color:#dce3ec">·</span>');
+
+    m.style.display='flex';
+
+    // Init map after modal is visible
+    requestAnimationFrame(function(){
+      if(_map){_map.remove();_map=null;}
+      _map=L.map('rmap-container',{zoomControl:true});
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom:19
+      }).addTo(_map);
+
+      var bounds=[];
+      var latlngs=points.map(function(p){return[p.lat,p.lng];});
+
+      // Draw polyline route
+      if(latlngs.length>1){
+        L.polyline(latlngs,{color:'#1565c0',weight:3,opacity:0.6,dashArray:'6,4'}).addTo(_map);
+      }
+
+      // Draw markers
+      points.forEach(function(p,i){
+        bounds.push([p.lat,p.lng]);
+        var iconHtml='<div style="background:'+p.color+';width:28px;height:28px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;font-family:sans-serif">'+(i+1)+'</div>';
+        var icon=L.divIcon({html:iconHtml,className:'',iconSize:[28,28],iconAnchor:[14,14]});
+        var marker=L.marker([p.lat,p.lng],{icon:icon}).addTo(_map);
+        marker.bindPopup('<strong>'+p.label+'</strong>'+(p.time?'<br><span style="font-family:monospace;font-size:12px">'+p.time+'</span>':'')+'<br><span style="font-size:10px;color:#666">'+p.lat.toFixed(6)+', '+p.lng.toFixed(6)+'</span>');
+      });
+
+      if(bounds.length===1){
+        _map.setView(bounds[0],16);
+      } else {
+        _map.fitBounds(bounds,{padding:[30,30]});
+      }
+    });
+  };
+})();
 
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded',async function(){

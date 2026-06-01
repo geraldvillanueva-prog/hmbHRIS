@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HMB HRIS – Supervisor Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -1349,20 +1351,24 @@ async function loadHistory(){
   var rows = await res.json();
   var w = document.getElementById('history-wrap');
   if (!rows.length) { w.innerHTML='<div class="empty">No time logs yet.</div>'; return; }
-  w.innerHTML = '<div class="scroll-inner"><table style="min-width:560px"><thead><tr>'
-    +'<th>Date</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th>'
+  window._supHistRows = rows;
+  w.innerHTML = '<div class="scroll-inner"><table style="min-width:600px"><thead><tr>'
+    +'<th>Date</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th><th>Route</th>'
     +'</tr></thead><tbody>'
-    +rows.map(r=>
-      '<tr>'
-      +'<td class="mono" style="font-size:11.5px;white-space:nowrap">'+fmtDate(r.log_date)+'</td>'
-      +tdPunch(r.time_in,      'var(--green)')
-      +tdPunch(r.lunch_out,    'var(--orange)')
-      +tdPunch(r.lunch_in,     '#0277bd')
-      +tdPunch(r.merienda_out, 'var(--orange)')
-      +tdPunch(r.merienda_in,  '#0277bd')
-      +tdPunch(r.time_out,     'var(--muted)')
-      +'</tr>'
-    ).join('')+'</tbody></table></div>';
+    +rows.map(function(r,i){
+      var hasGps=!!(r.time_in_lat||r.lunch_out_lat||r.merienda_out_lat||r.time_out_lat);
+      return '<tr style="cursor:'+(hasGps?'pointer':'default')+'" '+(hasGps?'onclick="openRouteMap(window._supHistRows['+i+'])" title="Click to view route map"':'')+'>'
+        +'<td class="mono" style="font-size:11.5px;white-space:nowrap">'+fmtDate(r.log_date)+'</td>'
+        +tdPunch(r.time_in,      'var(--green)')
+        +tdPunch(r.lunch_out,    'var(--orange)')
+        +tdPunch(r.lunch_in,     '#0277bd')
+        +tdPunch(r.merienda_out, 'var(--orange)')
+        +tdPunch(r.merienda_in,  '#0277bd')
+        +tdPunch(r.time_out,     'var(--muted)')
+        +(hasGps?'<td style="text-align:center"><button class="filter-btn" style="font-size:10px;padding:3px 8px;color:#7b1fa2;border-color:#ce93d8" onclick="event.stopPropagation();openRouteMap(window._supHistRows['+i+'])">📍 Map</button></td>'
+                :'<td style="text-align:center;font-size:10px;color:#dce3ec">—</td>')
+        +'</tr>';
+    }).join('')+'</tbody></table></div>';
 }
 function tdPunch(val,color){
   return '<td class="mono" style="font-size:11px;color:'+(val?color:'#dce3ec')+';font-weight:'+(val?'700':'400')+'">'+(val||'—')+'</td>';
@@ -1489,6 +1495,86 @@ function fmtDT(iso){
 function escHtml(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+// ── ROUTE MAP ──────────────────────────────────────────────────────────────────
+(function(){
+  var _map=null;
+  var PUNCH_COLORS={time_in:'#2e7d32',lunch_out:'#e65100',lunch_in:'#0277bd',merienda_out:'#e65100',merienda_in:'#0277bd',time_out:'#546e7a'};
+  var PUNCH_LABELS={time_in:'Time In',lunch_out:'Lunch Out',lunch_in:'Lunch In',merienda_out:'Merienda Out',merienda_in:'Merienda In',time_out:'Time Out'};
+
+  function ensureModal(){
+    if(document.getElementById('route-map-modal'))return;
+    var m=document.createElement('div');
+    m.id='route-map-modal';
+    m.style.cssText='display:none;position:fixed;inset:0;background:rgba(10,22,40,0.65);z-index:2000;align-items:center;justify-content:center;padding:16px';
+    m.innerHTML=
+      '<div style="background:#fff;border-radius:14px;max-width:700px;width:100%;max-height:90vh;overflow:hidden;box-shadow:0 8px 40px rgba(10,22,40,0.22);display:flex;flex-direction:column">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #dce3ec;flex-shrink:0">'
+      +'<div>'
+      +'<div id="rmap-title" style="font-size:15px;font-weight:700;color:#0a1628;font-family:\'IBM Plex Sans\',sans-serif"></div>'
+      +'<div id="rmap-sub" style="font-size:11px;color:#6b7c93;margin-top:2px;font-family:\'IBM Plex Mono\',monospace"></div>'
+      +'</div>'
+      +'<button onclick="window._closeRouteMap()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#6b7c93;line-height:1;padding:2px 6px">×</button>'
+      +'</div>'
+      +'<div id="rmap-legend" style="display:flex;gap:10px;flex-wrap:wrap;padding:8px 1.25rem;border-bottom:1px solid #f0f4f8;flex-shrink:0;font-family:\'IBM Plex Sans\',sans-serif;font-size:11.5px"></div>'
+      +'<div id="rmap-container" style="flex:1;min-height:360px;position:relative"></div>'
+      +'<div id="rmap-noloc" style="display:none;padding:2rem;text-align:center;color:#6b7c93;font-size:13px;font-family:\'IBM Plex Sans\',sans-serif">No GPS coordinates recorded for this time log.<br><span style="font-size:12px">GPS tracking is logged for liaison-policy employees.</span></div>'
+      +'</div>';
+    document.body.appendChild(m);
+    m.addEventListener('click',function(e){if(e.target===m)window._closeRouteMap();});
+  }
+
+  window._closeRouteMap=function(){
+    var m=document.getElementById('route-map-modal');
+    if(m)m.style.display='none';
+    if(_map){_map.remove();_map=null;}
+  };
+
+  window.openRouteMap=function(row){
+    ensureModal();
+    var KEYS=['time_in','lunch_out','lunch_in','merienda_out','merienda_in','time_out'];
+    var points=[];
+    KEYS.forEach(function(k){
+      var lat=parseFloat(row[k+'_lat']),lng=parseFloat(row[k+'_lng']);
+      if(!isNaN(lat)&&!isNaN(lng)&&lat!==0&&lng!==0){
+        points.push({key:k,label:PUNCH_LABELS[k],time:row[k]||row[k.replace('_','-')],lat:lat,lng:lng,color:PUNCH_COLORS[k]});
+      }
+    });
+
+    document.getElementById('rmap-title').textContent=(row.emp_name||row.empName||'Route')+' – Route Map';
+    document.getElementById('rmap-sub').textContent=fmtDate(row.log_date||row.logDate||row.date||'');
+
+    var containerEl=document.getElementById('rmap-container');
+    var nolocEl=document.getElementById('rmap-noloc');
+    var legendEl=document.getElementById('rmap-legend');
+
+    if(!points.length){
+      containerEl.style.display='none';nolocEl.style.display='block';legendEl.innerHTML='';
+      document.getElementById('route-map-modal').style.display='flex';return;
+    }
+    containerEl.style.display='block';nolocEl.style.display='none';
+    legendEl.innerHTML=points.map(function(p){
+      return'<span style="display:inline-flex;align-items:center;gap:5px">'
+        +'<span style="width:10px;height:10px;border-radius:50%;background:'+p.color+';display:inline-block"></span>'
+        +'<strong>'+p.label+'</strong>'+(p.time?' <span style="color:#6b7c93">'+p.time+'</span>':'')+'</span>';
+    }).join('<span style="color:#dce3ec;margin:0 2px">·</span>');
+
+    document.getElementById('route-map-modal').style.display='flex';
+    requestAnimationFrame(function(){
+      if(_map){_map.remove();_map=null;}
+      _map=L.map('rmap-container');
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(_map);
+      var latlngs=points.map(function(p){return[p.lat,p.lng];});
+      if(latlngs.length>1)L.polyline(latlngs,{color:'#7b1fa2',weight:3,opacity:0.55,dashArray:'6,4'}).addTo(_map);
+      points.forEach(function(p,i){
+        var icon=L.divIcon({html:'<div style="background:'+p.color+';width:28px;height:28px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.28);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;font-family:sans-serif">'+(i+1)+'</div>',className:'',iconSize:[28,28],iconAnchor:[14,14]});
+        L.marker([p.lat,p.lng],{icon:icon}).addTo(_map)
+          .bindPopup('<strong>'+p.label+'</strong>'+(p.time?'<br><span style="font-family:monospace;font-size:12px">'+p.time+'</span>':'')+'<br><span style="font-size:10px;color:#666">'+p.lat.toFixed(6)+', '+p.lng.toFixed(6)+'</span>');
+      });
+      latlngs.length===1?_map.setView(latlngs[0],16):_map.fitBounds(latlngs,{padding:[30,30]});
+    });
+  };
+})();
+
 async function doLogout(){
   await fetch('/api/logout',{method:'POST'});
   window.location.href='/';
@@ -1750,7 +1836,7 @@ function renderLiveAttendance(rows){
     +'<div style="background:#f0f4f8;color:#6b7c93;border:1px solid #dce3ec;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">⬜ Not in: '+none_count+'</div>'
     +'</div>';
 
-  var tableHtml = '<div style="overflow-x:auto"><table style="min-width:660px"><thead><tr>'
+  var tableHtml = '<div style="overflow-x:auto"><table style="min-width:700px"><thead><tr>'
     +'<th>Employee</th>'
     +'<th style="text-align:center">Status</th>'
     +'<th style="text-align:center">Time In</th>'
@@ -1759,11 +1845,27 @@ function renderLiveAttendance(rows){
     +'<th style="text-align:center">Merienda Out</th>'
     +'<th style="text-align:center">Merienda In</th>'
     +'<th style="text-align:center">Time Out</th>'
+    +'<th style="text-align:center">Route</th>'
     +'</tr></thead><tbody>'
-    +rows.map(function(r){
+    +rows.map(function(r,idx){
       var s = statusLabel(r);
       var rowBg = r.timeIn && !r.timeOut ? '#f1fff4' : '';
-      return '<tr id="live-row-'+r.employeeId+'" style="background:'+rowBg+'">'
+      // Normalize keys for openRouteMap
+      var mapRow={
+        emp_name:r.empName,log_date:r.logDate||new Date().toISOString().slice(0,10),
+        time_in:r.timeIn,lunch_out:r.lunchOut,lunch_in:r.lunchIn,
+        merienda_out:r.meriendaOut,merienda_in:r.meriendaIn,time_out:r.timeOut,
+        time_in_lat:r.timeInLat,time_in_lng:r.timeInLng,
+        lunch_out_lat:r.lunchOutLat,lunch_out_lng:r.lunchOutLng,
+        lunch_in_lat:r.lunchInLat,lunch_in_lng:r.lunchInLng,
+        merienda_out_lat:r.meriendaOutLat,merienda_out_lng:r.meriendaOutLng,
+        merienda_in_lat:r.meriendaInLat,merienda_in_lng:r.meriendaInLng,
+        time_out_lat:r.timeOutLat,time_out_lng:r.timeOutLng
+      };
+      window._liveAttRows=window._liveAttRows||[];window._liveAttRows[idx]=mapRow;
+      var hasGps=!!(r.timeInLat||r.lunchOutLat||r.meriendaOutLat||r.timeOutLat);
+      return '<tr id="live-row-'+r.employeeId+'" style="background:'+rowBg+';cursor:'+(hasGps?'pointer':'default')+'" '
+        +(hasGps?'onclick="openRouteMap(window._liveAttRows['+idx+'])" title="Click to view route map"':'')+'>'
         +'<td><strong>'+escHtml(r.empName)+'</strong>'
         +(r.empPos ? '<br><span style="font-size:10px;color:var(--muted)">'+escHtml(r.empPos)+'</span>' : '')+'</td>'
         +'<td style="text-align:center"><span class="badge '+s.cls+'">'+s.icon+' '+s.text+'</span></td>'
@@ -1773,6 +1875,8 @@ function renderLiveAttendance(rows){
         +liveCell(r.meriendaOut, 'var(--orange)')
         +liveCell(r.meriendaIn,  '#0277bd')
         +liveCell(r.timeOut,  'var(--muted)')
+        +(hasGps?'<td style="text-align:center"><button class="filter-btn" style="font-size:10px;padding:3px 8px;color:#7b1fa2;border-color:#ce93d8" onclick="event.stopPropagation();openRouteMap(window._liveAttRows['+idx+'])">📍 Map</button></td>'
+                :'<td style="text-align:center;font-size:10px;color:#dce3ec">—</td>')
         +'</tr>';
     }).join('')
     +'</tbody></table></div>';
@@ -1809,7 +1913,22 @@ function applyLivePunch(msg){
     if(existingRow){
       var s = statusLabel(updated);
       var rowBg = updated.timeIn && !updated.timeOut ? '#f1fff4' : '';
+      var hasGps=!!(updated.timeInLat||updated.lunchOutLat||updated.meriendaOutLat||updated.timeOutLat);
+      var mapRow={emp_name:updated.empName,log_date:new Date().toISOString().slice(0,10),
+        time_in:updated.timeIn,lunch_out:updated.lunchOut,lunch_in:updated.lunchIn,
+        merienda_out:updated.meriendaOut,merienda_in:updated.meriendaIn,time_out:updated.timeOut,
+        time_in_lat:updated.timeInLat,time_in_lng:updated.timeInLng,
+        lunch_out_lat:updated.lunchOutLat,lunch_out_lng:updated.lunchOutLng,
+        lunch_in_lat:updated.lunchInLat,lunch_in_lng:updated.lunchInLng,
+        merienda_out_lat:updated.meriendaOutLat,merienda_out_lng:updated.meriendaOutLng,
+        merienda_in_lat:updated.meriendaInLat,merienda_in_lng:updated.meriendaInLng,
+        time_out_lat:updated.timeOutLat,time_out_lng:updated.timeOutLng};
+      var rowKey='live_ws_'+msg.employeeId;
+      window._liveWsRows=window._liveWsRows||{};window._liveWsRows[rowKey]=mapRow;
       existingRow.style.background = rowBg;
+      existingRow.style.cursor = hasGps?'pointer':'default';
+      if(hasGps)existingRow.setAttribute('onclick','openRouteMap(window._liveWsRows["'+rowKey+'"])');
+      else existingRow.removeAttribute('onclick');
       existingRow.innerHTML =
         '<td><strong>'+escHtml(updated.empName)+'</strong>'
         +(updated.empPos ? '<br><span style="font-size:10px;color:var(--muted)">'+escHtml(updated.empPos)+'</span>' : '')+'</td>'
@@ -1820,6 +1939,8 @@ function applyLivePunch(msg){
         +liveCell(updated.meriendaOut, 'var(--orange)')
         +liveCell(updated.meriendaIn,  '#0277bd')
         +liveCell(updated.timeOut,  'var(--muted)')
+        +(hasGps?'<td style="text-align:center"><button class="filter-btn" style="font-size:10px;padding:3px 8px;color:#7b1fa2;border-color:#ce93d8" onclick="event.stopPropagation();openRouteMap(window._liveWsRows[\''+rowKey+'\'])">📍 Map</button></td>'
+                :'<td style="text-align:center;font-size:10px;color:#dce3ec">—</td>')
         +'</tr>';
       // Flash yellow highlight
       existingRow.style.transition = 'background .1s';
