@@ -2323,7 +2323,7 @@ async function loadTimeLogs(){
     +'<th>Route</th>'
     +'</tr></thead><tbody>'
   +tableRows.map(function({r,shift,lateMin},rowIdx){
-    var hasGps=!!(r.time_in_lat||r.lunch_out_lat||r.merienda_out_lat||r.time_out_lat);
+    var hasGps=!!(r.lat||r.lunch_out_lat||r.merienda_out_lat||r.timeout_lat);
     window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
     var mapBtn=hasGps
       ?'<td style="text-align:center"><button class="btn bs ba" title="View route on map" onclick="event.stopPropagation();openRouteMap(window._tlRows['+rowIdx+'])">📍 Map</button></td>'
@@ -3098,7 +3098,9 @@ async function applyImportedPayroll() {
     var KEYS=['time_in','lunch_out','lunch_in','merienda_out','merienda_in','time_out'];
     var points=[];
     KEYS.forEach(function(k){
-      var lat=parseFloat(row[k+'_lat']),lng=parseFloat(row[k+'_lng']);
+      var latField = k==='time_in' ? 'lat' : k==='time_out' ? 'timeout_lat' : k+'_lat';
+      var lngField = k==='time_in' ? 'lng' : k==='time_out' ? 'timeout_lng' : k+'_lng';
+      var lat=parseFloat(row[latField]),lng=parseFloat(row[lngField]);
       if(!isNaN(lat)&&!isNaN(lng)&&lat!==0&&lng!==0){
         points.push({key:k,label:PUNCH_LABELS[k],time:row[k],lat:lat,lng:lng,color:PUNCH_COLORS[k]});
       }

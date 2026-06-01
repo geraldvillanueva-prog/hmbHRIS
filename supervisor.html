@@ -1356,7 +1356,7 @@ async function loadHistory(){
     +'<th>Date</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th><th>Route</th>'
     +'</tr></thead><tbody>'
     +rows.map(function(r,i){
-      var hasGps=!!(r.time_in_lat||r.lunch_out_lat||r.merienda_out_lat||r.time_out_lat);
+      var hasGps=!!(r.lat||r.lunch_out_lat||r.merienda_out_lat||r.timeout_lat);
       return '<tr style="cursor:'+(hasGps?'pointer':'default')+'" '+(hasGps?'onclick="openRouteMap(window._supHistRows['+i+'])" title="Click to view route map"':'')+'>'
         +'<td class="mono" style="font-size:11.5px;white-space:nowrap">'+fmtDate(r.log_date)+'</td>'
         +tdPunch(r.time_in,      'var(--green)')
@@ -1534,14 +1534,23 @@ function escHtml(s){
     var KEYS=['time_in','lunch_out','lunch_in','merienda_out','merienda_in','time_out'];
     var points=[];
     KEYS.forEach(function(k){
-      var lat=parseFloat(row[k+'_lat']),lng=parseFloat(row[k+'_lng']);
+      // DB fields: lat/lng (time_in), timeout_lat/lng (time_out), k_lat/k_lng (others)
+      // Live endpoint fields: timeInLat/Lng, timeOutLat/Lng, lunchOutLat/Lng, etc.
+      var latField, lngField;
+      if(k==='time_in')       { latField='lat';         lngField='lng'; }
+      else if(k==='time_out') { latField='timeout_lat'; lngField='timeout_lng'; }
+      else                    { latField=k+'_lat';      lngField=k+'_lng'; }
+      // Also check camelCase live-endpoint fields
+      var camelKey=k.replace(/_([a-z])/g,function(_,c){return c.toUpperCase();});
+      var lat=parseFloat(row[latField]||row[camelKey+'Lat']);
+      var lng=parseFloat(row[lngField]||row[camelKey+'Lng']);
       if(!isNaN(lat)&&!isNaN(lng)&&lat!==0&&lng!==0){
-        points.push({key:k,label:PUNCH_LABELS[k],time:row[k]||row[k.replace('_','-')],lat:lat,lng:lng,color:PUNCH_COLORS[k]});
+        points.push({key:k,label:PUNCH_LABELS[k],time:row[k]||row[camelKey],lat:lat,lng:lng,color:PUNCH_COLORS[k]});
       }
     });
 
     document.getElementById('rmap-title').textContent=(row.emp_name||row.empName||'Route')+' – Route Map';
-    document.getElementById('rmap-sub').textContent=fmtDate(row.log_date||row.logDate||row.date||'');
+    document.getElementById('rmap-sub').textContent=fmtDate(row.log_date||row.logDate||'');
 
     var containerEl=document.getElementById('rmap-container');
     var nolocEl=document.getElementById('rmap-noloc');
@@ -1850,18 +1859,8 @@ function renderLiveAttendance(rows){
     +rows.map(function(r,idx){
       var s = statusLabel(r);
       var rowBg = r.timeIn && !r.timeOut ? '#f1fff4' : '';
-      // Normalize keys for openRouteMap
-      var mapRow={
-        emp_name:r.empName,log_date:r.logDate||new Date().toISOString().slice(0,10),
-        time_in:r.timeIn,lunch_out:r.lunchOut,lunch_in:r.lunchIn,
-        merienda_out:r.meriendaOut,merienda_in:r.meriendaIn,time_out:r.timeOut,
-        time_in_lat:r.timeInLat,time_in_lng:r.timeInLng,
-        lunch_out_lat:r.lunchOutLat,lunch_out_lng:r.lunchOutLng,
-        lunch_in_lat:r.lunchInLat,lunch_in_lng:r.lunchInLng,
-        merienda_out_lat:r.meriendaOutLat,merienda_out_lng:r.meriendaOutLng,
-        merienda_in_lat:r.meriendaInLat,merienda_in_lng:r.meriendaInLng,
-        time_out_lat:r.timeOutLat,time_out_lng:r.timeOutLng
-      };
+      // Pass raw live row — openRouteMap handles camelCase GPS fields
+      var mapRow=r;
       window._liveAttRows=window._liveAttRows||[];window._liveAttRows[idx]=mapRow;
       var hasGps=!!(r.timeInLat||r.lunchOutLat||r.meriendaOutLat||r.timeOutLat);
       return '<tr id="live-row-'+r.employeeId+'" style="background:'+rowBg+';cursor:'+(hasGps?'pointer':'default')+'" '
@@ -1914,15 +1913,7 @@ function applyLivePunch(msg){
       var s = statusLabel(updated);
       var rowBg = updated.timeIn && !updated.timeOut ? '#f1fff4' : '';
       var hasGps=!!(updated.timeInLat||updated.lunchOutLat||updated.meriendaOutLat||updated.timeOutLat);
-      var mapRow={emp_name:updated.empName,log_date:new Date().toISOString().slice(0,10),
-        time_in:updated.timeIn,lunch_out:updated.lunchOut,lunch_in:updated.lunchIn,
-        merienda_out:updated.meriendaOut,merienda_in:updated.meriendaIn,time_out:updated.timeOut,
-        time_in_lat:updated.timeInLat,time_in_lng:updated.timeInLng,
-        lunch_out_lat:updated.lunchOutLat,lunch_out_lng:updated.lunchOutLng,
-        lunch_in_lat:updated.lunchInLat,lunch_in_lng:updated.lunchInLng,
-        merienda_out_lat:updated.meriendaOutLat,merienda_out_lng:updated.meriendaOutLng,
-        merienda_in_lat:updated.meriendaInLat,merienda_in_lng:updated.meriendaInLng,
-        time_out_lat:updated.timeOutLat,time_out_lng:updated.timeOutLng};
+      var mapRow=updated; // openRouteMap handles camelCase GPS fields
       var rowKey='live_ws_'+msg.employeeId;
       window._liveWsRows=window._liveWsRows||{};window._liveWsRows[rowKey]=mapRow;
       existingRow.style.background = rowBg;

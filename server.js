@@ -611,6 +611,16 @@ try { db.exec(`ALTER TABLE time_logs ADD COLUMN accuracy REAL`); } catch(e) {}
 try { db.exec(`ALTER TABLE time_logs ADD COLUMN timeout_lat REAL`); } catch(e) {}
 try { db.exec(`ALTER TABLE time_logs ADD COLUMN timeout_lng REAL`); } catch(e) {}
 try { db.exec(`ALTER TABLE time_logs ADD COLUMN timeout_accuracy REAL`); } catch(e) {}
+// Per-punch GPS for lunch and merienda
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN lunch_out_lat REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN lunch_out_lng REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN lunch_in_lat REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN lunch_in_lng REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_out_lat REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_out_lng REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in_lat REAL`); } catch(e) {}
+try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in_lng REAL`); } catch(e) {}
+
 
 // ─── TIME LOGS ────────────────────────────────────────────────────────────────
 // Get logs — admin gets all with filters, employees/supervisors get their own
@@ -677,10 +687,10 @@ app.post('/api/timelogs/lunch-out', requireAuth, (req, res) => {
   if (!row || !row.time_in || row.time_out) return res.json({ success: false, error: 'No active shift found.' });
   if (row.lunch_out) return res.json({ success: false, error: 'Lunch Out already recorded.' });
   const now = nowPH();
-  // GPS coords accepted for future per-punch audit columns; primary GPS stored at Time In
-  db.prepare('UPDATE time_logs SET lunch_out=? WHERE id=?').run(now, row.id);
+  const { lat = null, lng = null } = req.body;
+  db.prepare('UPDATE time_logs SET lunch_out=?, lunch_out_lat=?, lunch_out_lng=? WHERE id=?').run(now, lat, lng, row.id);
   const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
-  broadcastPunch({ type: 'punch', event: 'lunch-out', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
+  broadcastPunch({ type: 'punch', event: 'lunch-out', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH(), lat, lng });
   res.json({ success: true, time: now });
 });
 
@@ -692,9 +702,10 @@ app.post('/api/timelogs/lunch-in', requireAuth, (req, res) => {
   if (!row || !row.lunch_out) return res.json({ success: false, error: 'No Lunch Out recorded yet.' });
   if (row.lunch_in) return res.json({ success: false, error: 'Lunch In already recorded.' });
   const now = nowPH();
-  db.prepare('UPDATE time_logs SET lunch_in=? WHERE id=?').run(now, row.id);
+  const { lat = null, lng = null } = req.body;
+  db.prepare('UPDATE time_logs SET lunch_in=?, lunch_in_lat=?, lunch_in_lng=? WHERE id=?').run(now, lat, lng, row.id);
   const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
-  broadcastPunch({ type: 'punch', event: 'lunch-in', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
+  broadcastPunch({ type: 'punch', event: 'lunch-in', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH(), lat, lng });
   res.json({ success: true, time: now });
 });
 
@@ -706,9 +717,10 @@ app.post('/api/timelogs/merienda-out', requireAuth, (req, res) => {
   if (!row || !row.time_in || row.time_out) return res.json({ success: false, error: 'No active shift found.' });
   if (row.merienda_out) return res.json({ success: false, error: 'Merienda Out already recorded.' });
   const now = nowPH();
-  db.prepare('UPDATE time_logs SET merienda_out=? WHERE id=?').run(now, row.id);
+  const { lat = null, lng = null } = req.body;
+  db.prepare('UPDATE time_logs SET merienda_out=?, merienda_out_lat=?, merienda_out_lng=? WHERE id=?').run(now, lat, lng, row.id);
   const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
-  broadcastPunch({ type: 'punch', event: 'merienda-out', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
+  broadcastPunch({ type: 'punch', event: 'merienda-out', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH(), lat, lng });
   res.json({ success: true, time: now });
 });
 
@@ -720,9 +732,10 @@ app.post('/api/timelogs/merienda-in', requireAuth, (req, res) => {
   if (!row || !row.merienda_out) return res.json({ success: false, error: 'No Merienda Out recorded yet.' });
   if (row.merienda_in) return res.json({ success: false, error: 'Merienda In already recorded.' });
   const now = nowPH();
-  db.prepare('UPDATE time_logs SET merienda_in=? WHERE id=?').run(now, row.id);
+  const { lat = null, lng = null } = req.body;
+  db.prepare('UPDATE time_logs SET merienda_in=?, merienda_in_lat=?, merienda_in_lng=? WHERE id=?').run(now, lat, lng, row.id);
   const emp = db.prepare('SELECT name, pos, dept FROM employees WHERE id=?').get(empId);
-  broadcastPunch({ type: 'punch', event: 'merienda-in', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH() });
+  broadcastPunch({ type: 'punch', event: 'merienda-in', employeeId: empId, empName: emp ? emp.name : '', empPos: emp ? emp.pos : '', empDept: emp ? emp.dept : '', time: now, logDate: todayPH(), lat, lng });
   res.json({ success: true, time: now });
 });
 
@@ -1045,17 +1058,30 @@ app.get('/api/timelogs/live', requireAdminOrSupervisor, (req, res) => {
   const result = allEmps.map(e => {
     const row = rows.find(r => r.employee_id === e.id);
     return {
-      employeeId:  e.id,
-      empName:     e.name,
-      empPos:      e.pos || '',
-      empDept:     e.dept || '',
-      timeIn:      row ? row.time_in      || null : null,
-      lunchOut:    row ? row.lunch_out    || null : null,
-      lunchIn:     row ? row.lunch_in     || null : null,
-      meriendaOut: row ? row.merienda_out || null : null,
-      meriendaIn:  row ? row.merienda_in  || null : null,
-      timeOut:     row ? row.time_out     || null : null,
-      logDate:     today
+      employeeId:      e.id,
+      empName:         e.name,
+      empPos:          e.pos || '',
+      empDept:         e.dept || '',
+      timeIn:          row ? row.time_in          || null : null,
+      lunchOut:        row ? row.lunch_out         || null : null,
+      lunchIn:         row ? row.lunch_in          || null : null,
+      meriendaOut:     row ? row.merienda_out      || null : null,
+      meriendaIn:      row ? row.merienda_in       || null : null,
+      timeOut:         row ? row.time_out          || null : null,
+      logDate:         today,
+      // GPS per punch
+      timeInLat:       row ? row.lat               || null : null,
+      timeInLng:       row ? row.lng               || null : null,
+      lunchOutLat:     row ? row.lunch_out_lat     || null : null,
+      lunchOutLng:     row ? row.lunch_out_lng     || null : null,
+      lunchInLat:      row ? row.lunch_in_lat      || null : null,
+      lunchInLng:      row ? row.lunch_in_lng      || null : null,
+      meriendaOutLat:  row ? row.merienda_out_lat  || null : null,
+      meriendaOutLng:  row ? row.merienda_out_lng  || null : null,
+      meriendaInLat:   row ? row.merienda_in_lat   || null : null,
+      meriendaInLng:   row ? row.merienda_in_lng   || null : null,
+      timeOutLat:      row ? row.timeout_lat       || null : null,
+      timeOutLng:      row ? row.timeout_lng       || null : null,
     };
   });
   res.json(result);
