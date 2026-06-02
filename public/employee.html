@@ -562,6 +562,13 @@ input:focus,select:focus,textarea:focus{
       <input type="number" id="lv-days" min="0.5" step="0.5" placeholder="Auto-computed" readonly>
     </div>
     <div class="f">
+      <label>Pay Type</label>
+      <select id="lv-pay">
+        <option value="With Pay">With Pay</option>
+        <option value="Without Pay">Without Pay</option>
+      </select>
+    </div>
+    <div class="f">
       <label>Reason / Remarks</label>
       <textarea id="lv-reason" placeholder="Briefly explain the reason for your leave…"></textarea>
     </div>
@@ -1134,17 +1141,19 @@ async function fileLeave(){
   var days=parseFloat(document.getElementById('lv-days').value)||0;
   var reason=document.getElementById('lv-reason').value.trim();
   var type=document.getElementById('lv-type').value;
+  var pay=document.getElementById('lv-pay').value;
   if(!from||!to){showLeaveMsg('Please set the leave dates.',false);return;}
   if(days<=0){showLeaveMsg('Invalid number of days.',false);return;}
   if(!reason){showLeaveMsg('Please enter a reason for your leave.',false);return;}
   var btn=document.getElementById('btn-file-leave');
   btn.disabled=true;btn.textContent='Submitting…';
-  var res=await fetch('/api/leave/file',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,from,to,days,reason})});
+  var res=await fetch('/api/leave/file',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,from,to,days,reason,pay})});
   var data=await res.json();
   btn.disabled=false;btn.innerHTML='📤 Submit Leave Request';
   if(data.success){
     showLeaveMsg('✅ Leave request submitted successfully! Waiting for HR approval.',true);
     document.getElementById('lv-reason').value='';
+    document.getElementById('lv-pay').value='With Pay';
     var today=new Date().toISOString().slice(0,10);
     document.getElementById('lv-from').value=today;
     document.getElementById('lv-to').value=today;
@@ -1164,13 +1173,15 @@ async function loadMyLeaves(){
   var rows=await res.json();
   var w=document.getElementById('my-leaves-wrap');
   if(!rows.length){w.innerHTML='<div class="empty">No leave requests yet.</div>';return;}
-  w.innerHTML='<table><thead><tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status</th><th></th></tr></thead><tbody>'
+  w.innerHTML='<table><thead><tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Pay</th><th>Status</th><th></th></tr></thead><tbody>'
     +rows.slice(0,20).map(r=>{
       var bc=r.status==='Approved'?'badge-green':r.status==='Denied'?'badge-red':'badge-yellow';
+      var pc=r.pay==='With Pay'?'badge-green':'badge-red';
       return'<tr><td style="font-size:11.5px">'+r.type+'</td>'
         +'<td class="mono" style="font-size:11px">'+fmtDate(r.from)+'</td>'
         +'<td class="mono" style="font-size:11px">'+fmtDate(r.to)+'</td>'
         +'<td class="mono" style="text-align:center">'+r.days+'</td>'
+        +'<td><span class="badge '+pc+'" style="white-space:nowrap">'+(r.pay||'With Pay')+'</span></td>'
         +'<td><span class="badge '+bc+'">'+r.status+'</span></td>'
         +'<td>'+(r.status==='Pending'?'<button class="btn btn-cancel" onclick="cancelLeave('+r.id+')">Cancel</button>':'')+'</td></tr>';
     }).join('')+'</tbody></table>';
@@ -1234,13 +1245,15 @@ async function loadLeaveAll(){
   // Full list
   var w2=document.getElementById('leave-all-wrap');
   if(!rows.length){w2.innerHTML='<div class="empty">No leave records yet.</div>';return;}
-  w2.innerHTML='<table><thead><tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status</th><th>Filed</th></tr></thead><tbody>'
+  w2.innerHTML='<table><thead><tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Pay</th><th>Status</th><th>Filed</th></tr></thead><tbody>'
     +rows.map(r=>{
       var bc=r.status==='Approved'?'badge-green':r.status==='Denied'?'badge-red':'badge-yellow';
+      var pc=r.pay==='With Pay'?'badge-green':'badge-red';
       return'<tr><td style="font-size:11.5px">'+r.type+'</td>'
         +'<td class="mono" style="font-size:11px">'+fmtDate(r.from)+'</td>'
         +'<td class="mono" style="font-size:11px">'+fmtDate(r.to)+'</td>'
         +'<td class="mono" style="text-align:center">'+r.days+'</td>'
+        +'<td><span class="badge '+pc+'" style="white-space:nowrap">'+(r.pay||'With Pay')+'</span></td>'
         +'<td><span class="badge '+bc+'">'+r.status+'</span></td>'
         +'<td style="font-size:11px;color:var(--muted)">'+fmtDate(r.filedAt?r.filedAt.slice(0,10):'')+'</td></tr>';
     }).join('')+'</tbody></table>';
