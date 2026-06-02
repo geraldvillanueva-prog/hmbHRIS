@@ -794,7 +794,8 @@ app.post('/api/leave/file', requireAuth, (req, res) => {
   if (!empId) return res.json({ success: false, error: 'No employee linked to account' });
   const l = req.body;
   if (!l.from || !l.to) return res.json({ success: false, error: 'Date from and to are required' });
-  const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay) VALUES (?,?,?,?,?,?,?,?)').run(empId, l.type, l.from, l.to, +l.days||0, l.reason||'', 'Pending', 'With Pay');
+  const pay = (l.pay === 'Without Pay') ? 'Without Pay' : 'With Pay'; // default to With Pay for safety
+  const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay) VALUES (?,?,?,?,?,?,?,?)').run(empId, l.type, l.from, l.to, +l.days||0, l.reason||'', 'Pending', pay);
   res.json({ success: true, id: r.lastInsertRowid });
 });
 
