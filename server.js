@@ -624,8 +624,13 @@ try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in_lng REAL`); } catch(
 
 // ─── ADMIN CORRECTION: Villanueva, Gerald — June 1–4 2026 time logs ──────────
 (function applyGeraldTimeLogs() {
-  const emp = db.prepare("SELECT id FROM employees WHERE name LIKE '%Villanueva%Gerald%' OR name LIKE '%Villanueva, Gerald%' COLLATE NOCASE").get();
-  if (!emp) { console.log('⚠️  Villanueva Gerald not found — skipping time log correction.'); return; }
+  const emp = db.prepare("SELECT id, name FROM employees WHERE UPPER(name) LIKE '%VILLANUEVA%' AND UPPER(name) LIKE '%GERALD%'").get();
+  if (!emp) {
+    const all = db.prepare("SELECT id, name FROM employees").all();
+    console.log('⚠️  Villanueva Gerald not found. All employees:', all.map(e => e.name));
+    return;
+  }
+  console.log(`✅ Found employee: "${emp.name}" (id=${emp.id})`);
   const id = emp.id;
 
   const entries = [
@@ -635,16 +640,18 @@ try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in_lng REAL`); } catch(
     { date: '2026-06-04', time_in: '07:07:00 AM', lunch_out: null,           lunch_in: null,           merienda_out: null,           merienda_in: null,           time_out: null          },
   ];
 
-  const existing = db.prepare('SELECT id FROM time_logs WHERE employee_id=? AND log_date=?');
+  const existing = db.prepare('SELECT id, log_date, time_in FROM time_logs WHERE employee_id=? AND log_date=?');
   const update   = db.prepare('UPDATE time_logs SET time_in=?, lunch_out=?, lunch_in=?, merienda_out=?, merienda_in=?, time_out=? WHERE employee_id=? AND log_date=?');
   const insert   = db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out) VALUES (?,?,?,?,?,?,?,?)');
 
   for (const e of entries) {
     const row = existing.get(id, e.date);
     if (row) {
+      console.log(`🔄 Updating ${e.date}: was time_in="${row.time_in}", setting to "${e.time_in}"`);
       update.run(e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out, id, e.date);
       console.log(`✅ Updated time log for Villanueva Gerald on ${e.date}`);
     } else {
+      console.log(`➕ No row found for ${e.date} — inserting.`);
       insert.run(id, e.date, e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out);
       console.log(`✅ Inserted time log for Villanueva Gerald on ${e.date}`);
     }
