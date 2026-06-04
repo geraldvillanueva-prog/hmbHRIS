@@ -632,6 +632,11 @@ app.get('/api/admin/fix-gerald-timelogs', (req, res) => {
     }
 
     const id = emp.id;
+
+    // First: show ALL existing rows for Jun 1-4 so we can see what's there
+    const existing = db.prepare('SELECT id, log_date, time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out FROM time_logs WHERE employee_id=? AND log_date IN (?,?,?,?) ORDER BY log_date, id')
+      .all(id, '2026-06-01','2026-06-02','2026-06-03','2026-06-04');
+
     const entries = [
       { date: '2026-06-01', time_in: '07:00:00 AM', lunch_out: '12:15:00 PM', lunch_in: '01:10:00 PM', merienda_out: '03:30:00 PM', merienda_in: '03:54:00 PM', time_out: '06:03:00 PM' },
       { date: '2026-06-02', time_in: '07:04:00 AM', lunch_out: '12:20:00 PM', lunch_in: '01:18:00 PM', merienda_out: '03:33:00 PM', merienda_in: '03:59:00 PM', time_out: '06:14:00 PM' },
@@ -641,20 +646,20 @@ app.get('/api/admin/fix-gerald-timelogs', (req, res) => {
 
     const results = [];
     for (const e of entries) {
-      // Get ALL rows for this employee+date, ordered by id desc
-      const allRows = db.prepare('SELECT id, time_in FROM time_logs WHERE employee_id=? AND log_date=? ORDER BY id DESC').all(id, e.date);
-      if (allRows.length > 0) {
-        const targetId = allRows[0].id; // highest id = the one shown in UI
-        db.prepare('UPDATE time_logs SET time_in=?, lunch_out=?, lunch_in=?, merienda_out=?, merienda_in=?, time_out=? WHERE id=?')
-          .run(e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out, targetId);
-        results.push({ date: e.date, action: 'updated', rowId: targetId, totalRows: allRows.length, was: allRows[0].time_in, now: e.time_in });
-      } else {
-        const r = db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out) VALUES (?,?,?,?,?,?,?,?)')
+      // Update EVERY row for this date (covers duplicates)
+      const info = db.prepare('UPDATE time_logs SET time_in=?, lunch_out=?, lunch_in=?, merienda_out=?, merienda_in=?, time_out=? WHERE employee_id=? AND log_date=?')
+        .run(e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out, id, e.date);
+      if (info.changes === 0) {
+        // No row exists — insert one
+        db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out) VALUES (?,?,?,?,?,?,?,?)')
           .run(id, e.date, e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out);
-        results.push({ date: e.date, action: 'inserted', rowId: r.lastInsertRowid, now: e.time_in });
+        results.push({ date: e.date, action: 'inserted', now: e.time_in });
+      } else {
+        results.push({ date: e.date, action: 'updated', rowsChanged: info.changes, now: e.time_in });
       }
     }
-    res.json({ success: true, employee: emp.name, employeeId: id, results });
+
+    res.json({ success: true, employee: emp.name, employeeId: id, existingRowsBefore: existing, updates: results });
   } catch (err) {
     res.json({ success: false, error: err.message });
   }
