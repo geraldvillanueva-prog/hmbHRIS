@@ -622,6 +622,35 @@ try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in_lat REAL`); } catch(
 try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in_lng REAL`); } catch(e) {}
 
 
+// ─── ADMIN CORRECTION: Villanueva, Gerald — June 1–4 2026 time logs ──────────
+(function applyGeraldTimeLogs() {
+  const emp = db.prepare("SELECT id FROM employees WHERE name LIKE '%Villanueva%Gerald%' OR name LIKE '%Villanueva, Gerald%' COLLATE NOCASE").get();
+  if (!emp) { console.log('⚠️  Villanueva Gerald not found — skipping time log correction.'); return; }
+  const id = emp.id;
+
+  const entries = [
+    { date: '2026-06-01', time_in: '07:00:00', lunch_out: '12:15:00', lunch_in: '13:10:00', merienda_out: '15:30:00', merienda_in: '15:54:00', time_out: '18:03:00' },
+    { date: '2026-06-02', time_in: '07:04:00', lunch_out: '12:20:00', lunch_in: '13:18:00', merienda_out: '15:33:00', merienda_in: '15:59:00', time_out: '18:14:00' },
+    { date: '2026-06-03', time_in: '07:57:00', lunch_out: '12:49:00', lunch_in: '13:40:00', merienda_out: null,        merienda_in: null,        time_out: '19:03:00' },
+    { date: '2026-06-04', time_in: '07:07:00', lunch_out: null,        lunch_in: null,        merienda_out: null,        merienda_in: null,        time_out: null       },
+  ];
+
+  const existing = db.prepare('SELECT id FROM time_logs WHERE employee_id=? AND log_date=?');
+  const update   = db.prepare('UPDATE time_logs SET time_in=?, lunch_out=?, lunch_in=?, merienda_out=?, merienda_in=?, time_out=? WHERE employee_id=? AND log_date=?');
+  const insert   = db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out) VALUES (?,?,?,?,?,?,?,?)');
+
+  for (const e of entries) {
+    const row = existing.get(id, e.date);
+    if (row) {
+      update.run(e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out, id, e.date);
+      console.log(`✅ Updated time log for Villanueva Gerald on ${e.date}`);
+    } else {
+      insert.run(id, e.date, e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out);
+      console.log(`✅ Inserted time log for Villanueva Gerald on ${e.date}`);
+    }
+  }
+})();
+
 // ─── TIME LOGS ────────────────────────────────────────────────────────────────
 // Get logs — admin gets all with filters, employees/supervisors get their own
 app.get('/api/timelogs', requireAuth, (req, res) => {
