@@ -641,11 +641,13 @@ app.get('/api/admin/fix-gerald-timelogs', (req, res) => {
 
     const results = [];
     for (const e of entries) {
-      const row = db.prepare('SELECT id, time_in FROM time_logs WHERE employee_id=? AND log_date=?').get(id, e.date);
-      if (row) {
+      // Get ALL rows for this employee+date, ordered by id desc
+      const allRows = db.prepare('SELECT id, time_in FROM time_logs WHERE employee_id=? AND log_date=? ORDER BY id DESC').all(id, e.date);
+      if (allRows.length > 0) {
+        const targetId = allRows[0].id; // highest id = the one shown in UI
         db.prepare('UPDATE time_logs SET time_in=?, lunch_out=?, lunch_in=?, merienda_out=?, merienda_in=?, time_out=? WHERE id=?')
-          .run(e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out, row.id);
-        results.push({ date: e.date, action: 'updated', rowId: row.id, was: row.time_in, now: e.time_in });
+          .run(e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out, targetId);
+        results.push({ date: e.date, action: 'updated', rowId: targetId, totalRows: allRows.length, was: allRows[0].time_in, now: e.time_in });
       } else {
         const r = db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out) VALUES (?,?,?,?,?,?,?,?)')
           .run(id, e.date, e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out);
