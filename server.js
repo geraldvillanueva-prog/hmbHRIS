@@ -622,41 +622,41 @@ try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in_lat REAL`); } catch(
 try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in_lng REAL`); } catch(e) {}
 
 
-// ─── ADMIN CORRECTION: Villanueva, Gerald — June 1–4 2026 time logs ──────────
-(function applyGeraldTimeLogs() {
-  const emp = db.prepare("SELECT id, name FROM employees WHERE UPPER(name) LIKE '%VILLANUEVA%' AND UPPER(name) LIKE '%GERALD%'").get();
-  if (!emp) {
-    const all = db.prepare("SELECT id, name FROM employees").all();
-    console.log('⚠️  Villanueva Gerald not found. All employees:', all.map(e => e.name));
-    return;
-  }
-  console.log(`✅ Found employee: "${emp.name}" (id=${emp.id})`);
-  const id = emp.id;
-
-  const entries = [
-    { date: '2026-06-01', time_in: '07:00:00 AM', lunch_out: '12:15:00 PM', lunch_in: '01:10:00 PM', merienda_out: '03:30:00 PM', merienda_in: '03:54:00 PM', time_out: '06:03:00 PM' },
-    { date: '2026-06-02', time_in: '07:04:00 AM', lunch_out: '12:20:00 PM', lunch_in: '01:18:00 PM', merienda_out: '03:33:00 PM', merienda_in: '03:59:00 PM', time_out: '06:14:00 PM' },
-    { date: '2026-06-03', time_in: '07:57:00 AM', lunch_out: '12:49:00 PM', lunch_in: '01:40:00 PM', merienda_out: null,           merienda_in: null,           time_out: '07:03:00 PM' },
-    { date: '2026-06-04', time_in: '07:07:00 AM', lunch_out: null,           lunch_in: null,           merienda_out: null,           merienda_in: null,           time_out: null          },
-  ];
-
-  const existing = db.prepare('SELECT id, log_date, time_in FROM time_logs WHERE employee_id=? AND log_date=?');
-  const update   = db.prepare('UPDATE time_logs SET time_in=?, lunch_out=?, lunch_in=?, merienda_out=?, merienda_in=?, time_out=? WHERE employee_id=? AND log_date=?');
-  const insert   = db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out) VALUES (?,?,?,?,?,?,?,?)');
-
-  for (const e of entries) {
-    const row = existing.get(id, e.date);
-    if (row) {
-      console.log(`🔄 Updating ${e.date}: was time_in="${row.time_in}", setting to "${e.time_in}"`);
-      update.run(e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out, id, e.date);
-      console.log(`✅ Updated time log for Villanueva Gerald on ${e.date}`);
-    } else {
-      console.log(`➕ No row found for ${e.date} — inserting.`);
-      insert.run(id, e.date, e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out);
-      console.log(`✅ Inserted time log for Villanueva Gerald on ${e.date}`);
+// ─── ONE-TIME ADMIN FIX: Villanueva Gerald time logs ─────────────────────────
+app.get('/api/admin/fix-gerald-timelogs', (req, res) => {
+  try {
+    const emp = db.prepare("SELECT id, name FROM employees WHERE UPPER(name) LIKE '%VILLANUEVA%' AND UPPER(name) LIKE '%GERALD%'").get();
+    if (!emp) {
+      const all = db.prepare("SELECT id, name FROM employees").all();
+      return res.json({ success: false, error: 'Employee not found', allEmployees: all.map(e => e.name) });
     }
+
+    const id = emp.id;
+    const entries = [
+      { date: '2026-06-01', time_in: '07:00:00 AM', lunch_out: '12:15:00 PM', lunch_in: '01:10:00 PM', merienda_out: '03:30:00 PM', merienda_in: '03:54:00 PM', time_out: '06:03:00 PM' },
+      { date: '2026-06-02', time_in: '07:04:00 AM', lunch_out: '12:20:00 PM', lunch_in: '01:18:00 PM', merienda_out: '03:33:00 PM', merienda_in: '03:59:00 PM', time_out: '06:14:00 PM' },
+      { date: '2026-06-03', time_in: '07:57:00 AM', lunch_out: '12:49:00 PM', lunch_in: '01:40:00 PM', merienda_out: null,           merienda_in: null,           time_out: '07:03:00 PM' },
+      { date: '2026-06-04', time_in: '07:07:00 AM', lunch_out: null,           lunch_in: null,           merienda_out: null,           merienda_in: null,           time_out: null          },
+    ];
+
+    const results = [];
+    for (const e of entries) {
+      const row = db.prepare('SELECT id, time_in FROM time_logs WHERE employee_id=? AND log_date=?').get(id, e.date);
+      if (row) {
+        db.prepare('UPDATE time_logs SET time_in=?, lunch_out=?, lunch_in=?, merienda_out=?, merienda_in=?, time_out=? WHERE id=?')
+          .run(e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out, row.id);
+        results.push({ date: e.date, action: 'updated', rowId: row.id, was: row.time_in, now: e.time_in });
+      } else {
+        const r = db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out) VALUES (?,?,?,?,?,?,?,?)')
+          .run(id, e.date, e.time_in, e.lunch_out, e.lunch_in, e.merienda_out, e.merienda_in, e.time_out);
+        results.push({ date: e.date, action: 'inserted', rowId: r.lastInsertRowid, now: e.time_in });
+      }
+    }
+    res.json({ success: true, employee: emp.name, employeeId: id, results });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
   }
-})();
+});
 
 // ─── TIME LOGS ────────────────────────────────────────────────────────────────
 // Get logs — admin gets all with filters, employees/supervisors get their own
