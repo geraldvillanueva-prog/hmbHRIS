@@ -629,10 +629,10 @@ try { db.exec(`ALTER TABLE time_logs ADD COLUMN merienda_in_lng REAL`); } catch(
   const id = emp.id;
 
   const entries = [
-    { date: '2026-06-01', time_in: '07:00:00', lunch_out: '12:15:00', lunch_in: '13:10:00', merienda_out: '15:30:00', merienda_in: '15:54:00', time_out: '18:03:00' },
-    { date: '2026-06-02', time_in: '07:04:00', lunch_out: '12:20:00', lunch_in: '13:18:00', merienda_out: '15:33:00', merienda_in: '15:59:00', time_out: '18:14:00' },
-    { date: '2026-06-03', time_in: '07:57:00', lunch_out: '12:49:00', lunch_in: '13:40:00', merienda_out: null,        merienda_in: null,        time_out: '19:03:00' },
-    { date: '2026-06-04', time_in: '07:07:00', lunch_out: null,        lunch_in: null,        merienda_out: null,        merienda_in: null,        time_out: null       },
+    { date: '2026-06-01', time_in: '07:00:00 AM', lunch_out: '12:15:00 PM', lunch_in: '01:10:00 PM', merienda_out: '03:30:00 PM', merienda_in: '03:54:00 PM', time_out: '06:03:00 PM' },
+    { date: '2026-06-02', time_in: '07:04:00 AM', lunch_out: '12:20:00 PM', lunch_in: '01:18:00 PM', merienda_out: '03:33:00 PM', merienda_in: '03:59:00 PM', time_out: '06:14:00 PM' },
+    { date: '2026-06-03', time_in: '07:57:00 AM', lunch_out: '12:49:00 PM', lunch_in: '01:40:00 PM', merienda_out: null,           merienda_in: null,           time_out: '07:03:00 PM' },
+    { date: '2026-06-04', time_in: '07:07:00 AM', lunch_out: null,           lunch_in: null,           merienda_out: null,           merienda_in: null,           time_out: null          },
   ];
 
   const existing = db.prepare('SELECT id FROM time_logs WHERE employee_id=? AND log_date=?');
