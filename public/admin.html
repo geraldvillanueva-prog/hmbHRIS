@@ -2167,19 +2167,10 @@ async function sendOne(empId,per,pdate){
     window.open('mailto:'+e.email+'?subject='+encodeURIComponent('Pay Slip - '+per+' - '+e.name)+'&body='+encodeURIComponent(text));
   } else {
     try{await emailjs.send(emailCfg.svc,emailCfg.tpl,{
-  to_email:e.email,name:e.name,position:e.pos||'',bank_acc:e.bank||'',
-  cut_off:per,payroll_date:pdate?fmtDate(pdate):'',start_date:e.start?fmtDate(e.start):'',
-  semi_monthly_basic_pay:fp(e.smb),daily_rate:fp(p.dr),no_of_days_worked:a.days,
-  basic_pay:fp(p.basicPay),deminimis:e.dm?fp(e.dm):'-',other_additionals:a.otherAdd?fp(a.otherAdd):'-',
-  reg_overtime:p.otPay?fp(p.otPay):'-',holiday_pay:a.holiday?fp(a.holiday):'-',
-  leave_w_pay:a.leave?fp(a.leave):'-',commission:a.commission?fp(a.commission):'-',
-  total_earnings:fp(p.totalEarnings),sss:fp(e.sss),phic:fp(e.phic),hdmf:fp(e.hdmf),
-  total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
-  wht_tax:e.wht?fp(e.wht):'-',late_undertime:a.late?fp(a.late):'-',
-  total_deductions:fp(p.totalDeductions),net_pay:'₱'+fp(p.netPay),
-  notes:e.payslipNote||'',
-  prep_name:setup.prep,appr_name:setup.appr,
-  prep_sig:setup.prepSig||'',appr_sig:setup.apprSig||''
+  to_email:e.email,
+  to_name:e.name,
+  subject:'Pay Slip – '+per+' – '+e.name,
+  message:text
 });}
     catch(err){alert('Email failed: '+(err.text||err));return;}
   }
@@ -2694,19 +2685,10 @@ async function mgmtSendOne(empId,per,pdate){
     window.open('mailto:'+e.email+'?subject='+encodeURIComponent('Pay Slip - '+per+' - '+e.name)+'&body='+encodeURIComponent(text));
   } else {
     try{await emailjs.send(emailCfg.svc,emailCfg.tpl,{
-      to_email:e.email,name:e.name,position:e.pos||'',bank_acc:e.bank||'',
-      cut_off:per,payroll_date:pdate?fmtDate(pdate):'',start_date:e.start?fmtDate(e.start):'',
-      semi_monthly_basic_pay:fp(e.smb),daily_rate:fp(p.dr),no_of_days_worked:a.days,
-      basic_pay:fp(p.basicPay),deminimis:e.dm?fp(e.dm):'-',other_additionals:a.otherAdd?fp(a.otherAdd):'-',
-      reg_overtime:p.otPay?fp(p.otPay):'-',holiday_pay:a.holiday?fp(a.holiday):'-',
-      leave_w_pay:a.leave?fp(a.leave):'-',commission:a.commission?fp(a.commission):'-',
-      total_earnings:fp(p.totalEarnings),sss:fp(e.sss),phic:fp(e.phic),hdmf:fp(e.hdmf),
-      total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
-      wht_tax:e.wht?fp(e.wht):'-',late_undertime:a.late?fp(a.late):'-',
-      total_deductions:fp(p.totalDeductions),net_pay:'₱'+fp(p.netPay),
-      notes:e.payslipNote||'',
-      prep_name:setup.prep,appr_name:setup.appr,
-      prep_sig:setup.prepSig||'',appr_sig:setup.apprSig||''
+      to_email:e.email,
+      to_name:e.name,
+      subject:'Pay Slip – '+per+' – '+e.name,
+      message:text
     });}catch(err){alert('Email failed: '+(err.text||err));return;}
   }
   var rec={empId:e.id,empName:e.name,empPos:e.pos||'',period:per,pdate,sentAt:new Date().toISOString(),emailSentTo:e.email,basicPay:p.basicPay,totalEarnings:p.totalEarnings,totalDeductions:p.totalDeductions,netPay:p.netPay,attendance:JSON.parse(JSON.stringify(a)),employeeSnapshot:JSON.parse(JSON.stringify(e))};
