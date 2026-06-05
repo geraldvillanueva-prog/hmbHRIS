@@ -2827,7 +2827,7 @@ async function importPayrollExcel(evt) {
   reader.onload = async function(e) {
     try {
       var data = new Uint8Array(e.target.result);
-      var wb = XLSX.read(data, { type: 'array' });
+      var wb = XLSX.read(data, { type: 'array', cellFormula: false, cellNF: false, cellText: false });
 
       // Find PAYROLL REGISTER sheet
       var regSheet = null;
