@@ -1767,11 +1767,11 @@ function calcPay(e,a){
   var dr=r2(e.smb/periodDays),basicPay=r2((e.smb/periodDays)*(a.days||0));
   var otHrs=(a.ot||0),otPay=r2((dr/8)*1.25*otHrs);
   var otNdHrs=roundOT(a.otNd||0),otNdPay=r2((dr/8)*1.25*1.10*otNdHrs);
-  var restDayHrs=roundOT(a.restDay||0),restDayPay=r2((dr/8)*1.30*restDayHrs);
+  var restDayPay=r2(a.restDay||0);
   var totalEarnings=r2(basicPay+(e.dm||0)+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
   var totalContrib=r2((e.sss||0)+(e.phic||0)+(e.hdmf||0));
   var totalDeductions=r2(totalContrib+(a.otherDed||0)+(e.wht||0)+(a.late||0));
-  return{dr,periodDays,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayHrs,restDayPay,totalEarnings,totalContrib,totalDeductions,netPay:r2(totalEarnings-totalDeductions)};
+  return{dr,periodDays,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayPay,totalEarnings,totalContrib,totalDeductions,netPay:r2(totalEarnings-totalDeductions)};
 }
 function getAtt(per,empId){var k=attKey(per);if(!attendance[k])attendance[k]={};if(!attendance[k][empId])attendance[k][empId]={days:0,ot:0,otNd:0,restDay:0,holiday:0,leave:0,commission:0,otherAdd:0,otherDed:0,late:0,periodDays:13};return attendance[k][empId];}
 
@@ -1895,7 +1895,7 @@ function renderPayrollAttGrid(){
       // ND OT hrs
       +'<td style="padding:3px 5px">'+inp('otNd',a.otNd||0,0.5)+'</td>'
       // Rest Day OT hrs
-      +'<td style="padding:3px 5px">'+inp('restDay',a.restDay||0,0.5)+'</td>'
+      +'<td style="padding:3px 5px">'+inp('restDay',a.restDay||0,0.01)+'</td>'
       // Holiday pay ₱
       +'<td style="padding:3px 5px">'+inp('holiday',a.holiday,0.01)+'</td>'
       // Leave w/ pay ₱
@@ -2084,7 +2084,7 @@ function buildSlipHTML(e,a,per,pdate){
   +'<tr><td>OTHER ADDITIONALS</td><td class="val">'+(a.otherAdd?fp(a.otherAdd):'-')+'</td></tr>'
   +'<tr><td>REG OVERTIME ('+p.otHrs+' hrs)</td><td class="val">'+(p.otPay?fp(p.otPay):'-')+'</td></tr>'
   +'<tr><td>OT NIGHT DIFF ('+p.otNdHrs+' hrs)</td><td class="val">'+(p.otNdPay?fp(p.otNdPay):'-')+'</td></tr>'
-  +'<tr><td>REST DAY OT ('+p.restDayHrs+' hrs)</td><td class="val">'+(p.restDayPay?fp(p.restDayPay):'-')+'</td></tr>'
+  +'<tr><td>REST DAY OT</td><td class="val">'+(p.restDayPay?fp(p.restDayPay):'-')+'</td></tr>'
   +'<tr><td>HOLIDAY PAY</td><td class="val">'+(a.holiday?fp(a.holiday):'-')+'</td></tr>'
   +'<tr><td>LEAVE W/ PAY</td><td class="val">'+(a.leave?fp(a.leave):'-')+'</td></tr>'
   +'<tr><td>COMMISSION</td><td class="val">'+(a.commission?fp(a.commission):'-')+'</td></tr>'
@@ -2117,7 +2117,7 @@ function buildSlipText(e,a,per,pdate){
   +'\nCUT-OFF: '+per+'\nPAYROLL DATE: '+(pdate||'')+'\nSTART DATE: '+(e.start||'')
   +'\n\n--- EARNINGS ---\nSemi-monthly: '+fp(e.smb)+'\nDaily rate: '+fp(p.dr)+'\nDays worked: '+a.days+'\nBasic pay: '+fp(p.basicPay)
   +'\nDeminimis: '+fp(e.dm)+'\nOther additionals: '+fp(a.otherAdd)+'\nOT ('+p.otHrs+'h): '+fp(p.otPay)
-  +'\nOT Night Diff ('+p.otNdHrs+'h): '+fp(p.otNdPay)+'\nRest Day ('+p.restDayHrs+'h): '+fp(p.restDayPay)
+  +'\nOT Night Diff ('+p.otNdHrs+'h): '+fp(p.otNdPay)+'\nRest Day: '+fp(p.restDayPay)
   +'\nHoliday: '+fp(a.holiday)+'\nLeave w/pay: '+fp(a.leave)+'\nCommission: '+fp(a.commission)+'\nTOTAL EARNINGS: '+fp(p.totalEarnings)
   +'\n\n--- DEDUCTIONS ---\nSSS: '+fp(e.sss)+'\nPHIC: '+fp(e.phic)+'\nHDMF: '+fp(e.hdmf)
   +'\nOther deductions: '+fp(a.otherDed)+'\nWHT: '+fp(e.wht)+'\nLate: '+fp(a.late)+'\nTOTAL DEDUCTIONS: '+fp(p.totalDeductions)
@@ -2945,7 +2945,7 @@ async function importPayrollExcel(evt) {
             days:       g(9),
             ot:         g(13),   // OT hours
             otNd:       g(15),   // Night diff OT hours
-            restDay:    g(17),   // Rest day OT hours
+            restDay:    g(18),   // Rest day OT amount (col 18 = hardcoded peso amount)
             holiday:    g(20),   // Holiday pay amount
             leave:      g(22),   // Leave w/ pay amount
             commission: g(23) + g(24), // Sales + Operations
