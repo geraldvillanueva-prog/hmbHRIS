@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { WebSocketServer } = require('ws');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -215,6 +216,32 @@ db.exec(`
     approved_by INTEGER,
     approved_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY(approved_by) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS announcements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL DEFAULT 'general',
+    title TEXT NOT NULL,
+    body TEXT,
+    target_employee_id INTEGER,
+    month INTEGER,
+    year INTEGER,
+    pinned INTEGER DEFAULT 0,
+    created_by INTEGER,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY(target_employee_id) REFERENCES employees(id) ON DELETE SET NULL,
+    FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS announcement_attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    announcement_id INTEGER NOT NULL,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    mimetype TEXT,
+    size INTEGER,
+    uploaded_at TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY(announcement_id) REFERENCES announcements(id) ON DELETE CASCADE
   );
 `);
 
@@ -1129,6 +1156,119 @@ app.get('/api/timelogs/live', requireAdminOrSupervisor, (req, res) => {
     };
   });
   res.json(result);
+});
+
+// ─── FILE UPLOAD SETUP ────────────────────────────────────────────────────────
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `ann_${Date.now()}_${Math.random().toString(36).slice(2,8)}${ext}`);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per file
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp|pdf|doc|docx|xls|xlsx|txt/i;
+    const ext = allowed.test(path.extname(file.originalname));
+    const mime = allowed.test(file.mimetype);
+    if (ext || mime) return cb(null, true);
+    cb(new Error('File type not allowed'));
+  }
+});
+
+// Serve uploaded files
+app.use('/uploads', requireAuth, express.static(uploadsDir));
+
+// ─── ANNOUNCEMENTS ROUTES ─────────────────────────────────────────────────────
+
+// GET all announcements (with employee name + attachments)
+app.get('/api/announcements', requireAuth, (req, res) => {
+  const rows = db.prepare(`
+    SELECT a.*, e.name AS employee_name, u.username AS created_by_name
+    FROM announcements a
+    LEFT JOIN employees e ON a.target_employee_id = e.id
+    LEFT JOIN users u ON a.created_by = u.id
+    ORDER BY a.pinned DESC, a.created_at DESC
+  `).all();
+  const atts = db.prepare('SELECT * FROM announcement_attachments').all();
+  const result = rows.map(r => ({
+    ...r,
+    attachments: atts.filter(a => a.announcement_id === r.id)
+  }));
+  res.json(result);
+});
+
+// POST create announcement (with optional file attachments)
+app.post('/api/announcements', requireAdmin, upload.array('attachments', 10), (req, res) => {
+  const { type, title, body, target_employee_id, month, year, pinned } = req.body;
+  if (!title) return res.status(400).json({ error: 'Title required' });
+  const ins = db.prepare(`
+    INSERT INTO announcements (type, title, body, target_employee_id, month, year, pinned, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const info = ins.run(
+    type || 'general', title, body || null,
+    target_employee_id ? +target_employee_id : null,
+    month ? +month : null, year ? +year : null,
+    pinned ? 1 : 0,
+    req.session.user.id
+  );
+  const annId = info.lastInsertRowid;
+  if (req.files && req.files.length) {
+    const insAtt = db.prepare('INSERT INTO announcement_attachments (announcement_id, filename, original_name, mimetype, size) VALUES (?,?,?,?,?)');
+    req.files.forEach(f => insAtt.run(annId, f.filename, f.originalname, f.mimetype, f.size));
+  }
+  const row = db.prepare(`
+    SELECT a.*, e.name AS employee_name FROM announcements a
+    LEFT JOIN employees e ON a.target_employee_id = e.id WHERE a.id=?`).get(annId);
+  const atts = db.prepare('SELECT * FROM announcement_attachments WHERE announcement_id=?').all(annId);
+  res.json({ ...row, attachments: atts });
+});
+
+// PUT update announcement
+app.put('/api/announcements/:id', requireAdmin, upload.array('attachments', 10), (req, res) => {
+  const id = +req.params.id;
+  const { type, title, body, target_employee_id, month, year, pinned } = req.body;
+  db.prepare(`UPDATE announcements SET type=?,title=?,body=?,target_employee_id=?,month=?,year=?,pinned=? WHERE id=?`)
+    .run(type||'general', title, body||null,
+      target_employee_id ? +target_employee_id : null,
+      month ? +month : null, year ? +year : null,
+      pinned ? 1 : 0, id);
+  if (req.files && req.files.length) {
+    const insAtt = db.prepare('INSERT INTO announcement_attachments (announcement_id, filename, original_name, mimetype, size) VALUES (?,?,?,?,?)');
+    req.files.forEach(f => insAtt.run(id, f.filename, f.originalname, f.mimetype, f.size));
+  }
+  const row = db.prepare(`
+    SELECT a.*, e.name AS employee_name FROM announcements a
+    LEFT JOIN employees e ON a.target_employee_id = e.id WHERE a.id=?`).get(id);
+  const atts = db.prepare('SELECT * FROM announcement_attachments WHERE announcement_id=?').all(id);
+  res.json({ ...row, attachments: atts });
+});
+
+// DELETE announcement
+app.delete('/api/announcements/:id', requireAdmin, (req, res) => {
+  const id = +req.params.id;
+  // Delete physical files
+  const atts = db.prepare('SELECT filename FROM announcement_attachments WHERE announcement_id=?').all(id);
+  atts.forEach(a => {
+    try { fs.unlinkSync(path.join(uploadsDir, a.filename)); } catch(e) {}
+  });
+  db.prepare('DELETE FROM announcements WHERE id=?').run(id);
+  res.json({ ok: true });
+});
+
+// DELETE a single attachment
+app.delete('/api/announcement-attachments/:id', requireAdmin, (req, res) => {
+  const att = db.prepare('SELECT * FROM announcement_attachments WHERE id=?').get(+req.params.id);
+  if (!att) return res.status(404).json({ error: 'Not found' });
+  try { fs.unlinkSync(path.join(uploadsDir, att.filename)); } catch(e) {}
+  db.prepare('DELETE FROM announcement_attachments WHERE id=?').run(att.id);
+  res.json({ ok: true });
 });
 
 // ─── START SERVER ─────────────────────────────────────────────────────────────

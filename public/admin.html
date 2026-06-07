@@ -169,6 +169,38 @@ tr:hover td{background:#fafcff}
   .slip-wrap{border:1px solid #999;margin-bottom:2rem}
   body{background:#fff}
 }
+/* ── ANNOUNCEMENTS ── */
+.ann-type-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.03em}
+.ann-type-birthday{background:#fce4ec;color:#c62828}
+.ann-type-award{background:#fff8e1;color:#e65100}
+.ann-type-best_employee{background:#e8f5e9;color:#2e7d32}
+.ann-type-early_bird{background:#e3f2fd;color:#1565c0}
+.ann-type-general{background:#f3e5f5;color:#6a1b9a}
+.ann-type-event{background:#e0f2f1;color:#00695c}
+.ann-card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px 20px;display:flex;gap:14px;align-items:flex-start;transition:box-shadow .15s}
+.ann-card:hover{box-shadow:0 4px 18px rgba(10,22,40,0.10)}
+.ann-card.pinned{border-left:4px solid var(--accent)}
+.ann-icon{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.ann-icon-birthday{background:#fce4ec}
+.ann-icon-award{background:#fff8e1}
+.ann-icon-best_employee{background:#e8f5e9}
+.ann-icon-early_bird{background:#e3f2fd}
+.ann-icon-general{background:#f3e5f5}
+.ann-icon-event{background:#e0f2f1}
+.ann-title{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:3px}
+.ann-body{font-size:12.5px;color:var(--text);line-height:1.5}
+.ann-meta{font-size:11px;color:var(--muted);margin-top:5px}
+.ann-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.att-chip{display:inline-flex;align-items:center;gap:5px;background:#f0f4ff;border:1px solid #c8d8f8;border-radius:6px;padding:3px 9px;font-size:11px;color:var(--blue);text-decoration:none;font-weight:600;cursor:pointer}
+.att-chip:hover{background:#dbeafe}
+.att-chip-del{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:0 0 0 2px;line-height:1}
+.drop-zone{border:2px dashed var(--border);border-radius:10px;padding:22px;text-align:center;color:var(--muted);cursor:pointer;transition:all .15s;font-size:13px}
+.drop-zone.dragover{border-color:var(--accent);background:#e0faff;color:var(--navy)}
+.drop-zone input[type=file]{display:none}
+.file-preview{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.file-chip{display:inline-flex;align-items:center;gap:5px;background:#f0f4ff;border:1px solid #c8d8f8;border-radius:6px;padding:3px 10px;font-size:11.5px;color:var(--navy);font-weight:500}
+.file-chip button{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;line-height:1;padding:0}
+.ann-grid{display:grid;gap:10px}
 </style>
 </head>
 <body>
@@ -192,6 +224,8 @@ tr:hover td{background:#fafcff}
   <div id="nav-payroll" class="nav-item" onclick="goSec('payroll',this)"><span class="nav-icon">💰</span>Payroll Summary</div>
   <div id="nav-send" class="nav-item" onclick="goSec('send',this)"><span class="nav-icon">📧</span>Send Pay Slips</div>
   <div id="nav-history" class="nav-item" onclick="goSec('history',this)"><span class="nav-icon">🗂</span>Slip History</div>
+  <div class="sidebar-section">Communications</div>
+  <div id="nav-announcements" class="nav-item" onclick="goSec('announcements',this)"><span class="nav-icon">📢</span>Announcements</div>
   <div class="sidebar-section">Performance</div>
   <div id="nav-performance" class="nav-item" onclick="goSec('performance',this)"><span class="nav-icon">⭐</span>Evaluations</div>
   <div class="sidebar-section">Discipline</div>
@@ -249,6 +283,135 @@ tr:hover td{background:#fafcff}
         <div class="card-title">⭐ Recent Evaluations</div>
         <div id="dash-perf-list"></div>
       </div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>📢 Latest Announcements</span>
+          <button class="btn" style="font-size:11px;padding:4px 12px" onclick="goSec('announcements',document.getElementById('nav-announcements'))">Manage →</button>
+        </div>
+        <div id="dash-ann-list"><div style="color:var(--muted);font-size:12px">No announcements yet.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANNOUNCEMENTS -->
+  <div id="sec-announcements" class="sec">
+    <div class="page-title">📢 Announcements</div>
+    <div class="page-sub">Post events, awards, birthdays, and recognitions visible to all employees</div>
+
+    <!-- Create / Edit Card -->
+    <div class="card" id="ann-form-card">
+      <div class="card-title" id="ann-form-title">➕ New Announcement</div>
+      <div class="row">
+        <div class="f" style="max-width:200px">
+          <label>Type</label>
+          <select id="ann-type" onchange="annTypeChanged()">
+            <option value="general">📣 General</option>
+            <option value="event">📅 Event</option>
+            <option value="birthday">🎂 Birthday</option>
+            <option value="award">🏆 Award</option>
+            <option value="best_employee">⭐ Best Employee</option>
+            <option value="early_bird">🐦 Early Bird</option>
+          </select>
+        </div>
+        <div class="f">
+          <label>Title</label>
+          <input id="ann-title" placeholder="e.g. Happy Birthday, Juan!">
+        </div>
+        <div class="f" style="max-width:180px" id="ann-emp-wrap">
+          <label>Employee (optional)</label>
+          <select id="ann-emp"><option value="">— Any / All —</option></select>
+        </div>
+      </div>
+      <div class="row" id="ann-period-row" style="display:none">
+        <div class="f" style="max-width:160px">
+          <label>Month</label>
+          <select id="ann-month">
+            <option value="">— Month —</option>
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
+        <div class="f" style="max-width:120px">
+          <label>Year</label>
+          <input id="ann-year" type="number" placeholder="2025" value="">
+        </div>
+      </div>
+      <div class="row">
+        <div class="f">
+          <label>Message / Body</label>
+          <textarea id="ann-body" rows="3" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;resize:vertical" placeholder="Write a message... (optional)"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <div class="f">
+          <label>📎 Attachments (photos, PDFs, docs — max 10MB each)</label>
+          <div class="drop-zone" id="ann-drop-zone" onclick="document.getElementById('ann-file-input').click()" ondragover="annDragOver(event)" ondragleave="annDragLeave(event)" ondrop="annDrop(event)">
+            <input type="file" id="ann-file-input" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" onchange="annFilesSelected(this.files)">
+            <div>🖼️ Drag & drop files here or <strong>click to browse</strong></div>
+            <div style="font-size:11px;margin-top:4px">Images, PDFs, Word, Excel — up to 10 MB each</div>
+          </div>
+          <div class="file-preview" id="ann-file-preview"></div>
+          <!-- Existing attachments when editing -->
+          <div id="ann-existing-atts" style="display:none;margin-top:8px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Existing attachments:</div>
+            <div class="ann-attachments" id="ann-existing-att-list"></div>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="align-items:center;gap:14px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="ann-pinned" style="width:15px;height:15px"> Pin to top
+        </label>
+        <div style="display:flex;gap:8px;margin-left:auto">
+          <button class="btn" style="background:#eee;color:var(--text)" id="ann-cancel-btn" onclick="annCancelEdit()" style="display:none">Cancel</button>
+          <button class="btn bp" onclick="annSave()">💾 Save Announcement</button>
+        </div>
+      </div>
+      <div id="ann-saving" style="display:none;font-size:12px;color:var(--muted);margin-top:8px">⏳ Saving…</div>
+    </div>
+
+    <!-- Auto-generate helpers -->
+    <div class="card" style="background:#f8fbff">
+      <div class="card-title">⚡ Quick Generate</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <div style="font-size:12.5px;color:var(--muted)">Month:</div>
+        <select id="gen-month" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+        <select id="gen-year" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px"></select>
+        <button class="btn" style="background:#fce4ec;color:#c62828;border:1.5px solid #f48fb1" onclick="genBirthdays()">🎂 Generate Birthdays</button>
+        <button class="btn" style="background:#e3f2fd;color:#1565c0;border:1.5px solid #90caf9" onclick="genEarlyBird()">🐦 Generate Early Bird</button>
+      </div>
+      <div id="gen-status" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+    </div>
+
+    <!-- Filter bar -->
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+      <div style="font-size:13px;font-weight:600;color:var(--navy)">All Announcements</div>
+      <select id="ann-filter-type" onchange="renderAnnList()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12.5px;margin-left:auto">
+        <option value="">All Types</option>
+        <option value="general">General</option>
+        <option value="event">Event</option>
+        <option value="birthday">Birthday</option>
+        <option value="award">Award</option>
+        <option value="best_employee">Best Employee</option>
+        <option value="early_bird">Early Bird</option>
+      </select>
+      <input id="ann-filter-search" oninput="renderAnnList()" placeholder="Search…" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12.5px;width:160px">
+    </div>
+    <div class="ann-grid" id="ann-list">
+      <div style="color:var(--muted);font-size:13px;padding:20px 0">Loading announcements…</div>
     </div>
   </div>
 
@@ -1367,6 +1530,7 @@ function goSec(name,el){
   document.getElementById('topbar-title').textContent=el.textContent.trim();
   populateAllSelects();
   if(name==='dashboard')renderDashboard();
+  if(name==='announcements'){annPopulateEmpSelect();annTypeChanged();loadAnnouncements();}
   if(name==='payroll')renderPayroll();
   if(name==='send')renderSendList();
   if(name==='history'){populateHistFilters();renderHistory();}
@@ -2370,6 +2534,283 @@ function renderDashboard(){
   document.getElementById('dash-disc-list').innerHTML=disc5.length?disc5.map(d=>'<div style="padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-weight:600;font-size:13px">'+empName(d.empId)+' <span class="badge badge-red">'+d.level+'</span></div><div style="font-size:11px;color:var(--muted)">'+d.type+' · '+d.sanction+'</div></div>').join(''):'<div style="color:var(--muted);font-size:12px">No open records.</div>';
   var perf5=perfRecords.slice(-5).reverse();
   document.getElementById('dash-perf-list').innerHTML=perf5.length?perf5.map(p=>'<div style="padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-weight:600;font-size:13px">'+empName(p.empId)+'</div><div style="font-size:11px;color:var(--muted)">'+p.period+' · '+p.overall+'</div></div>').join(''):'<div style="color:var(--muted);font-size:12px">No evaluations yet.</div>';
+  // Announcement mini-feed
+  var ael=document.getElementById('dash-ann-list');
+  if(ael){var a5=annRecords.slice(0,5);ael.innerHTML=a5.length?a5.map(a=>annMiniCard(a)).join(''):'<div style="color:var(--muted);font-size:12px">No announcements yet.</div>';}
+}
+
+// ==================== ANNOUNCEMENTS ====================
+var annRecords=[];
+var annEditId=null;
+var annPendingFiles=[];// DataTransfer FileList
+
+const ANN_ICONS={birthday:'🎂',award:'🏆',best_employee:'⭐',early_bird:'🐦',general:'📣',event:'📅'};
+const ANN_LABELS={birthday:'Birthday',award:'Award',best_employee:'Best Employee',early_bird:'Early Bird',general:'General',event:'Event'};
+const MONTHS=['','January','February','March','April','May','June','July','August','September','October','November','December'];
+
+async function loadAnnouncements(){
+  try{
+    var data=await api('GET','/api/announcements');
+    annRecords=data||[];
+    renderAnnList();
+    // Also refresh dashboard feed if visible
+    var ael=document.getElementById('dash-ann-list');
+    if(ael){var a5=annRecords.slice(0,5);ael.innerHTML=a5.length?a5.map(a=>annMiniCard(a)).join(''):'<div style="color:var(--muted);font-size:12px">No announcements yet.</div>';}
+  }catch(e){console.error('loadAnnouncements',e);}
+}
+
+function annMiniCard(a){
+  var ic=ANN_ICONS[a.type]||'📣';
+  var hasAtt=a.attachments&&a.attachments.length;
+  return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">'
+    +'<span style="font-size:18px">'+ic+'</span>'
+    +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(a.pinned?'📌 ':'')+a.title+'</div>'
+    +'<div style="font-size:11px;color:var(--muted)">'+ANN_LABELS[a.type]+(a.employee_name?' · '+a.employee_name:'')+(hasAtt?' · 📎'+a.attachments.length:'')+'</div></div>'
+    +'</div>';
+}
+
+function annCard(a){
+  var ic=ANN_ICONS[a.type]||'📣';
+  var typeCls='ann-type-'+(a.type||'general');
+  var iconCls='ann-icon-'+(a.type||'general');
+  var atts=a.attachments||[];
+  var attHtml=atts.length?'<div class="ann-attachments">'+atts.map(f=>{
+    var isImg=/\.(jpg|jpeg|png|gif|webp)$/i.test(f.original_name);
+    return '<a class="att-chip" href="/uploads/'+f.filename+'" target="_blank">'+
+      (isImg?'🖼️':'📎')+' '+escHtml(f.original_name)+'</a>';
+  }).join('')+'</div>':'';
+  return '<div class="ann-card'+(a.pinned?' pinned':'')+'">'
+    +'<div class="ann-icon '+iconCls+'">'+ic+'</div>'
+    +'<div style="flex:1;min-width:0">'
+    +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:4px">'
+    +'<div class="ann-title">'+(a.pinned?'📌 ':'')+escHtml(a.title)+'</div>'
+    +'<span class="ann-type-badge '+typeCls+'">'+ANN_LABELS[a.type||'general']+'</span>'
+    +(a.employee_name?'<span style="font-size:11px;color:var(--muted)">👤 '+escHtml(a.employee_name)+'</span>':'')
+    +'</div>'
+    +(a.body?'<div class="ann-body">'+escHtml(a.body).replace(/\n/g,'<br>')+'</div>':'')
+    +atts.length?'<div class="ann-attachments">'+atts.map(f=>{
+      var isImg=/\.(jpg|jpeg|png|gif|webp)$/i.test(f.original_name);
+      return '<a class="att-chip" href="/uploads/'+f.filename+'" target="_blank" title="'+escHtml(f.original_name)+'">'+
+        (isImg?'🖼️':'📎')+' '+escHtml(f.original_name)+'</a>';
+    }).join('')+'</div>':''
+    +'<div class="ann-meta">'+fmtDT(a.created_at)+(a.created_by_name?' · by '+escHtml(a.created_by_name):'')
+    +(a.month&&a.year?' · '+MONTHS[a.month]+' '+a.year:'')+'</div>'
+    +'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">'
+    +'<button class="btn" style="font-size:11px;padding:3px 10px" onclick="annEdit('+a.id+')">✏️</button>'
+    +'<button class="btn" style="font-size:11px;padding:3px 10px;background:#fff0f0;color:var(--red)" onclick="annDelete('+a.id+')">🗑️</button>'
+    +'</div>'
+    +'</div>';
+}
+
+function renderAnnList(){
+  var type=document.getElementById('ann-filter-type')?document.getElementById('ann-filter-type').value:'';
+  var search=(document.getElementById('ann-filter-search')?document.getElementById('ann-filter-search').value:'').toLowerCase();
+  var list=document.getElementById('ann-list');if(!list)return;
+  var filtered=annRecords.filter(a=>{
+    if(type&&a.type!==type)return false;
+    if(search&&!(a.title.toLowerCase().includes(search)||(a.body||'').toLowerCase().includes(search)||(a.employee_name||'').toLowerCase().includes(search)))return false;
+    return true;
+  });
+  list.innerHTML=filtered.length?filtered.map(a=>annCard(a)).join(''):'<div style="color:var(--muted);font-size:13px;padding:20px 0">No announcements found.</div>';
+}
+
+function annTypeChanged(){
+  var type=document.getElementById('ann-type').value;
+  var showPeriod=['best_employee','early_bird','birthday'].includes(type);
+  document.getElementById('ann-period-row').style.display=showPeriod?'':'none';
+  var empWrap=document.getElementById('ann-emp-wrap');
+  empWrap.style.display=['birthday','award','best_employee','early_bird'].includes(type)?'':'none';
+}
+
+function annCancelEdit(){
+  annEditId=null;annPendingFiles=[];
+  document.getElementById('ann-form-title').textContent='➕ New Announcement';
+  document.getElementById('ann-title').value='';
+  document.getElementById('ann-body').value='';
+  document.getElementById('ann-type').value='general';
+  document.getElementById('ann-emp').value='';
+  document.getElementById('ann-month').value='';
+  document.getElementById('ann-year').value='';
+  document.getElementById('ann-pinned').checked=false;
+  document.getElementById('ann-file-preview').innerHTML='';
+  document.getElementById('ann-existing-atts').style.display='none';
+  document.getElementById('ann-cancel-btn').style.display='none';
+  annTypeChanged();
+}
+
+function annEdit(id){
+  var a=annRecords.find(x=>x.id===id);if(!a)return;
+  annEditId=id;annPendingFiles=[];
+  document.getElementById('ann-form-title').textContent='✏️ Edit Announcement';
+  document.getElementById('ann-type').value=a.type||'general';
+  document.getElementById('ann-title').value=a.title||'';
+  document.getElementById('ann-body').value=a.body||'';
+  document.getElementById('ann-emp').value=a.target_employee_id||'';
+  document.getElementById('ann-month').value=a.month||'';
+  document.getElementById('ann-year').value=a.year||'';
+  document.getElementById('ann-pinned').checked=!!a.pinned;
+  document.getElementById('ann-file-preview').innerHTML='';
+  // Show existing attachments
+  var atts=a.attachments||[];
+  var ea=document.getElementById('ann-existing-atts');
+  var eal=document.getElementById('ann-existing-att-list');
+  if(atts.length){
+    ea.style.display='block';
+    eal.innerHTML=atts.map(f=>{
+      var isImg=/\.(jpg|jpeg|png|gif|webp)$/i.test(f.original_name);
+      return '<span class="att-chip">'+(isImg?'🖼️':'📎')+' '+escHtml(f.original_name)
+        +'<button class="att-chip-del" onclick="annDeleteAtt('+f.id+','+id+')" title="Remove">×</button></span>';
+    }).join('');
+  }else{ea.style.display='none';}
+  document.getElementById('ann-cancel-btn').style.display='inline-flex';
+  annTypeChanged();
+  document.getElementById('ann-form-card').scrollIntoView({behavior:'smooth'});
+}
+
+async function annDeleteAtt(attId,annId){
+  if(!confirm('Remove this attachment?'))return;
+  await api('DELETE','/api/announcement-attachments/'+attId);
+  await loadAnnouncements();annEdit(annId);
+}
+
+async function annDelete(id){
+  if(!confirm('Delete this announcement?'))return;
+  await api('DELETE','/api/announcements/'+id);
+  await loadAnnouncements();
+}
+
+async function annSave(){
+  var title=document.getElementById('ann-title').value.trim();
+  if(!title){alert('Please enter a title.');return;}
+  document.getElementById('ann-saving').style.display='block';
+  var fd=new FormData();
+  fd.append('type',document.getElementById('ann-type').value);
+  fd.append('title',title);
+  fd.append('body',document.getElementById('ann-body').value);
+  fd.append('target_employee_id',document.getElementById('ann-emp').value||'');
+  fd.append('month',document.getElementById('ann-month').value||'');
+  fd.append('year',document.getElementById('ann-year').value||'');
+  fd.append('pinned',document.getElementById('ann-pinned').checked?'1':'0');
+  annPendingFiles.forEach(f=>fd.append('attachments',f));
+  try{
+    var method=annEditId?'PUT':'POST';
+    var url=annEditId?'/api/announcements/'+annEditId:'/api/announcements';
+    var resp=await fetch(url,{method,body:fd,credentials:'same-origin'});
+    if(!resp.ok)throw new Error(await resp.text());
+    await loadAnnouncements();
+    annCancelEdit();
+  }catch(e){alert('Save failed: '+e.message);}
+  document.getElementById('ann-saving').style.display='none';
+}
+
+// File drop zone
+function annDragOver(e){e.preventDefault();document.getElementById('ann-drop-zone').classList.add('dragover');}
+function annDragLeave(e){document.getElementById('ann-drop-zone').classList.remove('dragover');}
+function annDrop(e){e.preventDefault();document.getElementById('ann-drop-zone').classList.remove('dragover');annFilesSelected(e.dataTransfer.files);}
+function annFilesSelected(files){
+  for(var i=0;i<files.length;i++) annPendingFiles.push(files[i]);
+  renderFilePreview();
+}
+function renderFilePreview(){
+  var fp=document.getElementById('ann-file-preview');
+  fp.innerHTML=annPendingFiles.map((f,i)=>{
+    var isImg=f.type.startsWith('image/');
+    return '<span class="file-chip">'+(isImg?'🖼️':'📎')+' '+escHtml(f.name)
+      +' <span style="color:var(--muted);font-size:10px">('+Math.round(f.size/1024)+'KB)</span>'
+      +'<button onclick="annRemoveFile('+i+')">×</button></span>';
+  }).join('');
+}
+function annRemoveFile(i){annPendingFiles.splice(i,1);renderFilePreview();}
+
+// Quick generate: Birthdays
+async function genBirthdays(){
+  var m=parseInt(document.getElementById('gen-month').value);
+  var y=parseInt(document.getElementById('gen-year').value);
+  var gs=document.getElementById('gen-status');
+  // Find employees with birthdays in the selected month
+  // We use the start date as a proxy if no dob field, or just generate for all active employees
+  var month=m,year=y;
+  var bEmps=employees.filter(e=>e.active!==0);
+  // If employees have a dob field, filter by month
+  var dobEmps=bEmps.filter(e=>e.dob&&new Date(e.dob).getMonth()+1===month);
+  var targets=dobEmps.length?dobEmps:bEmps;
+  if(!targets.length){gs.textContent='No employees found.';return;}
+  gs.textContent='Generating…';
+  var count=0;
+  for(var e of targets){
+    var fd=new FormData();
+    fd.append('type','birthday');
+    fd.append('title','🎂 Happy Birthday, '+e.name.split(',')[0]+'!');
+    fd.append('body','Wishing you a wonderful birthday! 🎉 From the whole HMB team.');
+    fd.append('target_employee_id',e.id);
+    fd.append('month',month);
+    fd.append('year',year);
+    fd.append('pinned','0');
+    await fetch('/api/announcements',{method:'POST',body:fd,credentials:'same-origin'});
+    count++;
+  }
+  gs.textContent='✅ Created '+count+' birthday announcement'+(count>1?'s':'')+'.';
+  await loadAnnouncements();
+}
+
+// Quick generate: Early Bird (employee with most early time-ins in month)
+async function genEarlyBird(){
+  var m=parseInt(document.getElementById('gen-month').value);
+  var y=parseInt(document.getElementById('gen-year').value);
+  var gs=document.getElementById('gen-status');
+  gs.textContent='Calculating early bird…';
+  // Fetch timelogs for the month
+  var from=y+'-'+String(m).padStart(2,'0')+'-01';
+  var lastDay=new Date(y,m,0).getDate();
+  var to=y+'-'+String(m).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+  try{
+    var logs=await api('GET','/api/timelogs?from='+from+'&to='+to);
+    if(!logs||!logs.length){gs.textContent='No time logs found for that month.';return;}
+    // Count early time-ins per employee (time_in before shift start e.g. 08:00)
+    var counts={};
+    logs.forEach(l=>{
+      if(!l.timeIn)return;
+      var ti=l.timeIn.slice(0,5);
+      if(ti<'08:00'){counts[l.employeeId]=(counts[l.employeeId]||0)+1;}
+    });
+    var entries=Object.entries(counts);
+    if(!entries.length){gs.textContent='No early arrivals found for that month.';return;}
+    entries.sort((a,b)=>b[1]-a[1]);
+    var topId=parseInt(entries[0][0]),topCount=entries[0][1];
+    var emp=employees.find(e=>e.id===topId);
+    if(!emp){gs.textContent='Employee not found.';return;}
+    var fd=new FormData();
+    fd.append('type','early_bird');
+    fd.append('title','🐦 Early Bird Award — '+MONTHS[m]+' '+y+': '+emp.name.split(',')[0]+'!');
+    fd.append('body',emp.name+' arrived early '+topCount+' time'+(topCount>1?'s':'')+' in '+MONTHS[m]+' '+y+'! 👏 Keep it up!');
+    fd.append('target_employee_id',emp.id);
+    fd.append('month',m);
+    fd.append('year',y);
+    fd.append('pinned','1');
+    await fetch('/api/announcements',{method:'POST',body:fd,credentials:'same-origin'});
+    gs.textContent='✅ Early Bird award posted for '+emp.name+' ('+topCount+' early check-ins).';
+    await loadAnnouncements();
+  }catch(e){gs.textContent='Error: '+e.message;}
+}
+
+function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function annPopulateEmpSelect(){
+  var sel=document.getElementById('ann-emp');if(!sel)return;
+  sel.innerHTML='<option value="">— Any / All —</option>'
+    +employees.filter(e=>e.active!==0).map(e=>'<option value="'+e.id+'">'+escHtml(e.name)+'</option>').join('');
+}
+
+function annPopulateYears(){
+  var sel=document.getElementById('gen-year');if(!sel)return;
+  var yr=new Date().getFullYear();
+  sel.innerHTML=[yr-1,yr,yr+1].map(y=>'<option value="'+y+'"'+(y===yr?' selected':'')+'>'+y+'</option>').join('');
+  // Also default ann-year
+  var ay=document.getElementById('ann-year');if(ay&&!ay.value)ay.value=yr;
+  // Default gen-month to current
+  var gm=document.getElementById('gen-month');
+  if(gm)gm.value=new Date().getMonth()+1;
 }
 
 // ==================== EXPORTS ====================
@@ -3317,6 +3758,10 @@ window.addEventListener('DOMContentLoaded',async function(){
     populateTlEmpFilter();
     populateShiftSelects();
     toggleAddLocFields();
+    annPopulateEmpSelect();
+    annPopulateYears();
+    annTypeChanged();
+    await loadAnnouncements();
     var today=new Date().toISOString().slice(0,10);
     document.getElementById('att-pdate').value=today;
     document.getElementById('att-month').value=today.slice(0,7);

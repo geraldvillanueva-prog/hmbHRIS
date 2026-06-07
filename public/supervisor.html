@@ -424,6 +424,34 @@ input:focus,select:focus,textarea:focus{
 .gps-dot-err{background:var(--red)}
 .gps-dot-loading{background:#1565c0;animation:pulse 1s infinite}
 .gps-dot-liaison{background:#7b1fa2}
+/* ── ANNOUNCEMENTS FEED ── */
+.ann-filter-btn{padding:5px 13px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:all .15s}
+.ann-filter-btn.on,.ann-filter-btn:hover{background:#7b1fa2;color:#fff;border-color:#7b1fa2}
+.ann-post{background:#fff;border-radius:14px;border:1px solid var(--border);padding:16px 18px;margin-bottom:12px;box-shadow:0 2px 10px rgba(10,22,40,0.06);animation:fadeSlideUp .3s ease both}
+.ann-post.pinned{border-left:4px solid #ce93d8}
+.ann-post-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.ann-post-icon{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.ann-post-icon-birthday{background:#fce4ec}
+.ann-post-icon-award{background:#fff8e1}
+.ann-post-icon-best_employee{background:#e8f5e9}
+.ann-post-icon-early_bird{background:#e3f2fd}
+.ann-post-icon-general{background:#f3e5f5}
+.ann-post-icon-event{background:#e0f2f1}
+.ann-post-title{font-size:14px;font-weight:700;color:#4a148c}
+.ann-post-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.ann-post-body{font-size:13px;color:#333;line-height:1.6;margin-bottom:8px;white-space:pre-line}
+.ann-type-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700}
+.ann-type-pill-birthday{background:#fce4ec;color:#c62828}
+.ann-type-pill-award{background:#fff8e1;color:#e65100}
+.ann-type-pill-best_employee{background:#e8f5e9;color:#2e7d32}
+.ann-type-pill-early_bird{background:#e3f2fd;color:#1565c0}
+.ann-type-pill-general{background:#f3e5f5;color:#6a1b9a}
+.ann-type-pill-event{background:#e0f2f1;color:#00695c}
+.ann-att-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
+.ann-att-link{display:inline-flex;align-items:center;gap:5px;background:#f3e5f5;border:1px solid #ce93d8;border-radius:7px;padding:4px 11px;font-size:12px;color:#6a1b9a;text-decoration:none;font-weight:600}
+.ann-att-link:hover{background:#e1bee7}
+.ann-att-img{max-width:100%;max-height:280px;border-radius:10px;margin-top:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)}
+.ann-img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:10px}
 
 </style>
 </head>
@@ -452,12 +480,31 @@ input:focus,select:focus,textarea:focus{
 
 <!-- TAB NAV -->
 <div class="tab-nav">
+  <button class="tab-btn" onclick="goTab('dashboard',this)">📢 Dashboard</button>
   <button class="tab-btn on" onclick="goTab('leaves',this)">🌴 Leave Approvals <span class="tab-notif" id="pending-count" style="display:none">0</span></button>
   <button class="tab-btn" onclick="goTab('leavefile',this)">📝 File My Leave</button>
   <button class="tab-btn" onclick="goTab('team',this)">👥 My Team</button>
   <button class="tab-btn" onclick="goTab('timeinout',this)">🕐 My Time In/Out</button>
   <button class="tab-btn" onclick="goTab('payslips',this)">💰 My Payslips</button>
   <button class="tab-btn" onclick="goTab('account',this)">🔐 My Account</button>
+</div>
+
+<!-- ════════════ TAB 0: DASHBOARD ════════════ -->
+<div class="tab-content" id="tab-dashboard">
+  <div style="width:100%;max-width:720px">
+    <div style="font-size:17px;font-weight:700;color:#4a148c;margin-bottom:4px">📢 Company Announcements</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:16px">News, events, and recognitions from management</div>
+    <div id="sup-ann-filter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="ann-filter-btn on" data-type="" onclick="supAnnFilter(\'\',this)">All</button>
+      <button class="ann-filter-btn" data-type="general" onclick="supAnnFilter(\'general\',this)">📣 General</button>
+      <button class="ann-filter-btn" data-type="event" onclick="supAnnFilter(\'event\',this)">📅 Events</button>
+      <button class="ann-filter-btn" data-type="birthday" onclick="supAnnFilter(\'birthday\',this)">🎂 Birthdays</button>
+      <button class="ann-filter-btn" data-type="award" onclick="supAnnFilter(\'award\',this)">🏆 Awards</button>
+      <button class="ann-filter-btn" data-type="best_employee" onclick="supAnnFilter(\'best_employee\',this)">⭐ Best Employee</button>
+      <button class="ann-filter-btn" data-type="early_bird" onclick="supAnnFilter(\'early_bird\',this)">🐦 Early Bird</button>
+    </div>
+    <div id="sup-ann-list"><div style="color:var(--muted);font-size:13px;padding:30px 0;text-align:center">Loading announcements…</div></div>
+  </div>
 </div>
 
 <!-- ════════ TAB 1: LEAVE APPROVALS ════════ -->
@@ -2063,9 +2110,77 @@ function showPunchToast(msg){
   document.addEventListener('DOMContentLoaded', function(){
     setTimeout(function(){
       wsConnect();
-      // Pre-load live attendance if team tab is default-open
-      // (it's not, so load is deferred to when user switches to team tab)
     }, 600);
+  });
+})();
+
+// ══════════════════════════════════════════════════
+// ANNOUNCEMENTS FEED (supervisor)
+// ══════════════════════════════════════════════════
+var supAnnRecords=[];
+var supAnnActiveType='';
+const SUP_ANN_ICONS={birthday:'🎂',award:'🏆',best_employee:'⭐',early_bird:'🐦',general:'📣',event:'📅'};
+const SUP_ANN_LABELS={birthday:'Birthday',award:'Award',best_employee:'Best Employee',early_bird:'Early Bird',general:'General',event:'Event'};
+
+async function loadSupAnnouncements(){
+  try{
+    var r=await fetch('/api/announcements',{credentials:'same-origin'});
+    if(!r.ok)return;
+    supAnnRecords=await r.json();
+    renderSupAnn();
+  }catch(e){console.error(e);}
+}
+
+function supAnnFilter(type,btn){
+  supAnnActiveType=type;
+  document.querySelectorAll('#sup-ann-filter .ann-filter-btn').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  renderSupAnn();
+}
+
+function renderSupAnn(){
+  var list=document.getElementById('sup-ann-list');
+  if(!list)return;
+  var filtered=supAnnRecords.filter(a=>!supAnnActiveType||a.type===supAnnActiveType);
+  if(!filtered.length){list.innerHTML='<div style="color:var(--muted);font-size:13px;padding:30px 0;text-align:center">No announcements yet.</div>';return;}
+  list.innerHTML=filtered.map(a=>supAnnCard(a)).join('');
+}
+
+function supAnnCard(a){
+  var ic=SUP_ANN_ICONS[a.type]||'📣';
+  var typCls='ann-type-pill-'+(a.type||'general');
+  var iconCls='ann-post-icon-'+(a.type||'general');
+  var atts=a.attachments||[];
+  var imgs=atts.filter(f=>/\.(jpg|jpeg|png|gif|webp)$/i.test(f.original_name));
+  var docs=atts.filter(f=>!/\.(jpg|jpeg|png|gif|webp)$/i.test(f.original_name));
+  var imgHtml=imgs.length?'<div class="ann-img-grid">'+imgs.map(f=>'<a href="/uploads/'+f.filename+'" target="_blank"><img class="ann-att-img" src="/uploads/'+f.filename+'" alt="'+supEscH(f.original_name)+'" loading="lazy"></a>').join('')+'</div>':'';
+  var docHtml=docs.length?'<div class="ann-att-row">'+docs.map(f=>'<a class="ann-att-link" href="/uploads/'+f.filename+'" target="_blank">📎 '+supEscH(f.original_name)+'</a>').join('')+'</div>':'';
+  return '<div class="ann-post'+(a.pinned?' pinned':'')+'">'
+    +'<div class="ann-post-header">'
+    +'<div class="ann-post-icon '+iconCls+'">'+ic+'</div>'
+    +'<div><div class="ann-post-title">'+(a.pinned?'📌 ':'')+supEscH(a.title)+'</div>'
+    +'<div class="ann-post-meta"><span class="ann-type-pill '+typCls+'">'+SUP_ANN_LABELS[a.type||'general']+'</span>'
+    +(a.employee_name?' &nbsp;👤 '+supEscH(a.employee_name):'')
+    +' &nbsp;'+supFmtDate(a.created_at)+'</div></div>'
+    +'</div>'
+    +(a.body?'<div class="ann-post-body">'+supEscH(a.body)+'</div>':'')
+    +imgHtml+docHtml
+    +'</div>';
+}
+
+function supEscH(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function supFmtDate(d){try{return new Date(d).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});}catch(e){return d||'';}}
+
+// Intercept goTab to load announcements when dashboard is opened
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    var origGT=window.goTab;
+    window.goTab=function(name,el){
+      if(typeof origGT==='function')origGT(name,el);
+      if(name==='dashboard')loadSupAnnouncements();
+    };
+    // Pre-fetch in background
+    setTimeout(loadSupAnnouncements,1200);
   });
 })();
 </script>
