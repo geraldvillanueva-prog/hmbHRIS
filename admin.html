@@ -1399,79 +1399,90 @@ function goITab(group,name,el){
 
 // ==================== PERIOD GENERATION ====================
 var MONTH_ABBR=['Jan.','Feb.','Mar.','Apr.','May.','Jun.','Jul.','Aug.','Sep.','Oct.','Nov.','Dec.'];
-function fmtPeriod(y,m,d1,d2){
-  // d2 can be last day of month
-  return MONTH_ABBR[m]+' '+d1+' - '+MONTH_ABBR[m]+' '+d2+', '+y;
-}
 function lastDay(y,m){return new Date(y,m+1,0).getDate();}
-function generatePeriods(numFuture){
-  // Generate from Jan 2025 (or earliest attendance) up to numFuture periods ahead of today
-  var periods=[];
-  var today=new Date();
-  // Start from Jan 2025
-  var y=2025,m=0;
-  // Determine end: current period + numFuture more
-  // Figure out what period "today" falls in
-  var cy=today.getFullYear(),cm=today.getMonth(),cd=today.getDate();
-  // Add numFuture extra semi-monthly steps beyond today
-  var stepsNeeded=((cy-y)*12+(cm-0))*2+(cd>15?1:0)+numFuture+2;
-  for(var i=0;i<stepsNeeded;i++){
-    var ld=lastDay(y,m);
-    periods.push(fmtPeriod(y,m,1,15));
-    periods.push(fmtPeriod(y,m,16,ld));
-    m++;if(m>11){m=0;y++;}
+function fmtPeriod(y,m,d1,d2){return MONTH_ABBR[m]+' '+d1+' - '+MONTH_ABBR[m]+' '+d2+', '+y;}
+
+// Convert an attendance key (slug) back to a display label
+function attKeyToLabel(k){
+  // key format e.g. "May__1___May__15__2026" — just try to parse back from the pattern
+  // More reliable: re-derive from all known periods and match by slug
+  return k; // fallback; real match done via attKey(label)===k
+}
+
+// Get the next semi-monthly period label after a given label
+function nextPeriodAfter(label){
+  // Parse: "Mmm. D1 - Mmm. D2, YYYY"
+  var m=label.match(/([A-Za-z]+\.)\s*(\d+)\s*-\s*[A-Za-z]+\.\s*(\d+),\s*(\d{4})/);
+  if(!m)return null;
+  var mon=MONTH_ABBR.indexOf(m[1]),d1=parseInt(m[2]),d2=parseInt(m[3]),y=parseInt(m[4]);
+  if(mon<0)return null;
+  if(d1===1){
+    // first half → second half of same month
+    return fmtPeriod(y,mon,16,lastDay(y,mon));
+  } else {
+    // second half → first half of next month
+    var nm=mon+1,ny=y;if(nm>11){nm=0;ny++;}
+    return fmtPeriod(ny,nm,1,15);
   }
-  return periods;
 }
-function getCurrentPeriodIndex(periods){
-  // Find the period that contains today, or the next upcoming one
-  var today=new Date();
-  today.setHours(0,0,0,0);
-  var cy=today.getFullYear(),cm=today.getMonth(),cd=today.getDate();
-  // Today's cutoff label
-  var d1=cd<=15?1:16;
-  var d2=cd<=15?15:lastDay(cy,cm);
-  var label=fmtPeriod(cy,cm,d1,d2);
-  var idx=periods.indexOf(label);
-  // If found and today is within 3 days of end of period, suggest next one
-  var endOfPeriod=new Date(cy,cm,d2);
-  var diff=(endOfPeriod-today)/(1000*60*60*24);
-  if(idx>=0 && diff<=3 && idx+1<periods.length) return idx+1; // next cutoff
-  return idx>=0?idx:0;
+
+// Build the period list: all periods that have saved attendance + next upcoming one
+function buildPeriodList(){
+  var saved=Object.keys(attendance||{});
+  // Convert keys back to labels by brute-force matching
+  var today=new Date(),cy=today.getFullYear(),cm=today.getMonth(),cd=today.getDate();
+  // Generate candidate labels from 2 years back to 2 years ahead so we can slug-match
+  var candidates=[];
+  for(var yi=cy-2;yi<=cy+2;yi++){
+    for(var mi=0;mi<12;mi++){
+      candidates.push(fmtPeriod(yi,mi,1,15));
+      candidates.push(fmtPeriod(yi,mi,16,lastDay(yi,mi)));
+    }
+  }
+  var labels=candidates.filter(function(c){return saved.indexOf(attKey(c))>=0;});
+  // Sort chronologically (they're already in order from candidate generation)
+  // Determine the "next" period: after the latest saved one, or if none, current period
+  var nextLabel;
+  if(labels.length>0){
+    var last=labels[labels.length-1];
+    nextLabel=nextPeriodAfter(last);
+  } else {
+    // No history yet — show current period
+    var d1=cd<=15?1:16,d2=cd<=15?15:lastDay(cy,cm);
+    nextLabel=fmtPeriod(cy,cm,d1,d2);
+  }
+  // Append next period if not already present
+  if(nextLabel&&labels.indexOf(nextLabel)<0)labels.push(nextLabel);
+  return labels;
 }
+
 function populatePeriodSelects(){
-  var periods=generatePeriods(4); // 4 future periods ahead
-  // IDs that get ALL periods (encoding, payroll view, send, history, report, management)
+  var periods=buildPeriodList();
   var allSelIds=['att-per','pay-per','send-per','rpt-pay-per','mgmt-pay-per','mgmt-per'];
   allSelIds.forEach(function(id){
     var sel=document.getElementById(id);if(!sel)return;
     var prev=sel.value;
-    // Keep any non-period options (e.g. "All periods" with value="")
-    var fixedOpts=Array.from(sel.options).filter(o=>o.value===''||o.dataset.fixed);
     sel.innerHTML='';
-    fixedOpts.forEach(o=>sel.appendChild(o));
     periods.forEach(function(p){
       var o=document.createElement('option');o.value=p;o.textContent=p;
       if(p===prev)o.selected=true;
       sel.appendChild(o);
     });
+    // If nothing was pre-selected, default to last (most recent/next) period
+    if(!sel.value&&sel.options.length)sel.options[sel.options.length-1].selected=true;
   });
-  // hist-per keeps "All periods" blank option + all periods
+  // hist-per keeps "All periods" blank option
   var hsel=document.getElementById('hist-per');
   if(hsel){
     var prev=hsel.value;
     hsel.innerHTML='<option value="">All periods</option>';
     periods.forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;if(p===prev)o.selected=true;hsel.appendChild(o);});
   }
-  // Auto-select current/next cutoff in Payroll Encoding
+  // Payroll Encoding: always default to the last entry (the upcoming next period)
   var attSel=document.getElementById('att-per');
-  if(attSel&&!attSel.value){
-    var idx=getCurrentPeriodIndex(periods);
-    if(attSel.options[idx])attSel.options[idx].selected=true;
-  } else if(attSel){
-    // If current value no longer exists (stale hardcoded), reset to current period
-    var found=Array.from(attSel.options).some(o=>o.value===attSel.value&&o.value!=='');
-    if(!found){var idx=getCurrentPeriodIndex(periods);if(attSel.options[idx])attSel.options[idx].selected=true;}
+  if(attSel&&attSel.options.length){
+    var alreadyHasData=attSel.value&&Object.keys((attendance[attKey(attSel.value)])||{}).length>0;
+    if(!alreadyHasData)attSel.options[attSel.options.length-1].selected=true;
   }
 }
 function populateAllSelects(){
