@@ -1769,11 +1769,12 @@ function calcPay(e,a){
   var otNdHrs=roundOT(a.otNd||0),otNdPay=r2((dr/8)*1.25*1.10*otNdHrs);
   var restDayPay=r2(a.restDay||0);
   var totalEarnings=r2(basicPay+(e.dm||0)+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
-  var totalContrib=r2((e.sss||0)+(e.phic||0)+(e.hdmf||0));
-  var totalDeductions=r2(totalContrib+(a.otherDed||0)+(e.wht||0)+(a.late||0));
-  return{dr,periodDays,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayPay,totalEarnings,totalContrib,totalDeductions,netPay:r2(totalEarnings-totalDeductions)};
+  var commissionOnly=!!(a.commissionOnly);
+  var totalContrib=commissionOnly?0:r2((e.sss||0)+(e.phic||0)+(e.hdmf||0));
+  var totalDeductions=commissionOnly?0:r2(totalContrib+(a.otherDed||0)+(e.wht||0)+(a.late||0));
+  return{dr,periodDays,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayPay,totalEarnings,totalContrib,totalDeductions,netPay:r2(totalEarnings-totalDeductions),commissionOnly};
 }
-function getAtt(per,empId){var k=attKey(per);if(!attendance[k])attendance[k]={};if(!attendance[k][empId])attendance[k][empId]={days:0,ot:0,otNd:0,restDay:0,holiday:0,leave:0,commission:0,otherAdd:0,otherDed:0,late:0,periodDays:13};return attendance[k][empId];}
+function getAtt(per,empId){var k=attKey(per);if(!attendance[k])attendance[k]={};if(!attendance[k][empId])attendance[k][empId]={days:0,ot:0,otNd:0,restDay:0,holiday:0,leave:0,commission:0,otherAdd:0,otherDed:0,late:0,periodDays:13,commissionOnly:false};return attendance[k][empId];}
 
 // ── AUTO LEAVE W/ PAY COMPUTATION ─────────────────────────────────────────────
 function parsePeriodRange(per){
@@ -1839,6 +1840,7 @@ function renderPayrollAttGrid(){
     +'<th rowspan="2" style="padding:8px 6px;min-width:70px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">SEMI-MO BASIC</th>'
     +'<th rowspan="2" style="padding:8px 6px;min-width:65px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">DAILY RATE</th>'
     +'<th rowspan="2" style="padding:8px 6px;min-width:65px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">DAYS WORKED</th>'
+    +'<th rowspan="2" style="padding:8px 6px;min-width:72px;background:#6a1b9a;color:#fff;vertical-align:middle;text-align:center;font-size:10px">COMMISSION<br>ONLY 🏷️</th>'
     +'<th colspan="5" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#1565c0;color:#fff">EARNINGS</th>'
     +'<th colspan="3" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#2e7d32;color:#fff">ALLOWANCES / ADD-ONS</th>'
     +'<th colspan="3" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#c62828;color:#fff">DEDUCTIONS</th>'
@@ -1890,6 +1892,11 @@ function renderPayrollAttGrid(){
         +'<input type="number" id="att_'+e.id+'_days" value="'+a.days+'" min="0" max="22" step="0.5" '
         +'oninput="liveCompute('+e.id+')" '
         +'style="width:70px;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:3px;text-align:center;font-weight:700"></td>'
+      // Commission Only toggle
+      +'<td style="padding:3px 5px;text-align:center;background:'+(a.commissionOnly?'#f3e5f5':'transparent')+'" id="commOnlyCell_'+e.id+'">'
+        +'<input type="checkbox" id="att_'+e.id+'_commissionOnly" '+(a.commissionOnly?'checked':'')+' '
+        +'onchange="toggleCommissionOnly('+e.id+')" '
+        +'style="width:16px;height:16px;cursor:pointer;accent-color:#6a1b9a"></td>'
       // OT hrs
       +'<td style="padding:3px 5px">'+inp('ot',a.ot,0.5)+'</td>'
       // ND OT hrs
@@ -1966,7 +1973,9 @@ function updatePayrollTotals(){
   employees.forEach(function(e){
     function gv(f){var el=document.getElementById('att_'+e.id+'_'+f);return el?parseFloat(el.value)||0:0;}
     var periodDays=parseFloat((document.getElementById('att_'+e.id+'_periodDays')||{value:13}).value)||13;
-    var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays};
+    var commOnlyEl=document.getElementById('att_'+e.id+'_commissionOnly');
+    var commissionOnly=commOnlyEl?commOnlyEl.checked:false;
+    var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays,commissionOnly:commissionOnly};
     var p=calcPay(e,a);
     totDays+=a.days;
     totAdd+=p.totalEarnings;
@@ -1982,7 +1991,9 @@ function liveCompute(empId){
   var e=employees.find(x=>x.id===empId);if(!e)return;
   function gv(f){var el=document.getElementById('att_'+empId+'_'+f);return el?parseFloat(el.value)||0:0;}
   var periodDays=parseFloat((document.getElementById('att_'+empId+'_periodDays')||{value:13}).value)||13;
-  var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays};
+  var commOnlyEl=document.getElementById('att_'+empId+'_commissionOnly');
+  var commissionOnly=commOnlyEl?commOnlyEl.checked:false;
+  var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays,commissionOnly:commissionOnly};
   var p=calcPay(e,a);
   var drEl=document.getElementById('dr_'+empId);
   if(drEl)drEl.innerHTML=peso(p.dr);
@@ -2012,12 +2023,27 @@ function recomputeLeave(empId){
   }
   liveCompute(empId);
 }
+function toggleCommissionOnly(empId){
+  var el=document.getElementById('att_'+empId+'_commissionOnly');
+  var cell=document.getElementById('commOnlyCell_'+empId);
+  var row=document.getElementById('row_'+empId);
+  var isOn=el&&el.checked;
+  if(cell)cell.style.background=isOn?'#f3e5f5':'transparent';
+  if(row){
+    // Visually dim the deduction-related inputs when commission-only is active
+    ['otherDed','late'].forEach(function(f){
+      var inp=document.getElementById('att_'+empId+'_'+f);
+      if(inp)inp.style.opacity=isOn?'0.35':'1';
+    });
+  }
+  liveCompute(empId);
+}
 async function savePayrollAtt(){
   var per=v('att-per'),k=attKey(per);
   var records={};
   employees.forEach(e=>{
     function gv(f){return parseFloat(document.getElementById('att_'+e.id+'_'+f).value)||0;}
-    records[e.id]={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:parseFloat(document.getElementById('att_'+e.id+'_periodDays').value)||13};
+    records[e.id]={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:parseFloat(document.getElementById('att_'+e.id+'_periodDays').value)||13,commissionOnly:!!(document.getElementById('att_'+e.id+'_commissionOnly')&&document.getElementById('att_'+e.id+'_commissionOnly').checked)};
     if(!attendance[k])attendance[k]={};
     attendance[k][e.id]=records[e.id];
   });
@@ -2066,7 +2092,52 @@ function exportPayrollCSVRpt(){var per=v('rpt-pay-per');document.getElementById(
 // ==================== PAY SLIPS ====================
 function buildSlipHTML(e,a,per,pdate){
   var p=calcPay(e,a);
+  var isCommOnly=!!(a.commissionOnly);
+  var earningsSection, deductionsSection;
+  if(isCommOnly){
+    earningsSection=''
+      +'<div><div class="slip-sec-hd" style="background:#6a1b9a">COMMISSION EARNINGS</div><table class="slip-tbl">'
+      +'<tr><td>COMMISSION</td><td class="val">'+fp(a.commission||0)+'</td></tr>'
+      +(a.otherAdd?'<tr><td>OTHER ADDITIONALS</td><td class="val">'+fp(a.otherAdd)+'</td></tr>':'')
+      +'<tr class="total-row"><td class="bold">TOTAL EARNINGS</td><td class="val bold">'+fp(p.totalEarnings)+'</td></tr>'
+      +'</table></div>';
+    deductionsSection=''
+      +'<div><div class="slip-sec-hd" style="background:#6a1b9a">DEDUCTIONS</div><table class="slip-tbl">'
+      +'<tr><td colspan="2" style="text-align:center;color:#888;font-size:11px;padding:10px 0">No deductions for commission payslip</td></tr>'
+      +'<tr class="total-row"><td class="bold">TOTAL DEDUCTIONS</td><td class="val bold">—</td></tr>'
+      +'</table></div>';
+  } else {
+    earningsSection=''
+      +'<div><div class="slip-sec-hd">EARNINGS</div><table class="slip-tbl">'
+      +'<tr><td>SEMI-MONTHLY BASIC PAY</td><td class="val">'+fp(e.smb)+'</td></tr>'
+      +'<tr><td>DAILY RATE (÷'+p.periodDays+')</td><td class="val">'+fp(p.dr)+'</td></tr>'
+      +'<tr><td>DAYS WORKED</td><td class="val">'+a.days+'</td></tr>'
+      +'<tr><td>BASIC PAY</td><td class="val">'+fp(p.basicPay)+'</td></tr>'
+      +'<tr><td>DEMINIMIS</td><td class="val">'+(e.dm?fp(e.dm):'-')+'</td></tr>'
+      +'<tr><td>OTHER ADDITIONALS</td><td class="val">'+(a.otherAdd?fp(a.otherAdd):'-')+'</td></tr>'
+      +'<tr><td>REG OVERTIME ('+p.otHrs+' hrs)</td><td class="val">'+(p.otPay?fp(p.otPay):'-')+'</td></tr>'
+      +'<tr><td>OT NIGHT DIFF ('+p.otNdHrs+' hrs)</td><td class="val">'+(p.otNdPay?fp(p.otNdPay):'-')+'</td></tr>'
+      +'<tr><td>REST DAY OT</td><td class="val">'+(p.restDayPay?fp(p.restDayPay):'-')+'</td></tr>'
+      +'<tr><td>HOLIDAY PAY</td><td class="val">'+(a.holiday?fp(a.holiday):'-')+'</td></tr>'
+      +'<tr><td>LEAVE W/ PAY</td><td class="val">'+(a.leave?fp(a.leave):'-')+'</td></tr>'
+      +'<tr><td>COMMISSION</td><td class="val">'+(a.commission?fp(a.commission):'-')+'</td></tr>'
+      +'<tr class="total-row"><td class="bold">TOTAL EARNINGS</td><td class="val bold">'+fp(p.totalEarnings)+'</td></tr>'
+      +'</table></div>';
+    deductionsSection=''
+      +'<div><div class="slip-sec-hd">DEDUCTIONS</div><table class="slip-tbl">'
+      +'<tr><td>SSS</td><td class="val">'+fp(e.sss)+'</td></tr>'
+      +'<tr><td>PHIC</td><td class="val">'+fp(e.phic)+'</td></tr>'
+      +'<tr><td>HDMF</td><td class="val">'+fp(e.hdmf)+'</td></tr>'
+      +'<tr class="total-row"><td class="bold">TOTAL CONTRIBUTION</td><td class="val bold">'+fp(p.totalContrib)+'</td></tr>'
+      +'<tr><td>&nbsp;</td><td></td></tr>'
+      +'<tr><td>OTHER DEDUCTIONS</td><td class="val">'+(a.otherDed?fp(a.otherDed):'-')+'</td></tr>'
+      +'<tr><td>WHT TAX</td><td class="val">'+(e.wht?fp(e.wht):'-')+'</td></tr>'
+      +'<tr><td>LATE/UNDERTIME</td><td class="val">'+(a.late?fp(a.late):'-')+'</td></tr>'
+      +'<tr class="total-row"><td class="bold">TOTAL DEDUCTIONS</td><td class="val bold">'+fp(p.totalDeductions)+'</td></tr>'
+      +'</table></div>';
+  }
   return'<div class="slip-wrap">'
+  +(isCommOnly?'<div style="background:#6a1b9a;color:#fff;text-align:center;font-size:11px;font-weight:700;padding:4px 0;letter-spacing:1px;margin-bottom:6px">COMMISSION PAYSLIP</div>':'')
   +'<div class="slip-info-grid">'
   +'<div class="slip-info-row"><span class="sik">NAME:</span><span>'+e.name+'</span></div>'
   +'<div class="slip-info-row"><span class="sik">CUT-OFF:</span><span>'+per+'</span></div>'
@@ -2075,32 +2146,9 @@ function buildSlipHTML(e,a,per,pdate){
   +'<div class="slip-info-row"><span class="sik">BANK ACC:</span><span>'+(e.bank||'')+'</span></div>'
   +'<div class="slip-info-row"><span class="sik">START DATE:</span><span>'+(e.start?fmtDate(e.start):'')+'</span></div>'
   +'</div><div class="slip-cols">'
-  +'<div><div class="slip-sec-hd">EARNINGS</div><table class="slip-tbl">'
-  +'<tr><td>SEMI-MONTHLY BASIC PAY</td><td class="val">'+fp(e.smb)+'</td></tr>'
-  +'<tr><td>DAILY RATE (÷'+p.periodDays+')</td><td class="val">'+fp(p.dr)+'</td></tr>'
-  +'<tr><td>DAYS WORKED</td><td class="val">'+a.days+'</td></tr>'
-  +'<tr><td>BASIC PAY</td><td class="val">'+fp(p.basicPay)+'</td></tr>'
-  +'<tr><td>DEMINIMIS</td><td class="val">'+(e.dm?fp(e.dm):'-')+'</td></tr>'
-  +'<tr><td>OTHER ADDITIONALS</td><td class="val">'+(a.otherAdd?fp(a.otherAdd):'-')+'</td></tr>'
-  +'<tr><td>REG OVERTIME ('+p.otHrs+' hrs)</td><td class="val">'+(p.otPay?fp(p.otPay):'-')+'</td></tr>'
-  +'<tr><td>OT NIGHT DIFF ('+p.otNdHrs+' hrs)</td><td class="val">'+(p.otNdPay?fp(p.otNdPay):'-')+'</td></tr>'
-  +'<tr><td>REST DAY OT</td><td class="val">'+(p.restDayPay?fp(p.restDayPay):'-')+'</td></tr>'
-  +'<tr><td>HOLIDAY PAY</td><td class="val">'+(a.holiday?fp(a.holiday):'-')+'</td></tr>'
-  +'<tr><td>LEAVE W/ PAY</td><td class="val">'+(a.leave?fp(a.leave):'-')+'</td></tr>'
-  +'<tr><td>COMMISSION</td><td class="val">'+(a.commission?fp(a.commission):'-')+'</td></tr>'
-  +'<tr class="total-row"><td class="bold">TOTAL EARNINGS</td><td class="val bold">'+fp(p.totalEarnings)+'</td></tr>'
-  +'</table></div>'
-  +'<div><div class="slip-sec-hd">DEDUCTIONS</div><table class="slip-tbl">'
-  +'<tr><td>SSS</td><td class="val">'+fp(e.sss)+'</td></tr>'
-  +'<tr><td>PHIC</td><td class="val">'+fp(e.phic)+'</td></tr>'
-  +'<tr><td>HDMF</td><td class="val">'+fp(e.hdmf)+'</td></tr>'
-  +'<tr class="total-row"><td class="bold">TOTAL CONTRIBUTION</td><td class="val bold">'+fp(p.totalContrib)+'</td></tr>'
-  +'<tr><td>&nbsp;</td><td></td></tr>'
-  +'<tr><td>OTHER DEDUCTIONS</td><td class="val">'+(a.otherDed?fp(a.otherDed):'-')+'</td></tr>'
-  +'<tr><td>WHT TAX</td><td class="val">'+(e.wht?fp(e.wht):'-')+'</td></tr>'
-  +'<tr><td>LATE/UNDERTIME</td><td class="val">'+(a.late?fp(a.late):'-')+'</td></tr>'
-  +'<tr class="total-row"><td class="bold">TOTAL DEDUCTIONS</td><td class="val bold">'+fp(p.totalDeductions)+'</td></tr>'
-  +'</table></div></div>'
+  +earningsSection
+  +deductionsSection
+  +'</div>'
   +'<div class="slip-net-grid"><div class="slip-net-lbl">NET PAY</div><div class="slip-net-val">'+peso(p.netPay)+'</div></div>'
   +'<div class="slip-notes">'+(e.payslipNote||'')+'</div>'
   +'<div class="slip-sigs"><div>'
@@ -2113,6 +2161,18 @@ function buildSlipHTML(e,a,per,pdate){
 }
 function buildSlipText(e,a,per,pdate){
   var p=calcPay(e,a);
+  var isCommOnly=!!(a.commissionOnly);
+  if(isCommOnly){
+    return 'COMMISSION PAYSLIP\n'
+    +'NAME: '+e.name+'\nPOSITION: '+(e.pos||'')+'\nBANK ACC: '+(e.bank||'')
+    +'\nCUT-OFF: '+per+'\nPAYROLL DATE: '+(pdate||'')+'\nSTART DATE: '+(e.start||'')
+    +'\n\n--- COMMISSION EARNINGS ---\nCommission: '+fp(a.commission||0)
+    +(a.otherAdd?'\nOther additionals: '+fp(a.otherAdd):'')
+    +'\nTOTAL EARNINGS: '+fp(p.totalEarnings)
+    +'\n\n--- DEDUCTIONS ---\nNo deductions for commission payslip'
+    +'\n\nNET PAY: ₱'+fp(p.netPay)+'\n'+(e.payslipNote?'\nNote: '+e.payslipNote+'\n':'')
+    +'\nPrepared by: '+setup.prep+'     Approved by: '+setup.appr;
+  }
   return 'NAME: '+e.name+'\nPOSITION: '+(e.pos||'')+'\nBANK ACC: '+(e.bank||'')
   +'\nCUT-OFF: '+per+'\nPAYROLL DATE: '+(pdate||'')+'\nSTART DATE: '+(e.start||'')
   +'\n\n--- EARNINGS ---\nSemi-monthly: '+fp(e.smb)+'\nDaily rate: '+fp(p.dr)+'\nDays worked: '+a.days+'\nBasic pay: '+fp(p.basicPay)
