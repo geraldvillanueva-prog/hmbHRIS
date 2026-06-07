@@ -487,8 +487,6 @@ tr:hover td{background:#fafcff}
       <div class="row">
         <div class="f" style="max-width:260px"><label>Pay period</label>
           <select id="att-per" onchange="renderPayrollAttGrid()">
-            <option>May. 1 - May. 15, 2026</option>
-            <option>May. 16 - May. 31, 2026</option>
           </select>
         </div>
         <div class="f" style="max-width:180px"><label>Payroll date</label><input id="att-pdate" type="date"></div>
@@ -514,8 +512,6 @@ tr:hover td{background:#fafcff}
       <div class="row">
         <div class="f" style="max-width:260px"><label>Period</label>
           <select id="pay-per" onchange="renderPayroll()">
-            <option>May. 1 - May. 15, 2026</option>
-            <option>May. 16 - May. 31, 2026</option>
           </select>
         </div>
         <button class="btn no-print" onclick="window.print()" style="align-self:flex-end">🖨 Print</button>
@@ -535,8 +531,6 @@ tr:hover td{background:#fafcff}
       <div class="row" style="align-items:flex-end">
         <div class="f" style="max-width:260px"><label>Period</label>
           <select id="send-per" onchange="renderSendList()">
-            <option>May. 1 - May. 15, 2026</option>
-            <option>May. 16 - May. 31, 2026</option>
           </select>
         </div>
         <button id="send-all-btn" class="btn bg" onclick="sendAll()">📧 Send All Pay Slips</button>
@@ -559,7 +553,6 @@ tr:hover td{background:#fafcff}
         <div class="f" style="max-width:220px"><label>Filter by period</label>
           <select id="hist-per" onchange="renderHistory()">
             <option value="">All periods</option>
-            <option>May. 1 - May. 15, 2026</option>
           </select>
         </div>
         <button class="btn no-print" onclick="window.print()" style="align-self:flex-end">🖨 Print</button>
@@ -704,11 +697,6 @@ tr:hover td{background:#fafcff}
         <div class="card-title">💰 Payroll Report</div>
         <div class="f" style="margin-bottom:10px"><label>Select period</label>
           <select id="rpt-pay-per">
-            <option>Mar. 16 - Mar. 31, 2026</option>
-            <option>Apr. 1 - Apr. 15, 2026</option>
-            <option>Apr. 16 - Apr. 30, 2026</option>
-            <option>May. 1 - May. 15, 2026</option>
-            <option>May. 16 - May. 31, 2026</option>
           </select>
         </div>
         <button class="btn bg" onclick="exportPayrollCSVRpt()">⬇ Download CSV</button>
@@ -1008,13 +996,6 @@ tr:hover td{background:#fafcff}
       <div class="row" style="align-items:flex-end">
         <div class="f" style="max-width:260px"><label>Pay Period</label>
           <select id="mgmt-pay-per" onchange="mgmtRenderPayroll()">
-            <option>Mar. 16 - Mar. 31, 2026</option>
-            <option>Apr. 1 - Apr. 15, 2026</option>
-            <option>Apr. 16 - Apr. 30, 2026</option>
-            <option>May. 1 - May. 15, 2026</option>
-            <option>May. 16 - May. 31, 2026</option>
-            <option>Jun. 1 - Jun. 15, 2026</option>
-            <option>Jun. 16 - Jun. 30, 2026</option>
           </select>
         </div>
         <button class="btn" onclick="window.print()" style="align-self:flex-end">🖨 Print</button>
@@ -1030,13 +1011,6 @@ tr:hover td{background:#fafcff}
       <div class="row" style="align-items:flex-end;flex-wrap:wrap;gap:8px">
         <div class="f" style="max-width:260px"><label>Pay Period</label>
           <select id="mgmt-per" onchange="mgmtRenderSlips()">
-            <option>Mar. 16 - Mar. 31, 2026</option>
-            <option>Apr. 1 - Apr. 15, 2026</option>
-            <option>Apr. 16 - Apr. 30, 2026</option>
-            <option>May. 1 - May. 15, 2026</option>
-            <option>May. 16 - May. 31, 2026</option>
-            <option>Jun. 1 - Jun. 15, 2026</option>
-            <option>Jun. 16 - Jun. 30, 2026</option>
           </select>
         </div>
         <button id="mgmt-approve-only-btn" class="btn bg" onclick="mgmtApproveOnly()" style="background:var(--green)">✅ Approve Only (Unlock HR)</button>
@@ -1422,6 +1396,84 @@ function goITab(group,name,el){
 }
 
 // ==================== SELECTS ====================
+
+// ==================== PERIOD GENERATION ====================
+var MONTH_ABBR=['Jan.','Feb.','Mar.','Apr.','May.','Jun.','Jul.','Aug.','Sep.','Oct.','Nov.','Dec.'];
+function fmtPeriod(y,m,d1,d2){
+  // d2 can be last day of month
+  return MONTH_ABBR[m]+' '+d1+' - '+MONTH_ABBR[m]+' '+d2+', '+y;
+}
+function lastDay(y,m){return new Date(y,m+1,0).getDate();}
+function generatePeriods(numFuture){
+  // Generate from Jan 2025 (or earliest attendance) up to numFuture periods ahead of today
+  var periods=[];
+  var today=new Date();
+  // Start from Jan 2025
+  var y=2025,m=0;
+  // Determine end: current period + numFuture more
+  // Figure out what period "today" falls in
+  var cy=today.getFullYear(),cm=today.getMonth(),cd=today.getDate();
+  // Add numFuture extra semi-monthly steps beyond today
+  var stepsNeeded=((cy-y)*12+(cm-0))*2+(cd>15?1:0)+numFuture+2;
+  for(var i=0;i<stepsNeeded;i++){
+    var ld=lastDay(y,m);
+    periods.push(fmtPeriod(y,m,1,15));
+    periods.push(fmtPeriod(y,m,16,ld));
+    m++;if(m>11){m=0;y++;}
+  }
+  return periods;
+}
+function getCurrentPeriodIndex(periods){
+  // Find the period that contains today, or the next upcoming one
+  var today=new Date();
+  today.setHours(0,0,0,0);
+  var cy=today.getFullYear(),cm=today.getMonth(),cd=today.getDate();
+  // Today's cutoff label
+  var d1=cd<=15?1:16;
+  var d2=cd<=15?15:lastDay(cy,cm);
+  var label=fmtPeriod(cy,cm,d1,d2);
+  var idx=periods.indexOf(label);
+  // If found and today is within 3 days of end of period, suggest next one
+  var endOfPeriod=new Date(cy,cm,d2);
+  var diff=(endOfPeriod-today)/(1000*60*60*24);
+  if(idx>=0 && diff<=3 && idx+1<periods.length) return idx+1; // next cutoff
+  return idx>=0?idx:0;
+}
+function populatePeriodSelects(){
+  var periods=generatePeriods(4); // 4 future periods ahead
+  // IDs that get ALL periods (encoding, payroll view, send, history, report, management)
+  var allSelIds=['att-per','pay-per','send-per','rpt-pay-per','mgmt-pay-per','mgmt-per'];
+  allSelIds.forEach(function(id){
+    var sel=document.getElementById(id);if(!sel)return;
+    var prev=sel.value;
+    // Keep any non-period options (e.g. "All periods" with value="")
+    var fixedOpts=Array.from(sel.options).filter(o=>o.value===''||o.dataset.fixed);
+    sel.innerHTML='';
+    fixedOpts.forEach(o=>sel.appendChild(o));
+    periods.forEach(function(p){
+      var o=document.createElement('option');o.value=p;o.textContent=p;
+      if(p===prev)o.selected=true;
+      sel.appendChild(o);
+    });
+  });
+  // hist-per keeps "All periods" blank option + all periods
+  var hsel=document.getElementById('hist-per');
+  if(hsel){
+    var prev=hsel.value;
+    hsel.innerHTML='<option value="">All periods</option>';
+    periods.forEach(function(p){var o=document.createElement('option');o.value=p;o.textContent=p;if(p===prev)o.selected=true;hsel.appendChild(o);});
+  }
+  // Auto-select current/next cutoff in Payroll Encoding
+  var attSel=document.getElementById('att-per');
+  if(attSel&&!attSel.value){
+    var idx=getCurrentPeriodIndex(periods);
+    if(attSel.options[idx])attSel.options[idx].selected=true;
+  } else if(attSel){
+    // If current value no longer exists (stale hardcoded), reset to current period
+    var found=Array.from(attSel.options).some(o=>o.value===attSel.value&&o.value!=='');
+    if(!found){var idx=getCurrentPeriodIndex(periods);if(attSel.options[idx])attSel.options[idx].selected=true;}
+  }
+}
 function populateAllSelects(){
   var sels=['lv-emp','lv-filter-emp','disc-emp','disc-filter-emp','perf-emp','perf-filter-emp','hist-emp','att-emp-sel'];
   sels.forEach(id=>{
@@ -2332,7 +2384,7 @@ async function importData(evt){
         for(var emp of d.employees){await api('POST','/api/employees',emp);}
       }
       alert('Import complete! Reloading data…');
-      await loadFromStorage();renderEmpTable();renderDashboard();populateAllSelects();
+      await loadFromStorage();renderEmpTable();renderDashboard();populatePeriodSelects();populateAllSelects();
     }catch(err){alert('Invalid backup file.');}
   };
   reader.readAsText(file);
@@ -3241,6 +3293,7 @@ window.addEventListener('DOMContentLoaded',async function(){
     if(mgmtNav)mgmtNav.classList.add('on');
     document.getElementById('topbar-title').textContent='Management Console';
     await mgmtLoadSupervisorIds();
+    populatePeriodSelects();
     mgmtRenderMetrics();
     mgmtRenderPayroll();
     mgmtRenderSlips();
@@ -3248,6 +3301,7 @@ window.addEventListener('DOMContentLoaded',async function(){
   } else {
     renderEmpTable();
     renderDashboard();
+    populatePeriodSelects();
     populateAllSelects();
     populateTlEmpFilter();
     populateShiftSelects();
