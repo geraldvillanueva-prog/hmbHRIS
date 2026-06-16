@@ -94,6 +94,9 @@ db.exec(`
     vl_bal REAL DEFAULT 15,
     sl_bal REAL DEFAULT 15,
     active INTEGER DEFAULT 1,
+    sep_type TEXT,
+    sep_date TEXT,
+    sep_reason TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -244,6 +247,11 @@ db.exec(`
     FOREIGN KEY(announcement_id) REFERENCES announcements(id) ON DELETE CASCADE
   );
 `);
+
+// Migrate: add separation columns to existing databases if missing
+['sep_type','sep_date','sep_reason'].forEach(col => {
+  try { db.exec(`ALTER TABLE employees ADD COLUMN ${col} TEXT`); } catch(_) {}
+});
 
 // Seed default shifts if none exist
 const shiftCount = db.prepare('SELECT COUNT(*) as c FROM shifts').get();
@@ -545,6 +553,31 @@ app.put('/api/employees/:id', requireAdmin, (req, res) => {
 app.delete('/api/employees/:id', requireAdmin, (req, res) => {
   db.prepare('UPDATE employees SET active = 0 WHERE id = ?').run(req.params.id);
   res.json({ success: true });
+});
+
+// Deactivate with separation details
+app.post('/api/employees/:id/deactivate', requireAdmin, (req, res) => {
+  const { sepType, sepDate, sepReason } = req.body;
+  if (!sepDate) return res.json({ success: false, error: 'Effective date is required.' });
+  try {
+    db.prepare(`UPDATE employees SET active=0, sep_type=?, sep_date=?, sep_reason=? WHERE id=?`)
+      .run(sepType||'Resignation', sepDate, sepReason||'', req.params.id);
+    res.json({ success: true });
+  } catch(e) {
+    // Columns may not exist yet — add them and retry
+    try {
+      db.exec(`ALTER TABLE employees ADD COLUMN sep_type TEXT`);
+    } catch(_){}
+    try {
+      db.exec(`ALTER TABLE employees ADD COLUMN sep_date TEXT`);
+    } catch(_){}
+    try {
+      db.exec(`ALTER TABLE employees ADD COLUMN sep_reason TEXT`);
+    } catch(_){}
+    db.prepare(`UPDATE employees SET active=0, sep_type=?, sep_date=?, sep_reason=? WHERE id=?`)
+      .run(sepType||'Resignation', sepDate, sepReason||'', req.params.id);
+    res.json({ success: true });
+  }
 });
 
 function mapEmployee(e) {

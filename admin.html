@@ -548,6 +548,49 @@ tr:hover td{background:#fafcff}
     </div>
   </div>
 
+  <!-- DEACTIVATE EMPLOYEE MODAL -->
+  <div id="deactivate-emp-modal" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,0.55);z-index:300;align-items:center;justify-content:center;padding:16px;overflow-y:auto">
+    <div style="background:#fff;border-radius:14px;max-width:460px;width:100%;box-shadow:0 8px 40px rgba(10,22,40,0.18);margin:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)">
+        <div style="font-size:15px;font-weight:700;color:var(--red)">🚫 Deactivate Employee</div>
+        <button onclick="closeDeactivateEmp()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1">×</button>
+      </div>
+      <div style="padding:1.5rem">
+        <input type="hidden" id="deactivate-emp-id">
+        <div id="deactivate-emp-name" style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:14px"></div>
+        <div class="row">
+          <div class="f">
+            <label>Separation Type</label>
+            <select id="deactivate-type">
+              <option value="Resignation">Resignation</option>
+              <option value="Termination">Termination</option>
+              <option value="End of Contract">End of Contract</option>
+              <option value="Retirement">Retirement</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="f">
+            <label>Effective Date</label>
+            <input id="deactivate-date" type="date">
+          </div>
+        </div>
+        <div class="row">
+          <div class="f">
+            <label>Reason / Remarks</label>
+            <textarea id="deactivate-reason" placeholder="Optional remarks..." style="min-height:60px"></textarea>
+          </div>
+        </div>
+        <div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:6px;padding:10px 13px;font-size:12px;color:var(--red);margin-bottom:14px">
+          ⚠️ This employee will be deactivated and removed from active payroll. Their records will be preserved.
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button onclick="closeDeactivateEmp()" style="padding:9px 18px;font-size:13px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:600;font-family:'IBM Plex Sans',sans-serif">Cancel</button>
+          <button onclick="confirmDeactivateEmp()" style="padding:9px 18px;font-size:13px;border-radius:6px;border:none;background:var(--red);color:#fff;cursor:pointer;font-weight:700;font-family:'IBM Plex Sans',sans-serif">🚫 Confirm Deactivation</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 201 FILES -->
   <div id="sec-201" class="sec">
     <div class="page-title">201 Employee Files</div>
@@ -1590,33 +1633,26 @@ function nextPeriodAfter(label){
   }
 }
 
-// Build the period list: all periods that have saved attendance + next upcoming one
+// Build the period list: all periods that have saved attendance + the current cutoff period
 function buildPeriodList(){
   var saved=Object.keys(attendance||{});
   // Convert keys back to labels by brute-force matching
   var today=new Date(),cy=today.getFullYear(),cm=today.getMonth(),cd=today.getDate();
-  // Generate candidate labels from 2 years back to 2 years ahead so we can slug-match
+  // Generate candidate labels from 2 years back to current month only
   var candidates=[];
-  for(var yi=cy-2;yi<=cy+2;yi++){
-    for(var mi=0;mi<12;mi++){
+  for(var yi=cy-2;yi<=cy;yi++){
+    var maxMonth=(yi===cy)?cm:11;
+    for(var mi=0;mi<=maxMonth;mi++){
       candidates.push(fmtPeriod(yi,mi,1,15));
       candidates.push(fmtPeriod(yi,mi,16,lastDay(yi,mi)));
     }
   }
+  // Filter to only saved periods
   var labels=candidates.filter(function(c){return saved.indexOf(attKey(c))>=0;});
-  // Sort chronologically (they're already in order from candidate generation)
-  // Determine the "next" period: after the latest saved one, or if none, current period
-  var nextLabel;
-  if(labels.length>0){
-    var last=labels[labels.length-1];
-    nextLabel=nextPeriodAfter(last);
-  } else {
-    // No history yet — show current period
-    var d1=cd<=15?1:16,d2=cd<=15?15:lastDay(cy,cm);
-    nextLabel=fmtPeriod(cy,cm,d1,d2);
-  }
-  // Append next period if not already present
-  if(nextLabel&&labels.indexOf(nextLabel)<0)labels.push(nextLabel);
+  // Add the current cutoff period (1–15 or 16–end of month) if not already present
+  var d1=cd<=15?1:16,d2=cd<=15?15:lastDay(cy,cm);
+  var currentLabel=fmtPeriod(cy,cm,d1,d2);
+  if(labels.indexOf(currentLabel)<0)labels.push(currentLabel);
   return labels;
 }
 
@@ -1718,6 +1754,33 @@ async function addEmp(){
   }else{alert('Error saving employee.');}
 }
 async function removeEmp(id){if(!confirm('Remove this employee?'))return;await api('DELETE','/api/employees/'+id);await reloadEmployees();renderEmpTable();}
+function openDeactivateEmp(id){
+  var e=employees.find(x=>x.id===id);if(!e)return;
+  document.getElementById('deactivate-emp-id').value=id;
+  document.getElementById('deactivate-emp-name').textContent='Employee: '+e.name+(e.pos?' — '+e.pos:'');
+  document.getElementById('deactivate-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('deactivate-reason').value='';
+  document.getElementById('deactivate-type').value='Resignation';
+  document.getElementById('deactivate-emp-modal').style.display='flex';
+}
+function closeDeactivateEmp(){
+  document.getElementById('deactivate-emp-modal').style.display='none';
+}
+async function confirmDeactivateEmp(){
+  var id=parseInt(document.getElementById('deactivate-emp-id').value);
+  var sepType=document.getElementById('deactivate-type').value;
+  var sepDate=document.getElementById('deactivate-date').value;
+  var sepReason=document.getElementById('deactivate-reason').value.trim();
+  if(!sepDate){alert('Please enter an effective date.');return;}
+  var r=await api('POST','/api/employees/'+id+'/deactivate',{sepType,sepDate,sepReason});
+  if(r&&r.success){
+    closeDeactivateEmp();
+    await reloadEmployees();
+    renderEmpTable();
+    renderDashboard();
+    showSaveIndicator();
+  }else{alert('Error deactivating employee: '+(r&&r.error||'Unknown error'));}
+}
 function openEditEmp(id){
   var e=employees.find(x=>x.id===id);if(!e)return;
   document.getElementById('edit-emp-id').value=e.id;
@@ -1815,7 +1878,7 @@ function renderEmpTable(){
   var w=document.getElementById('emp-wrap');
   if(!employees.length){w.innerHTML='<div class="empty">No employees yet.</div>';return;}
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Dept</th><th>Type</th><th>Semi-monthly</th><th>VL</th><th>SL</th><th>Email</th><th></th></tr></thead><tbody>'
-  +employees.map((e,i)=>'<tr><td style="color:var(--muted);font-family:\'IBM Plex Mono\',monospace">'+(i+1)+'</td><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+(e.dept||'—')+'</td><td><span class="badge badge-blue">'+((e.type||'Regular'))+'</span></td><td style="font-family:\'IBM Plex Mono\',monospace">'+peso(e.smb)+'</td><td>'+((e.vlBal||0))+'</td><td>'+((e.slBal||0))+'</td><td style="color:var(--blue)">'+(e.email||'<span style="color:var(--red)">no email</span>')+'</td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openEditEmp('+e.id+')">✏️ Edit</button><button class="btn bs br" onclick="removeEmp('+e.id+')">Remove</button></td></tr>').join('')
+  +employees.map((e,i)=>'<tr><td style="color:var(--muted);font-family:\'IBM Plex Mono\',monospace">'+(i+1)+'</td><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+(e.dept||'—')+'</td><td><span class="badge badge-blue">'+((e.type||'Regular'))+'</span></td><td style="font-family:\'IBM Plex Mono\',monospace">'+peso(e.smb)+'</td><td>'+((e.vlBal||0))+'</td><td>'+((e.slBal||0))+'</td><td style="color:var(--blue)">'+(e.email||'<span style="color:var(--red)">no email</span>')+'</td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openEditEmp('+e.id+')">✏️ Edit</button><button class="btn bs" style="background:#ffebee;color:var(--red);border:1px solid #ef9a9a" onclick="openDeactivateEmp('+e.id+')">🚫 Deactivate</button></td></tr>').join('')
   +'</tbody></table></div>';
 }
 
