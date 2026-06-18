@@ -2564,6 +2564,7 @@ function annCard(a){
     +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:4px">'
     +'<div class="ann-title">'+(a.pinned?'📌 ':'')+escHtml(a.title)+'</div>'
     +'<span class="ann-type-badge '+typeCls+'">'+ANN_LABELS[a.type||'general']+'</span>'
+    +(a.hidden_from_employees?'<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:#fff8e1;color:#b8860b;font-weight:600">🙈 Hidden from Employee/Supervisor</span>':'')
     +(a.employee_name?'<span style="font-size:11px;color:var(--muted)">👤 '+escHtml(a.employee_name)+'</span>':'')
     +'</div>'
     +(a.body?'<div class="ann-body">'+escHtml(a.body).replace(/\n/g,'<br>')+'</div>':'')
@@ -2577,6 +2578,7 @@ function annCard(a){
     +'</div>'
     +'<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">'
     +'<button class="btn" style="font-size:11px;padding:3px 10px" onclick="annEdit('+a.id+')">✏️</button>'
+    +'<button class="btn" style="font-size:11px;padding:3px 10px;'+(a.hidden_from_employees?'background:#fff8e1;color:#b8860b':'background:#f0f7ff;color:#1565c0')+'" onclick="annToggleVisibility('+a.id+','+(a.hidden_from_employees?0:1)+')" title="'+(a.hidden_from_employees?'Currently hidden from Employee/Supervisor — click to show':'Currently visible to Employee/Supervisor — click to hide')+'">'+(a.hidden_from_employees?'🙈':'👁️')+'</button>'
     +'<button class="btn" style="font-size:11px;padding:3px 10px;background:#fff0f0;color:var(--red)" onclick="annDelete('+a.id+')">🗑️</button>'
     +'</div>'
     +'</div>';
@@ -2651,6 +2653,11 @@ async function annDeleteAtt(attId,annId){
   if(!confirm('Remove this attachment?'))return;
   await api('DELETE','/api/announcement-attachments/'+attId);
   await loadAnnouncements();annEdit(annId);
+}
+
+async function annToggleVisibility(id,hide){
+  await api('PATCH','/api/announcements/'+id+'/visibility',{hidden:hide});
+  await loadAnnouncements();
 }
 
 async function annDelete(id){
