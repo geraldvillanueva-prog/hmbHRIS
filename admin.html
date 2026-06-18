@@ -2568,11 +2568,11 @@ function annCard(a){
     +(a.employee_name?'<span style="font-size:11px;color:var(--muted)">👤 '+escHtml(a.employee_name)+'</span>':'')
     +'</div>'
     +(a.body?'<div class="ann-body">'+escHtml(a.body).replace(/\n/g,'<br>')+'</div>':'')
-    +atts.length?'<div class="ann-attachments">'+atts.map(f=>{
+    +(atts.length?'<div class="ann-attachments">'+atts.map(f=>{
       var isImg=/\.(jpg|jpeg|png|gif|webp)$/i.test(f.original_name);
       return '<a class="att-chip" href="/uploads/'+f.filename+'" target="_blank" title="'+escHtml(f.original_name)+'">'+
         (isImg?'🖼️':'📎')+' '+escHtml(f.original_name)+'</a>';
-    }).join('')+'</div>':''
+    }).join('')+'</div>':'')
     +'<div class="ann-meta">'+fmtDT(a.created_at)+(a.created_by_name?' · by '+escHtml(a.created_by_name):'')
     +(a.month&&a.year?' · '+MONTHS[a.month]+' '+a.year:'')+'</div>'
     +'</div>'
