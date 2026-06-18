@@ -253,6 +253,9 @@ db.exec(`
   try { db.exec(`ALTER TABLE employees ADD COLUMN ${col} TEXT`); } catch(_) {}
 });
 
+// Migrate: add visibility flag to announcements (hide from employee/supervisor views, admin still sees it)
+try { db.exec(`ALTER TABLE announcements ADD COLUMN hidden_from_employees INTEGER DEFAULT 0`); } catch(_) {}
+
 // Seed default shifts if none exist
 const shiftCount = db.prepare('SELECT COUNT(*) as c FROM shifts').get();
 if (shiftCount.c === 0) {
@@ -1221,11 +1224,13 @@ app.use('/uploads', requireAuth, express.static(uploadsDir));
 
 // GET all announcements (with employee name + attachments)
 app.get('/api/announcements', requireAuth, (req, res) => {
+  const isAdmin = req.session.user.role === 'admin';
   const rows = db.prepare(`
     SELECT a.*, e.name AS employee_name, u.username AS created_by_name
     FROM announcements a
     LEFT JOIN employees e ON a.target_employee_id = e.id
     LEFT JOIN users u ON a.created_by = u.id
+    ${isAdmin ? '' : 'WHERE a.hidden_from_employees = 0'}
     ORDER BY a.pinned DESC, a.created_at DESC
   `).all();
   const atts = db.prepare('SELECT * FROM announcement_attachments').all();
@@ -1281,6 +1286,19 @@ app.put('/api/announcements/:id', requireAdmin, upload.array('attachments', 10),
     LEFT JOIN employees e ON a.target_employee_id = e.id WHERE a.id=?`).get(id);
   const atts = db.prepare('SELECT * FROM announcement_attachments WHERE announcement_id=?').all(id);
   res.json({ ...row, attachments: atts });
+});
+
+// PATCH toggle announcement visibility to employees/supervisors (admin keeps seeing it either way)
+app.patch('/api/announcements/:id/visibility', requireAdmin, (req, res) => {
+  const id = +req.params.id;
+  const { hidden } = req.body;
+  const existing = db.prepare('SELECT id FROM announcements WHERE id=?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  db.prepare('UPDATE announcements SET hidden_from_employees=? WHERE id=?').run(hidden ? 1 : 0, id);
+  const row = db.prepare(`
+    SELECT a.*, e.name AS employee_name FROM announcements a
+    LEFT JOIN employees e ON a.target_employee_id = e.id WHERE a.id=?`).get(id);
+  res.json(row);
 });
 
 // DELETE announcement
