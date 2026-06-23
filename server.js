@@ -380,13 +380,40 @@ app.get('/api/me', requireAuth, (req, res) => {
   if (u.employee_id) {
     const emp = db.prepare('SELECT loc_policy, loc_lat, loc_lng, loc_radius, loc_wfh_days FROM employees WHERE id=?').get(u.employee_id);
     if (emp) {
+      const policy = emp.loc_policy || 'office';
+      const rawDays = emp.loc_wfh_days || null; // e.g. "1,3" = Mon+Wed; null = any day
+
+      // Compute whether today (PH time) is a WFH day
+      let wfh_today = false;
+      if (policy === 'wfh') {
+        if (!rawDays) {
+          wfh_today = true; // any day allowed
+        } else {
+          const DAY_NAME_MAP = {
+            'sun':0,'sunday':0,'mon':1,'monday':1,'tue':2,'tuesday':2,
+            'wed':3,'wednesday':3,'thu':4,'thursday':4,'fri':5,'friday':5,
+            'sat':6,'saturday':6
+          };
+          const allowedDays = rawDays.split(',').map(d => {
+            d = d.trim();
+            const n = parseInt(d);
+            if (!isNaN(n) && n >= 0 && n <= 6) return n;
+            return DAY_NAME_MAP[d.toLowerCase()];
+          }).filter(d => d !== undefined && !isNaN(d));
+
+          const dowPH = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' })).getDay();
+          wfh_today = !allowedDays.length || allowedDays.includes(dowPH);
+        }
+      }
+
       return res.json({
         ...u,
-        loc_policy:    emp.loc_policy    || 'office',
-        loc_lat:       emp.loc_lat       || null,
-        loc_lng:       emp.loc_lng       || null,
-        loc_radius:    emp.loc_radius    || 300,
-        loc_wfh_days:  emp.loc_wfh_days  || null  // e.g. "1,3" = Mon+Wed; null = any day
+        loc_policy:    policy,
+        loc_lat:       emp.loc_lat    || null,
+        loc_lng:       emp.loc_lng    || null,
+        loc_radius:    emp.loc_radius || 300,
+        loc_wfh_days:  rawDays,   // e.g. "1,3" = Mon+Wed; null = any day
+        wfh_today                 // true if today is a scheduled WFH day (or any day)
       });
     }
   }

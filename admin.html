@@ -1348,11 +1348,16 @@ function renderLocationTable(){
       : (pol==='office'?'<span style="color:var(--muted);font-size:11px">Uses office coords</span>':'<span style="color:var(--muted);font-size:11px">—</span>');
     var radius = e.loc_radius ? e.loc_radius+'m' : (pol==='office'?(officeLocation.radius||200)+'m':'—');
     var DAY_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var DAY_NAME_MAP = {'sun':0,'sunday':0,'mon':1,'monday':1,'tue':2,'tuesday':2,'wed':3,'wednesday':3,'thu':4,'thursday':4,'fri':5,'friday':5,'sat':6,'saturday':6};
     var wfhDaysHtml = '—';
     if(pol==='wfh'){
       if(e.loc_wfh_days){
         var dayBadges = e.loc_wfh_days.split(',').map(function(d){
-          return '<span style="display:inline-block;background:#e8f5e9;color:var(--green);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;margin:1px">'+DAY_SHORT[parseInt(d)]+'</span>';
+          d = d.trim();
+          var idx = parseInt(d);
+          if(isNaN(idx) || idx < 0 || idx > 6) idx = DAY_NAME_MAP[d.toLowerCase()];
+          var name = (idx !== undefined && !isNaN(idx)) ? DAY_SHORT[idx] : d;
+          return '<span style="display:inline-block;background:#e8f5e9;color:var(--green);border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;margin:1px">'+name+'</span>';
         }).join(' ');
         wfhDaysHtml = dayBadges;
       } else {
@@ -1377,8 +1382,13 @@ function openLocEdit(empId){
   document.getElementById('loc-edit-lat').value = e.loc_lat||'';
   document.getElementById('loc-edit-lng').value = e.loc_lng||'';
   document.getElementById('loc-edit-radius').value = e.loc_radius||300;
-  // Populate WFH day checkboxes
-  var savedDays = e.loc_wfh_days ? e.loc_wfh_days.split(',').map(Number) : [];
+  // Populate WFH day checkboxes — handle both numeric ("1,3") and legacy name ("Mon,Wed") formats
+  var _DAY_NAME_MAP2 = {'sun':0,'sunday':0,'mon':1,'monday':1,'tue':2,'tuesday':2,'wed':3,'wednesday':3,'thu':4,'thursday':4,'fri':5,'friday':5,'sat':6,'saturday':6};
+  var savedDays = e.loc_wfh_days ? e.loc_wfh_days.split(',').map(function(d){
+    d = d.trim(); var n = parseInt(d);
+    if(!isNaN(n) && n >= 0 && n <= 6) return n;
+    return _DAY_NAME_MAP2[d.toLowerCase()];
+  }).filter(function(d){ return d !== undefined && !isNaN(d); }) : [];
   document.querySelectorAll('.loc-day-cb').forEach(function(cb){
     cb.checked = savedDays.includes(parseInt(cb.value));
   });
