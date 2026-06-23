@@ -782,6 +782,7 @@ async function init(){
     document.getElementById('lv-to').value=today;
     computeDays();
     await loadOfficeCoords();
+    renderWfhBanner();
     startGpsWatch();
     await loadStatus();
     await loadHistory();
@@ -923,6 +924,80 @@ function startGpsWatch(){
   );
 }
 
+// ── WFH DAY HELPERS ────────────────────────────────────────────────────────────
+// Parses loc_wfh_days which may be stored as number strings ("1,3,5")
+// or legacy day-name strings ("Mon,Wed,Fri"). Returns array of JS getDay() numbers.
+function parseWfhDays(raw){
+  if(!raw) return [];
+  var DAY_NAME_MAP = {
+    'sun':0,'sunday':0,'mon':1,'monday':1,'tue':2,'tuesday':2,
+    'wed':3,'wednesday':3,'thu':4,'thursday':4,'fri':5,'friday':5,
+    'sat':6,'saturday':6
+  };
+  return raw.split(',').map(function(d){
+    d = d.trim();
+    var n = parseInt(d);
+    if(!isNaN(n) && n >= 0 && n <= 6) return n;
+    return DAY_NAME_MAP[d.toLowerCase()];
+  }).filter(function(d){ return d !== undefined && !isNaN(d); });
+}
+
+// Returns true if today (PH time) is an allowed WFH day for this user.
+// If no days are configured (null / empty), every day is allowed.
+function isTodayWfhDay(){
+  var policy = (user && user.loc_policy) || 'office';
+  if(policy !== 'wfh') return false;
+  if(!user.loc_wfh_days) return true; // any day
+  var allowed = parseWfhDays(user.loc_wfh_days);
+  if(!allowed.length) return true;    // any day
+  var dow = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Manila'})).getDay();
+  return allowed.includes(dow);
+}
+
+// Render an info banner below the status pill showing the employee's WFH schedule.
+function renderWfhBanner(){
+  var existing = document.getElementById('wfh-schedule-banner');
+  if(existing) existing.remove();
+  var policy = (user && user.loc_policy) || 'office';
+  if(policy !== 'wfh') return;
+
+  var DAY_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var allowed = user.loc_wfh_days ? parseWfhDays(user.loc_wfh_days) : [];
+  var phDate  = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Manila'}));
+  var todayDow = phDate.getDay();
+
+  var banner = document.createElement('div');
+  banner.id = 'wfh-schedule-banner';
+
+  if(!allowed.length){
+    // Any day — green info
+    banner.style.cssText = 'background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:8px 14px;font-size:12px;color:#2e7d32;text-align:center;margin-top:8px;font-weight:500';
+    banner.innerHTML = '🏠 WFH — allowed any day';
+  } else {
+    var isWfhToday = allowed.includes(todayDow);
+    var dayPills = DAY_SHORT.map(function(name, i){
+      var isAllowed = allowed.includes(i);
+      var isToday   = i === todayDow;
+      var bg    = isAllowed ? '#2e7d32' : '#e0e0e0';
+      var color = isAllowed ? '#fff'    : '#9e9e9e';
+      var border = isToday  ? '2px solid #0a1628' : '2px solid transparent';
+      return '<span style="display:inline-block;background:'+bg+';color:'+color+';border:'+border+';border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;margin:1px">'+name+'</span>';
+    }).join('');
+
+    if(isWfhToday){
+      banner.style.cssText = 'background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:8px 14px;font-size:12px;color:#2e7d32;text-align:center;margin-top:8px';
+      banner.innerHTML = '🏠 <strong>WFH day</strong> — punch from home &nbsp;' + dayPills;
+    } else {
+      banner.style.cssText = 'background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px 14px;font-size:12px;color:#7b5800;text-align:center;margin-top:8px';
+      banner.innerHTML = '🏢 <strong>Office day</strong> — WFH not scheduled today &nbsp;' + dayPills;
+    }
+  }
+
+  // Insert after status pill
+  var pill = document.getElementById('status-pill');
+  if(pill && pill.parentNode) pill.parentNode.insertBefore(banner, pill.nextSibling);
+}
+
 function updateGpsBar(){
   if(!_gpsCache) return;
   var policy = (user && user.loc_policy) || 'office';
@@ -936,11 +1011,10 @@ function updateGpsBar(){
   // WFH: check allowed day first — if today is NOT a WFH day, treat as office
   var effectivePolicy = policy;
   if(policy === 'wfh' && user.loc_wfh_days){
-    var DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    var allowedDays = user.loc_wfh_days.split(',').map(Number);
+    var allowedDays = parseWfhDays(user.loc_wfh_days);
     var phDate = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Manila'}));
     var dow = phDate.getDay();
-    if(!allowedDays.includes(dow)){
+    if(allowedDays.length > 0 && !allowedDays.includes(dow)){
       // Not a WFH day — fall back to office check silently
       effectivePolicy = 'office';
     }
@@ -1012,11 +1086,10 @@ async function checkLocationPolicy(coords){
 
   // WFH: check allowed days — if today is NOT a WFH day, fall back to office check
   if(policy === 'wfh' && user.loc_wfh_days){
-    var DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    var allowedDays = user.loc_wfh_days.split(',').map(Number);
+    var allowedDays = parseWfhDays(user.loc_wfh_days);
     var phDate = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Manila'}));
     var dow = phDate.getDay();
-    if(!allowedDays.includes(dow)){
+    if(allowedDays.length > 0 && !allowedDays.includes(dow)){
       // Not a WFH day — treat as a regular office day
       policy = 'office';
     }

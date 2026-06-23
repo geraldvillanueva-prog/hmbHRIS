@@ -871,6 +871,7 @@ async function init(){
     if(toEl)toEl.value=today;
     supComputeDays();
     await loadOfficeCoords();
+    renderWfhBanner();
     if(data.employee_id) startGpsWatch();
     await loadLeaves();
     if(data.employee_id){await loadStatus();await loadHistory();}
@@ -1183,6 +1184,64 @@ function setEnabled(btnId, enabled){
   if (!btn.classList.contains('done')) btn.disabled = !enabled;
 }
 
+// ── WFH DAY HELPERS ────────────────────────────────────────────────────────────
+// Parses loc_wfh_days stored as number strings ("1,3") or legacy names ("Mon,Wed").
+// Returns array of JS getDay() numbers (0=Sun … 6=Sat). Empty array = any day.
+function parseWfhDays(raw){
+  if(!raw) return [];
+  var MAP={'sun':0,'sunday':0,'mon':1,'monday':1,'tue':2,'tuesday':2,'wed':3,'wednesday':3,'thu':4,'thursday':4,'fri':5,'friday':5,'sat':6,'saturday':6};
+  return raw.split(',').map(function(d){
+    d=d.trim(); var n=parseInt(d);
+    if(!isNaN(n)&&n>=0&&n<=6) return n;
+    return MAP[d.toLowerCase()];
+  }).filter(function(d){return d!==undefined&&!isNaN(d);});
+}
+
+// Returns true if today (PH time) is a scheduled WFH day.
+// If loc_wfh_days is null/empty, every day is allowed.
+function isTodayWfhDay(){
+  var policy=(user&&user.loc_policy)||'office';
+  if(policy!=='wfh') return false;
+  if(!user.loc_wfh_days) return true;
+  var allowed=parseWfhDays(user.loc_wfh_days);
+  if(!allowed.length) return true;
+  var dow=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Manila'})).getDay();
+  return allowed.includes(dow);
+}
+
+// Show a WFH schedule banner under the status pill on the clock card.
+function renderWfhBanner(){
+  var existing=document.getElementById('wfh-schedule-banner');
+  if(existing) existing.remove();
+  var policy=(user&&user.loc_policy)||'office';
+  if(policy!=='wfh') return;
+  var DAY_SHORT=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var allowed=user.loc_wfh_days?parseWfhDays(user.loc_wfh_days):[];
+  var todayDow=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Manila'})).getDay();
+  var banner=document.createElement('div');
+  banner.id='wfh-schedule-banner';
+  if(!allowed.length){
+    banner.style.cssText='background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:8px 14px;font-size:12px;color:#2e7d32;text-align:center;margin-top:8px;font-weight:500';
+    banner.innerHTML='🏠 WFH — allowed any day';
+  } else {
+    var isWfhToday=allowed.includes(todayDow);
+    var dayPills=DAY_SHORT.map(function(name,i){
+      var isAllowed=allowed.includes(i);
+      var isToday=i===todayDow;
+      return '<span style="display:inline-block;background:'+(isAllowed?'#2e7d32':'#e0e0e0')+';color:'+(isAllowed?'#fff':'#9e9e9e')+';border:'+(isToday?'2px solid #0a1628':'2px solid transparent')+';border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;margin:1px">'+name+'</span>';
+    }).join('');
+    if(isWfhToday){
+      banner.style.cssText='background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:8px 14px;font-size:12px;color:#2e7d32;text-align:center;margin-top:8px';
+      banner.innerHTML='🏠 <strong>WFH day</strong> — punch from home &nbsp;'+dayPills;
+    } else {
+      banner.style.cssText='background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px 14px;font-size:12px;color:#7b5800;text-align:center;margin-top:8px';
+      banner.innerHTML='🏢 <strong>Office day</strong> — WFH not scheduled today &nbsp;'+dayPills;
+    }
+  }
+  var pill=document.getElementById('status-pill');
+  if(pill&&pill.parentNode) pill.parentNode.insertBefore(banner,pill.nextSibling);
+}
+
 // ── GPS ENGINE ─────────────────────────────────────────────────────────────────
 var _gpsCache = null;
 var _gpsWatcher = null;
@@ -1249,20 +1308,18 @@ function updateGpsBar(){
     setGpsBar('liaison','📍 Liaison · '+lat.toFixed(5)+', '+lng.toFixed(5)+' ±'+acc+'m');
     return;
   }
-  // WFH: check allowed day first
+  // WFH: check allowed day — if not a WFH day, fall back to office check
+  var effectivePolicy=policy;
   if(policy==='wfh'&&user.loc_wfh_days){
-    var DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    var allowedDays=user.loc_wfh_days.split(',').map(Number);
+    var allowedDays=parseWfhDays(user.loc_wfh_days);
     var phDate=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Manila'}));
     var dow=phDate.getDay();
-    if(!allowedDays.includes(dow)){
-      var allowedNames=allowedDays.map(function(d){return DAY_NAMES[d];}).join(', ');
-      setGpsBar('err','🗓️ WFH not allowed today ('+DAY_NAMES[dow]+'). Allowed: '+allowedNames);
-      return;
+    if(allowedDays.length>0&&!allowedDays.includes(dow)){
+      effectivePolicy='office'; // not a WFH day — check office GPS instead
     }
   }
   var targetLat,targetLng,allowedRadius,label;
-  if(policy==='wfh'){
+  if(effectivePolicy==='wfh'){
     targetLat=parseFloat(user.loc_lat);targetLng=parseFloat(user.loc_lng);
     allowedRadius=parseInt(user.loc_radius)||300;label='Home';
   } else {
@@ -1301,15 +1358,13 @@ function getGpsCoords(){
 async function checkLocationPolicy(coords){
   var policy=(user&&user.loc_policy)||'office';
   if(policy==='liaison')return{allowed:true,coords};
-  // WFH: check allowed days before checking distance
+  // WFH: check allowed days — if not a WFH day, fall back to office check
   if(policy==='wfh'&&user.loc_wfh_days){
-    var DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    var allowedDays=user.loc_wfh_days.split(',').map(Number);
+    var allowedDays=parseWfhDays(user.loc_wfh_days);
     var phDate=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Manila'}));
     var dow=phDate.getDay();
-    if(!allowedDays.includes(dow)){
-      var allowedNames=allowedDays.map(function(d){return DAY_NAMES[d];}).join(', ');
-      return{allowed:false,message:'🗓️ WFH is only allowed on: '+allowedNames+'. Today is '+DAY_NAMES[dow]+'.'};
+    if(allowedDays.length>0&&!allowedDays.includes(dow)){
+      policy='office'; // not a WFH day — validate against office GPS instead
     }
   }
   var targetLat,targetLng,allowedRadius,label;
