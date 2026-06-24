@@ -1125,10 +1125,30 @@ async function checkLocationPolicy(coords){
   }
 }
 
+async function refreshUserData(){
+  // Re-fetch the current user's profile from the server so that any changes
+  // made by HR Admin (e.g. removing WFH days, updating location policy) are
+  // reflected immediately without requiring a page reload.
+  try {
+    var res = await fetch('/api/me');
+    var data = await res.json();
+    if(data && data.id){
+      user = data;
+      renderWfhBanner();
+      updateGpsBar();
+    }
+  } catch(e){
+    // Non-fatal — proceed with cached user data
+  }
+}
+
 async function doPunch(endpoint, btnId){
   var btn = document.getElementById(btnId);
   btn.disabled = true;
   addRipple(btn);
+
+  // ── Step 0: Refresh user profile to pick up any schedule changes ─────────────
+  await refreshUserData();
 
   // ── Step 1: Get GPS coordinates ──────────────────────────────────────────────
   var coords;
@@ -1799,6 +1819,9 @@ document.querySelectorAll('.bal-value').forEach(function(el){
 
     _ws.onopen = function(){
       showWsStatus(true);
+      // Refresh user profile on (re)connect so HR Admin changes to WFH
+      // schedule or location policy are picked up without a full page reload.
+      refreshUserData();
     };
 
     _ws.onmessage = function(evt){
