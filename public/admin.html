@@ -1400,6 +1400,14 @@ async function saveLocPolicy(){
   // Collect checked WFH days
   var checkedDays = [];
   document.querySelectorAll('.loc-day-cb:checked').forEach(function(cb){ checkedDays.push(cb.value); });
+  if(pol==='wfh' && !checkedDays.length){
+    if(!confirm('No WFH days are selected — this will allow the employee to punch from home on ANY day. Continue?')) return;
+  }
+  var DAY_CONFIRM_MAP = {'0':'Sun','1':'Mon','2':'Tue','3':'Wed','4':'Thu','5':'Fri','6':'Sat'};
+  if(pol==='wfh' && checkedDays.length){
+    var dayNames = checkedDays.map(function(d){ return DAY_CONFIRM_MAP[d]||d; }).join(', ');
+    if(!confirm('Save WFH schedule?\n\nEmployee: '+e.name+'\nWFH days: '+dayNames+'\nHome location: '+lat+', '+lng+'\n\nPlease verify the days are correct.')) return;
+  }
   var wfhDays = (pol==='wfh' && checkedDays.length) ? checkedDays.join(',') : null;
   e.loc_policy   = pol;
   e.loc_lat      = (pol==='wfh'?lat:null);
