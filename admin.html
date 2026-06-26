@@ -1982,7 +1982,7 @@ function calcPay(e,a){
   var otHrs=(a.ot||0),otPay=r2((dr/8)*1.25*otHrs);
   var otNdHrs=roundOT(a.otNd||0),otNdPay=r2((dr/8)*1.25*1.10*otNdHrs);
   var restDayPay=r2(a.restDay||0);
-  var totalEarnings=r2(basicPay+(e.dm||0)+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
+  var totalEarnings=r2(basicPay+(commissionOnly?0:(e.dm||0))+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
   var commissionOnly=!!(a.commissionOnly);
   var totalContrib=commissionOnly?0:r2((e.sss||0)+(e.phic||0)+(e.hdmf||0));
   var totalDeductions=commissionOnly?0:r2(totalContrib+(a.otherDed||0)+(e.wht||0)+(a.late||0));
@@ -3412,28 +3412,29 @@ async function importPayrollExcel(evt) {
         return;
       }
 
-      // EXACT column indices based on this Excel format:
+      // EXACT column indices based on this Excel format (0-indexed, nameCol=1 so o=0):
       // Col 1:  EMPLOYEE NAME
-      // Col 9:  NO. OF DAYS WORKED
-      // Col 11: Late/Undertime HRS
-      // Col 12: Late/Undertime AMT
-      // Col 13: REG OVERTIME HRS
-      // Col 14: REG OVERTIME AMT
-      // Col 15: NIGHT DIFF OVERTIME HRS
-      // Col 16: NIGHT DIFF OVERTIME AMT
-      // Col 17: REG REST DAY HRS
-      // Col 18: REG REST DAY AMT
-      // Col 19: HOLIDAY PAY HRS
-      // Col 20: HOLIDAY PAY AMT
-      // Col 21: LEAVE W/ PAY HRS (days)
-      // Col 22: LEAVE W/ PAY AMT
-      // Col 23: COMMISSION (Sales)
-      // Col 24: COMMISSION (Operations)
-      // Col 31: OTHER DEDUCTIONS
-      // Col 32: OTHER ADDITIONALS
-      // Col 33: WHT TAX
-      // Col 35: DEMINIMIS
-      // Col 6:  SEMI-MONTHLY BASIC PAY
+      // Col 8:  NO. OF DAYS WORKED
+      // Col 10: Late/Undertime HRS
+      // Col 11: Late/Undertime AMT
+      // Col 12: OVERTIME HRS
+      // Col 13: OVERTIME AMT
+      // Col 14: HOLIDAY PAY HRS
+      // Col 15: HOLIDAY PAY AMT
+      // Col 16: LEAVE W/ PAY HRS
+      // Col 17: LEAVE W/ PAY AMT
+      // Col 18: COMMISSION (Sales)
+      // Col 19: COMMISSION (Operations)
+      // Col 20: GROSS PAY
+      // Col 21: NON TAXABLE (SSS)
+      // Col 22: NON TAXABLE (PHIC)
+      // Col 23: NON TAXABLE (HDMF)
+      // Col 24: TOTAL NON TAXABLE
+      // Col 25: TAXABLE INCOME
+      // Col 26: OTHER DEDUCTIONS
+      // Col 27: OTHER ADDITIONALS
+      // Col 28: WHT TAX
+      // Col 30: NET PAY
 
       // Verify by checking header row column 1 = EMPLOYEE NAME
       var hdrRow = rows[headerRowIdx];
@@ -3497,19 +3498,19 @@ async function importPayrollExcel(evt) {
         matched.push({
           emp: emp,
           xlsxName: nameVal,
-          dm:  g(35),   // Deminimis — synced to employee profile on apply
-          wht: g(33),   // WHT tax — synced to employee profile on apply
+          dm:  0,       // Deminimis not in this Excel; keep existing employee profile value
+          wht: g(28),   // WHT tax
           rec: {
-            days:       g(9),
-            ot:         g(13),   // OT hours
-            otNd:       g(15),   // Night diff OT hours
-            restDay:    g(18),   // Rest day OT amount (col 18 = hardcoded peso amount)
-            holiday:    g(20),   // Holiday pay amount
-            leave:      g(22),   // Leave w/ pay amount
-            commission: g(23) + g(24), // Sales + Operations
-            otherAdd:   g(32),
-            otherDed:   g(31),
-            late:       g(12),   // Late/undertime amount
+            days:       g(8),    // NO. OF DAYS WORKED
+            ot:         g(12),   // OT hours
+            otNd:       0,       // Night diff OT not in this Excel format
+            restDay:    0,       // Rest day not in this Excel format
+            holiday:    g(15),   // Holiday pay amount
+            leave:      g(17),   // Leave w/ pay amount
+            commission: g(18) + g(19), // Sales + Operations commission
+            otherAdd:   g(27),   // Other additionals
+            otherDed:   g(26),   // Other deductions
+            late:       g(11),   // Late/undertime amount
             periodDays: periodDays
           }
         });
@@ -3587,13 +3588,12 @@ async function applyImportedPayroll() {
   // Apply attendance records
   matched.forEach(function(m) { attendance[k][m.emp.id] = m.rec; });
   await api('POST', '/api/attendance', { period: k, records: attendance[k] });
-  // Sync deminimis and WHT from Excel into each employee profile
+  // Sync WHT from Excel into each employee profile (deminimis NOT imported — kept from employee profile)
   var empUpdates = [];
   matched.forEach(function(m) {
     var e = employees.find(function(x){ return x.id === m.emp.id; });
     if (!e) return;
     var changed = false;
-    if (m.dm > 0 && e.dm !== m.dm) { e.dm = m.dm; changed = true; }
     if (m.wht > 0 && e.wht !== m.wht) { e.wht = m.wht; changed = true; }
     if (changed) empUpdates.push(e);
   });
@@ -3603,7 +3603,7 @@ async function applyImportedPayroll() {
   showSaveIndicator();
   document.getElementById('xlsx-preview-modal').remove();
   renderPayrollAttGrid();
-  var updMsg = empUpdates.length ? ' (<strong>' + empUpdates.length + '</strong> employee deminimis/WHT value(s) updated)' : '';
+  var updMsg = empUpdates.length ? ' (<strong>' + empUpdates.length + '</strong> employee WHT value(s) updated)' : '';
   showXlsxMsg('\u2705 Imported ' + matched.length + ' employee record(s) into <strong>' + per + '</strong>.' + updMsg + ' Review and click Save.', true);
 }
 
