@@ -3385,7 +3385,7 @@ async function importPayrollExcel(evt) {
   reader.onload = async function(e) {
     try {
       var data = new Uint8Array(e.target.result);
-      var wb = XLSX.read(data, { type: 'array', cellFormula: false, cellNF: false, cellText: false });
+      var wb = XLSX.read(data, { type: 'array', cellFormula: false, cellNF: false, cellText: false, raw: true });
 
       // Find PAYROLL REGISTER sheet
       var regSheet = null;
@@ -3397,7 +3397,7 @@ async function importPayrollExcel(evt) {
         return;
       }
 
-      var rows = XLSX.utils.sheet_to_json(regSheet, { header: 1, defval: '' });
+      var rows = XLSX.utils.sheet_to_json(regSheet, { header: 1, defval: '', raw: true });
 
       // Find header row (contains EMPLOYEE NAME + NO. OF DAYS WORKED)
       var headerRowIdx = -1;
@@ -3481,6 +3481,11 @@ async function importPayrollExcel(evt) {
       var dataStart = headerRowIdx + 2;
       var matched = [], unmatched = [];
 
+      function g(row, col) {
+        var v = parseFloat(row[o + col]);
+        return isNaN(v) ? 0 : v;
+      }
+
       for (var ri = dataStart; ri < rows.length; ri++) {
         var row = rows[ri];
         var nameVal = (row[nameCol] + '').trim();
@@ -3490,27 +3495,22 @@ async function importPayrollExcel(evt) {
         var emp = fuzzyMatchEmployee(nameVal);
         if (!emp) { unmatched.push(nameVal); continue; }
 
-        function g(col) {
-          var v = parseFloat(row[o + col]);
-          return isNaN(v) ? 0 : v;
-        }
-
         matched.push({
           emp: emp,
           xlsxName: nameVal,
           dm:  0,       // Deminimis not in this Excel; keep existing employee profile value
-          wht: g(28),   // WHT tax
+          wht: g(row, 28),   // WHT tax
           rec: {
-            days:       g(8),    // NO. OF DAYS WORKED
-            ot:         g(12),   // OT hours
+            days:       g(row, 8),    // NO. OF DAYS WORKED
+            ot:         g(row, 12),   // OT hours
             otNd:       0,       // Night diff OT not in this Excel format
             restDay:    0,       // Rest day not in this Excel format
-            holiday:    g(15),   // Holiday pay amount
-            leave:      g(17),   // Leave w/ pay amount
-            commission: g(18) + g(19), // Sales + Operations commission
-            otherAdd:   g(27),   // Other additionals
-            otherDed:   g(26),   // Other deductions
-            late:       g(11),   // Late/undertime amount
+            holiday:    g(row, 15),   // Holiday pay amount
+            leave:      g(row, 17),   // Leave w/ pay amount
+            commission: g(row, 18) + g(row, 19), // Sales + Operations commission
+            otherAdd:   g(row, 27),   // Other additionals
+            otherDed:   g(row, 26),   // Other deductions
+            late:       g(row, 11),   // Late/undertime amount
             periodDays: periodDays
           }
         });
