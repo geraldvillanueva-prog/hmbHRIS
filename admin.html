@@ -1983,7 +1983,7 @@ function calcPay(e,a){
   var otNdHrs=roundOT(a.otNd||0),otNdPay=r2((dr/8)*1.25*1.10*otNdHrs);
   var restDayPay=r2(a.restDay||0);
   var commissionOnly=!!(a.commissionOnly);
-  var totalEarnings=r2(basicPay+(commissionOnly?0:(e.dm||0))+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
+  var totalEarnings=commissionOnly?r2((a.commission||0)+(a.otherAdd||0)):r2(basicPay+(e.dm||0)+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
   var totalContrib=commissionOnly?0:r2((e.sss||0)+(e.phic||0)+(e.hdmf||0));
   var totalDeductions=commissionOnly?0:r2(totalContrib+(a.otherDed||0)+(e.wht||0)+(a.late||0));
   return{dr,periodDays,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayPay,totalEarnings,totalContrib,totalDeductions,netPay:r2(totalEarnings-totalDeductions),commissionOnly};
@@ -2054,7 +2054,7 @@ function renderPayrollAttGrid(){
     +'<th rowspan="2" style="padding:8px 6px;min-width:70px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">SEMI-MO BASIC</th>'
     +'<th rowspan="2" style="padding:8px 6px;min-width:65px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">DAILY RATE</th>'
     +'<th rowspan="2" style="padding:8px 6px;min-width:65px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">DAYS WORKED</th>'
-    +'<th rowspan="2" style="padding:8px 6px;min-width:72px;background:#6a1b9a;color:#fff;vertical-align:middle;text-align:center;font-size:10px">COMMISSION<br>ONLY 🏷️</th>'
+    +'<th rowspan="2" style="padding:8px 6px;min-width:72px;background:#6a1b9a;color:#fff;vertical-align:middle;text-align:center;font-size:10px">COMMISSION<br>ONLY 🏷️<br><input type="checkbox" id="commOnly-tick-all" title="Tick/untick all" style="margin-top:4px;cursor:pointer;width:14px;height:14px" onchange="tickAllCommissionOnly(this.checked)"></th>'
     +'<th colspan="5" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#1565c0;color:#fff">EARNINGS</th>'
     +'<th colspan="3" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#2e7d32;color:#fff">ALLOWANCES / ADD-ONS</th>'
     +'<th colspan="3" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#c62828;color:#fff">DEDUCTIONS</th>'
@@ -2251,6 +2251,14 @@ function toggleCommissionOnly(empId){
     });
   }
   liveCompute(empId);
+}
+function tickAllCommissionOnly(checked){
+  employees.forEach(function(e){
+    var el=document.getElementById("att_"+e.id+"_commissionOnly");
+    if(!el)return;
+    el.checked=checked;
+    toggleCommissionOnly(e.id);
+  });
 }
 async function savePayrollAtt(){
   var per=v('att-per'),k=attKey(per);
