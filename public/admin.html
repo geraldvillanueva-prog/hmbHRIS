@@ -1216,11 +1216,13 @@ await fetch('/api/recruitment/webhook', {
           <div class="card-title">Application Form QR Code</div>
           <div class="infobox">This QR code points to your existing application form. The form itself is unchanged.</div>
           <div class="qr-display">
-            <div class="qr-box" id="recruit-qr-box"><canvas id="recruit-qr-canvas" width="200" height="200"></canvas></div>
+            <div class="qr-box" id="recruit-qr-box" style="min-width:220px;min-height:220px;display:flex;align-items:center;justify-content:center;border-radius:10px">
+              <div style="color:var(--muted);font-size:12px;text-align:center;padding:20px;line-height:1.7">📱 Enter form URL<br>on the left to<br>generate QR code</div>
+            </div>
             <div style="font-size:12px;color:var(--muted);margin-bottom:10px" id="recruit-qr-url-label">Enter form URL to generate QR</div>
             <div style="display:flex;gap:8px;justify-content:center">
-              <button class="btn bs bp" onclick="recruitPrintQR()">Print QR</button>
-              <button class="btn bs" onclick="recruitDownloadQR()">Download PNG</button>
+              <button class="btn bs bp" onclick="recruitPrintQR()">🖨 Print QR</button>
+              <button class="btn bs" onclick="recruitDownloadQR()">⬇ Download PNG</button>
             </div>
           </div>
         </div>
@@ -4431,42 +4433,142 @@ function recruitRenderWebhookLogs(){
   }).join('');
 }
 
-// ─── QR CODE GENERATOR (canvas-based, no external lib needed) ─
+// ─── REAL QR CODE GENERATOR (uses qrcode.js from CDN) ───────────────────────
+// Loads qrcode.min.js on demand the first time recruitGenQR() is called.
+var _qrLibLoaded=false;
+var _qrLibLoading=false;
+var _qrPendingUrl=null;
+
 function recruitGenQR(){
-  var url=document.getElementById('recruit-form-url')?document.getElementById('recruit-form-url').value:'';
+  var url=(document.getElementById('recruit-form-url')||{}).value||'';
   var label=document.getElementById('recruit-qr-url-label');
+  var box=document.getElementById('recruit-qr-box');
+  if(!box)return;
+  if(!url){
+    if(label)label.textContent='Enter form URL on the left to generate QR';
+    box.innerHTML='<canvas id="recruit-qr-canvas" width="220" height="220"></canvas>';
+    return;
+  }
+  if(label)label.textContent=url.length>55?url.slice(0,52)+'…':url;
+  if(_qrLibLoaded){
+    _drawRealQR(url,box);
+  } else {
+    _qrPendingUrl=url;
+    box.innerHTML='<div style="width:220px;height:220px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">Generating QR…</div>';
+    if(!_qrLibLoading){
+      _qrLibLoading=true;
+      var s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+      s.onload=function(){
+        _qrLibLoaded=true;_qrLibLoading=false;
+        if(_qrPendingUrl)_drawRealQR(_qrPendingUrl,box);
+      };
+      s.onerror=function(){
+        // CDN failed — try alternate
+        _qrLibLoading=false;
+        var s2=document.createElement('script');
+        s2.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+        s2.onload=function(){_qrLibLoaded=true;if(_qrPendingUrl)_drawRealQRCanvas(_qrPendingUrl,box);};
+        s2.onerror=function(){box.innerHTML='<div style="color:var(--red);font-size:12px;padding:10px;text-align:center">QR library failed to load.<br>Check internet connection.</div>';};
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    }
+  }
+}
+
+function _drawRealQR(url,box){
+  // qrcodejs library — creates a div with img inside
+  box.innerHTML='<div id="qr-inner" style="line-height:0"></div>';
+  try{
+    new QRCode(document.getElementById('qr-inner'),{
+      text:url,
+      width:220,height:220,
+      colorDark:'#0a1628',
+      colorLight:'#ffffff',
+      correctLevel:QRCode.CorrectLevel.M
+    });
+    // After render, replace canvas id for download function compatibility
+    setTimeout(function(){
+      var img=box.querySelector('img');
+      var cvs=box.querySelector('canvas');
+      if(cvs)cvs.id='recruit-qr-canvas';
+      else if(img){img.id='recruit-qr-img';img.style.width='220px';img.style.height='220px';}
+    },200);
+  }catch(e){
+    // Fallback to qrcode npm canvas variant
+    _drawRealQRCanvas(url,box);
+  }
+}
+
+function _drawRealQRCanvas(url,box){
+  // qrcode npm build — uses QRCode.toCanvas()
+  box.innerHTML='<canvas id="recruit-qr-canvas" width="220" height="220"></canvas>';
   var canvas=document.getElementById('recruit-qr-canvas');
-  if(!canvas)return;
-  var ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,200,200);
-  if(!url){if(label)label.textContent='Enter form URL on the left to generate QR';return;}
-  // Draw a placeholder styled block (real QR needs qrcode.js CDN)
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,200,200);
-  ctx.fillStyle='#0a1628';
-  // Draw simple grid pattern as placeholder
-  var modules=21,size=Math.floor(180/modules),off=10;
-  for(var r=0;r<modules;r++){for(var c=0;c<modules;c++){
-    if(r<7&&c<7){if(r===0||r===6||c===0||c===6||(r>=2&&r<=4&&c>=2&&c<=4)){ctx.fillRect(off+c*size,off+r*size,size-1,size-1);}
-    }else if(r<7&&c>modules-8){if(r===0||r===6||c===modules-7||c===modules-1||(r>=2&&r<=4&&c>=modules-5&&c<=modules-3)){ctx.fillRect(off+c*size,off+r*size,size-1,size-1);}
-    }else if(r>modules-8&&c<7){if(r===modules-7||r===modules-1||c===0||c===6||(r>=modules-5&&r<=modules-3&&c>=2&&c<=4)){ctx.fillRect(off+c*size,off+r*size,size-1,size-1);}
-    }else if(Math.random()>0.55){ctx.fillRect(off+c*size,off+r*size,size-1,size-1);}
-  }}
-  ctx.strokeStyle='#1565c0';ctx.lineWidth=3;ctx.strokeRect(1,1,198,198);
-  if(label){label.textContent=url.length>50?url.slice(0,47)+'…':url;}
-  // Note: for production, load qrcode.js from CDN and replace above with:
-  // QRCode.toCanvas(canvas, url, {width:200, margin:1});
+  if(typeof QRCode!=='undefined'&&QRCode.toCanvas){
+    QRCode.toCanvas(canvas,url,{width:220,margin:2,color:{dark:'#0a1628',light:'#ffffff'}},function(err){
+      if(err)console.error('QR render error',err);
+    });
+  }
 }
+
+function _getQRImageDataUrl(){
+  // Try canvas first, then img tag
+  var canvas=document.getElementById('recruit-qr-canvas');
+  if(canvas)return canvas.toDataURL('image/png');
+  var img=document.getElementById('recruit-qr-img');
+  if(img)return img.src;
+  // Last resort: get any img inside the qr box
+  var anyImg=document.querySelector('#recruit-qr-box img');
+  if(anyImg)return anyImg.src;
+  return null;
+}
+
 function recruitPrintQR(){
-  var canvas=document.getElementById('recruit-qr-canvas');if(!canvas)return;
-  var url=canvas.toDataURL();
-  var formUrl=document.getElementById('recruit-form-url').value||'';
+  var dataUrl=_getQRImageDataUrl();
+  var formUrl=(document.getElementById('recruit-form-url')||{}).value||'';
+  if(!dataUrl||!formUrl){alert('Please enter a form URL first to generate the QR code.');return;}
   var w=window.open('','_blank');
-  w.document.write('<html><head><title>HMB Application Form QR</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:40px}h2{color:#0a1628}p{font-size:13px;color:#666;margin-top:8px}</style></head><body><h2>HMB Tax Firm — Career Application</h2><img src="'+url+'" style="width:250px;height:250px"><p>Scan to apply: '+formUrl+'</p><p style="font-size:11px;color:#aaa;margin-top:20px">HMB Business Consultancy Services Corp.</p></body></html>');
-  w.document.close();w.print();
+  w.document.write(`<!DOCTYPE html>
+<html><head><title>HMB Tax Firm — Application QR Code</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+  .card{text-align:center;border:2px solid #0a1628;border-radius:16px;padding:32px 40px;max-width:380px;width:100%}
+  .logo{font-size:28px;font-weight:800;color:#0a1628;letter-spacing:1px;margin-bottom:4px}
+  .tagline{font-size:13px;color:#c9a84c;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px}
+  .qr-wrap{background:#fff;border:1px solid #dce3ec;border-radius:10px;display:inline-block;padding:12px;margin-bottom:18px}
+  .qr-wrap img{width:240px;height:240px;display:block}
+  h2{font-size:16px;color:#0a1628;font-weight:700;margin-bottom:6px}
+  .sub{font-size:12px;color:#6b7c93;line-height:1.6;margin-bottom:14px}
+  .url-box{background:#f0f4f8;border-radius:6px;padding:8px 12px;font-size:11px;color:#1565c0;word-break:break-all;font-family:monospace}
+  .footer{margin-top:16px;font-size:10px;color:#aab;padding-top:12px;border-top:1px solid #f0f4f8}
+  @media print{body{padding:0}.card{border:2px solid #0a1628;box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">HMB</div>
+  <div class="tagline">We're Hiring</div>
+  <div class="qr-wrap"><img src="${dataUrl}" alt="QR Code"></div>
+  <h2>Join Our Team</h2>
+  <div class="sub">Scan the QR code with your phone camera<br>to access the application form.</div>
+  <div class="url-box">${formUrl}</div>
+  <div class="footer">HMB Business Consultancy Services Corp.<br>Data collected in accordance with RA 10173 – Data Privacy Act</div>
+</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`);
+  w.document.close();
 }
+
 function recruitDownloadQR(){
-  var canvas=document.getElementById('recruit-qr-canvas');if(!canvas)return;
-  var a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='HMB_Application_QR.png';document.body.appendChild(a);a.click();document.body.removeChild(a);
+  var dataUrl=_getQRImageDataUrl();
+  var formUrl=(document.getElementById('recruit-form-url')||{}).value||'';
+  if(!dataUrl||!formUrl){alert('Please enter a form URL first to generate the QR code.');return;}
+  var a=document.createElement('a');
+  a.href=dataUrl;
+  a.download='HMB_Application_QR_Code.png';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
 // ─── EXPORT CSV ─
@@ -4506,6 +4608,81 @@ function initRecruitment(){
     renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();
     return rec;
   };
+
+  // ── REAL-TIME CROSS-TAB SYNC ──
+  // When hmb_apply.html writes to localStorage in another tab/window,
+  // this fires immediately and refreshes the HRIS recruitment panel.
+  window.addEventListener('storage',function(e){
+    if(e.key==='hmb_recruit_applicants'&&e.newValue){
+      try{
+        var incoming=JSON.parse(e.newValue);
+        // Only reload if count grew (new submission from form)
+        if(incoming.length>recruitApplicants.length){
+          recruitApplicants=incoming;
+          // Also reload logs and webhook logs for the new entry
+          var wl=localStorage.getItem('hmb_recruit_whlogs');if(wl)recruitWebhookLogs=JSON.parse(wl);
+          var pl=localStorage.getItem('hmb_recruit_logs');if(pl)recruitPipelineLogs=JSON.parse(pl);
+          // Refresh UI
+          renderRecruitDashboard();
+          renderApplicantList();
+          recruitUpdateNavBadge();
+          recruitRenderWebhookLogs();
+          // Flash a toast notification
+          recruitToast('🎯 New applicant received from application form!');
+        }
+      }catch(err){console.warn('Recruit storage sync error',err);}
+    }
+    // Also sync if the form wrote a pending_submission key (for same-tab fallback)
+    if(e.key==='hmb_recruit_pending'){
+      var ps=localStorage.getItem('hmb_recruit_pending');
+      if(ps){
+        try{var payload=JSON.parse(ps);recruitReceiveWebhook(payload,'Application Form');localStorage.removeItem('hmb_recruit_pending');renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();}
+        catch(err){}
+      }
+    }
+  });
+
+  // ── POLLING FALLBACK (every 8s) ──
+  // Catches submissions when HRIS and form are in the same tab or storage events are missed
+  var _recruitLastCount=recruitApplicants.length;
+  setInterval(function(){
+    try{
+      var raw=localStorage.getItem('hmb_recruit_applicants');
+      if(!raw)return;
+      var stored=JSON.parse(raw);
+      if(stored.length>_recruitLastCount){
+        _recruitLastCount=stored.length;
+        recruitApplicants=stored;
+        var wl=localStorage.getItem('hmb_recruit_whlogs');if(wl)recruitWebhookLogs=JSON.parse(wl);
+        var pl=localStorage.getItem('hmb_recruit_logs');if(pl)recruitPipelineLogs=JSON.parse(pl);
+        // Only refresh UI if recruitment section is active
+        var sec=document.getElementById('sec-recruitment');
+        if(sec&&sec.classList.contains('on')){
+          renderRecruitDashboard();renderApplicantList();recruitUpdateNavBadge();recruitRenderWebhookLogs();
+        } else {
+          recruitUpdateNavBadge();// always update badge
+        }
+        recruitToast('🎯 New applicant received!');
+      }
+    }catch(e){}
+  },8000);
+}
+
+// ── TOAST NOTIFICATION ──
+function recruitToast(msg){
+  var existing=document.getElementById('recruit-toast');
+  if(existing)existing.remove();
+  var t=document.createElement('div');
+  t.id='recruit-toast';
+  t.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;font-family:\'IBM Plex Sans\',sans-serif;box-shadow:0 4px 18px rgba(10,22,40,0.3);z-index:9999;display:flex;align-items:center;gap:10px;animation:slideUp .3s ease;border-left:4px solid var(--gold)';
+  t.innerHTML=msg+'<button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:16px;line-height:1;margin-left:8px">×</button>';
+  if(!document.getElementById('recruit-toast-style')){
+    var s=document.createElement('style');s.id='recruit-toast-style';
+    s.textContent='@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}';
+    document.head.appendChild(s);
+  }
+  document.body.appendChild(t);
+  setTimeout(function(){if(t.parentElement)t.remove();},5000);
 }
 
 // ==================== INIT ====================
