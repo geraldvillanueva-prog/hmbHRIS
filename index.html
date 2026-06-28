@@ -363,6 +363,27 @@ body{
 <!-- PAGE -->
 <div class="page">
 
+  <!-- ── SUPABASE CONFIG PANEL (shown when not configured) ── -->
+  <div id="cfg-panel" style="display:none;background:#fff3e0;border:2px solid #ffb74d;border-radius:10px;padding:18px 20px;margin-bottom:20px">
+    <div style="font-size:14px;font-weight:700;color:#e65100;margin-bottom:4px">⚙️ One-time Setup Required</div>
+    <div style="font-size:12.5px;color:#7b4a00;margin-bottom:14px;line-height:1.6">Enter your Supabase credentials to enable form submissions. Get these from <strong>supabase.com → your project → Settings → API</strong>.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="field"><label>Supabase Project URL</label><input id="cfg-supabase-url" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-family:'IBM Plex Mono',monospace;font-size:12px"></div>
+      <div class="field"><label>Supabase Anon / Public Key</label><input id="cfg-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIs…" style="font-family:'IBM Plex Mono',monospace;font-size:12px"></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button onclick="saveFormConfig()" style="background:#e65100;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:'IBM Plex Sans',sans-serif">💾 Save & Connect</button>
+      <div id="cfg-test-status" style="font-size:12px"></div>
+    </div>
+  </div>
+
+  <!-- ── CONNECTED BANNER ── -->
+  <div id="cfg-saved-banner" style="display:none;background:#e8f5e9;border:1.5px solid #a5d6a7;border-radius:8px;padding:10px 16px;margin-bottom:16px;align-items:center;gap:10px;font-size:12.5px;color:#2e7d32;flex-wrap:wrap">
+    <span style="font-weight:700">✅ Connected to Supabase</span>
+    <div id="cfg-test-status-banner" style="flex:1"></div>
+    <button onclick="document.getElementById('cfg-panel').style.display='block';document.getElementById('cfg-saved-banner').style.display='none'" style="background:none;border:1px solid #a5d6a7;border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer;color:#2e7d32">Change Config</button>
+  </div>
+
   <!-- PROGRESS -->
   <div class="progress-wrap">
     <div class="progress-label">
@@ -731,11 +752,256 @@ function validateForm(){
 // in the HRIS Recruitment module from any device.
 // ═══════════════════════════════════════════════════════════
 
-// ── SUPABASE CONFIG — paste your credentials here ──────────
-// Get these from: supabase.com → your project → Settings → API
-var SUPABASE_URL  = 'https://your-project.supabase.co'; // ← replace
-var SUPABASE_ANON = 'your-anon-public-key';             // ← replace
-// ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// HMB APPLY FORM — SUPABASE INTEGRATION
+// ═══════════════════════════════════════════════════════════
+
+// ── LOAD SUPABASE CONFIG from localStorage (set via HRIS or config panel) ──
+var SUPABASE_URL  = '';
+var SUPABASE_ANON = '';
+
+function loadSupabaseConfig(){
+  // Try HRIS-saved config first
+  try{
+    var cfg = localStorage.getItem('hmb_recruit_cfg');
+    if(cfg){
+      var c = JSON.parse(cfg);
+      if(c.supabaseUrl)  SUPABASE_URL  = c.supabaseUrl;
+      if(c.supabaseKey)  SUPABASE_ANON = c.supabaseKey;
+    }
+  }catch(e){}
+  // Override with form-local config if set
+  try{
+    var local = localStorage.getItem('hmb_form_cfg');
+    if(local){
+      var lc = JSON.parse(local);
+      if(lc.url)  SUPABASE_URL  = lc.url;
+      if(lc.key)  SUPABASE_ANON = lc.key;
+    }
+  }catch(e){}
+}
+
+function supabaseConfigured(){
+  return SUPABASE_URL &&
+         SUPABASE_ANON &&
+         !SUPABASE_URL.includes('your-project') &&
+         !SUPABASE_ANON.includes('your-anon');
+}
+
+// ── GENERATE APPLICANT CODE ──
+function genCode(){
+  var yr = new Date().getFullYear();
+  var seq = String(Math.floor(Math.random()*9000)+1000);
+  return 'APP-'+yr+'-'+seq;
+}
+
+// ── SAVE TO SUPABASE ──
+async function saveToSupabase(payload, resumeUrl){
+  if(!supabaseConfigured()){
+    throw new Error('Supabase not configured. Please enter your Supabase URL and Key in the configuration panel above and click Save.');
+  }
+  var code = genCode();
+  var rec = {
+    applicant_code:        code,
+    full_name:             payload.full_name,
+    address:               payload.address,
+    mobile_number:         payload.mobile_number,
+    email_address:         payload.email_address,
+    position_applied:      payload.position_applied,
+    expected_salary:       parseFloat(payload.expected_salary)||0,
+    company_name:          payload.company_name||null,
+    recent_position:       payload.recent_position||null,
+    current_salary:        parseFloat(payload.current_salary)||0,
+    employment_start:      payload.employment_start||null,
+    employment_end:        payload.employment_end||null,
+    years_experience:      payload.years_experience||null,
+    tools_proficient:      payload.tools_proficient||null,
+    key_strengths:         payload.key_strengths||null,
+    is_currently_employed: payload.is_currently_employed||null,
+    earliest_start_date:   payload.earliest_start_date||null,
+    other_applications:    payload.other_applications||null,
+    resume_url:            resumeUrl||null,
+    status:                'New Applicant',
+    source:                'Application Form (QR)'
+  };
+  var r;
+  try{
+    r = await fetch(SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/hmb_applicants', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        SUPABASE_ANON,
+        'Authorization': 'Bearer '+SUPABASE_ANON,
+        'Prefer':        'return=representation'
+      },
+      body: JSON.stringify(rec)
+    });
+  }catch(netErr){
+    throw new Error('Network error — could not reach Supabase. Check your internet connection. Detail: '+netErr.message);
+  }
+  if(!r.ok){
+    var errText = await r.text();
+    if(r.status===401||r.status===403)
+      throw new Error('Supabase key is invalid or expired (HTTP '+r.status+'). Check your Anon Key in the config panel.');
+    if(r.status===404)
+      throw new Error('Table "hmb_applicants" not found (HTTP 404). Run the SQL setup in your Supabase SQL Editor first.');
+    if(r.status===0)
+      throw new Error('Connection blocked — make sure your Supabase project is active and not paused.');
+    throw new Error('Supabase HTTP '+r.status+': '+errText.slice(0,200));
+  }
+  var rows = await r.json();
+  return rows[0] || rec;
+}
+
+// ── CLOUDINARY UPLOAD (optional) ──
+var CLOUDINARY_ENABLED = false;
+var CLOUD_NAME         = 'your_cloud_name';
+var UPLOAD_PRESET      = 'your_upload_preset';
+
+async function uploadResume(file){
+  if(CLOUDINARY_ENABLED && CLOUD_NAME !== 'your_cloud_name'){
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', UPLOAD_PRESET);
+    fd.append('folder','hmb-resumes');
+    var r = await fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/raw/upload',{method:'POST',body:fd});
+    if(!r.ok) throw new Error('Resume upload failed');
+    var d = await r.json();
+    return d.secure_url;
+  }
+  return '[Uploaded: '+file.name+']';
+}
+
+// ── CONFIG PANEL ──
+function saveFormConfig(){
+  var url = document.getElementById('cfg-supabase-url').value.trim().replace(/\/$/,'');
+  var key = document.getElementById('cfg-supabase-key').value.trim();
+  if(!url||!key){alert('Please enter both the Supabase URL and Anon Key.');return;}
+  try{
+    localStorage.setItem('hmb_form_cfg', JSON.stringify({url,key}));
+    SUPABASE_URL  = url;
+    SUPABASE_ANON = key;
+    document.getElementById('cfg-panel').style.display='none';
+    document.getElementById('cfg-saved-banner').style.display='flex';
+    setTimeout(function(){testSupabaseConnection();},300);
+  }catch(e){alert('Could not save config: '+e.message);}
+}
+
+async function testSupabaseConnection(){
+  var statusEl = document.getElementById('cfg-test-status');
+  if(!statusEl) return;
+  if(!supabaseConfigured()){statusEl.innerHTML='<span style="color:#c62828">❌ Not configured yet.</span>';return;}
+  statusEl.textContent='⏳ Testing connection…';
+  try{
+    var r = await fetch(SUPABASE_URL+'/rest/v1/hmb_applicants?limit=1',{
+      headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}
+    });
+    if(r.ok){
+      statusEl.innerHTML='<span style="color:#2e7d32">✅ Connected! Table found — ready to receive applications.</span>';
+    } else if(r.status===404){
+      statusEl.innerHTML='<span style="color:#e65100">⚠️ Table "hmb_applicants" not found (404). Run the SQL setup in Supabase first.</span>';
+    } else {
+      statusEl.innerHTML='<span style="color:#c62828">❌ HTTP '+r.status+' — check your Anon Key.</span>';
+    }
+  }catch(e){
+    statusEl.innerHTML='<span style="color:#c62828">❌ Cannot reach Supabase: '+e.message+'</span>';
+  }
+}
+
+// ── SUBMISSION HANDLER ──
+document.getElementById('apply-form').addEventListener('submit', async function(e){
+  e.preventDefault();
+  clearFieldErrors();
+  if(!validateForm()){
+    document.getElementById('error-banner').style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  document.getElementById('error-banner').style.display='none';
+
+  var btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  document.getElementById('submit-icon').textContent='⏳';
+  document.getElementById('submit-text').textContent='Submitting…';
+
+  try{
+    // 1) Upload resume
+    var resumeUrl = '';
+    var fileInput = document.getElementById('resume_file');
+    if(fileInput.files && fileInput.files[0]){
+      document.getElementById('submit-text').textContent='Uploading resume…';
+      resumeUrl = await uploadResume(fileInput.files[0]);
+    }
+
+    // 2) Build payload
+    var payload = {
+      full_name:            v('full_name'),
+      address:              v('address'),
+      mobile_number:        v('mobile_number'),
+      email_address:        v('email_address'),
+      position_applied:     v('position_applied'),
+      expected_salary:      parseFloat(v('expected_salary'))||0,
+      company_name:         v('company_name'),
+      recent_position:      v('recent_position'),
+      current_salary:       parseFloat(v('current_salary'))||0,
+      employment_start:     v('employment_start'),
+      employment_end:       v('employment_end'),
+      years_experience:     v('years_experience'),
+      tools_proficient:     v('tools_proficient'),
+      key_strengths:        v('key_strengths'),
+      is_currently_employed:(function(){var r=document.querySelector('input[name="is_currently_employed"]:checked');return r?r.value:'';}()),
+      earliest_start_date:  v('earliest_start_date'),
+      other_applications:   (function(){var r=document.querySelector('input[name="other_applications"]:checked');return r?r.value:'';}())
+    };
+
+    // 3) Save to Supabase
+    document.getElementById('submit-text').textContent='Saving application…';
+    var saved = await saveToSupabase(payload, resumeUrl);
+
+    // 4) Show success
+    document.getElementById('success-code').textContent = saved.applicant_code || genCode();
+    document.getElementById('apply-form').style.display='none';
+    document.getElementById('success-card').style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+
+  }catch(err){
+    console.error('Submission error:',err);
+    btn.disabled = false;
+    document.getElementById('submit-icon').textContent='📨';
+    document.getElementById('submit-text').textContent='Submit Application';
+    // Show detailed error
+    var errMsg = err.message||'Unknown error';
+    var banner = document.getElementById('error-banner');
+    banner.innerHTML = '❌ <strong>Submission failed:</strong> '+errMsg
+      +(errMsg.includes('not configured')||errMsg.includes('Supabase')
+        ? '<br><span style="font-weight:400;font-size:12px">Open the configuration panel at the top of this page and enter your Supabase credentials.</span>'
+        : '<br><span style="font-weight:400;font-size:12px">Please try again or contact hr@hmbconsultancy.ph</span>');
+    banner.style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+});
+
+function clearFieldErrors(){
+  document.querySelectorAll('.err').forEach(function(el){el.classList.remove('err');});
+  document.getElementById('upload-zone').style.borderColor='';
+}
+
+// ── LIVE PROGRESS UPDATE ──
+document.getElementById('apply-form').querySelectorAll('input,select,textarea').forEach(function(el){
+  el.addEventListener('input',updateProgress);
+  el.addEventListener('change',updateProgress);
+});
+
+// ── INIT ──
+loadSupabaseConfig();
+updateProgress();
+// Show config panel if not configured
+if(!supabaseConfigured()){
+  document.getElementById('cfg-panel').style.display='block';
+}else{
+  document.getElementById('cfg-saved-banner').style.display='flex';
+  setTimeout(testSupabaseConnection, 500);
+}
 
 // ── GENERATE APPLICANT CODE ──
 function genCode(){
