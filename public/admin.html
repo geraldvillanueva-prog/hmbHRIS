@@ -1184,12 +1184,18 @@ tr:hover td{background:#fafcff}
     <div id="recruit-itab-webhook" class="itab-sec">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="card">
-          <div class="card-title">Webhook Configuration</div>
-          <div class="infobox">The webhook receives POST submissions from your existing application form. Paste the snippet below into your form submit handler after the Supabase insert.</div>
-          <div class="f" style="margin-bottom:10px"><label>Application Form URL (for QR Code)</label><input id="recruit-form-url" placeholder="https://hmbtaxfirm.com/#careers" oninput="recruitGenQR()"></div>
-          <div class="f" style="margin-bottom:10px"><label>Webhook Secret Key</label><div style="display:flex;gap:6px"><input id="recruit-webhook-secret" placeholder="Click Generate" style="font-family:'IBM Plex Mono',monospace"><button class="btn bs bp" onclick="recruitGenSecret()">Generate</button></div></div>
-          <div class="f" style="margin-bottom:12px"><label>Webhook Endpoint</label><input id="recruit-webhook-url" value="/api/recruitment/webhook" style="font-family:'IBM Plex Mono',monospace;background:#f8fafc"></div>
-          <button class="btn bp" onclick="recruitSaveWebhookConfig()">Save Config</button><span id="webhook-ok" class="ok-msg">Saved!</span>
+          <div class="card-title">🔗 Supabase Connection</div>
+          <div class="infobox" style="background:#e8f5e9;border-left-color:var(--green);color:#1b5e20">Connect to Supabase so applicants submitting from <strong>any device</strong> appear here instantly. Get your credentials from your Supabase project → Settings → API.</div>
+          <div class="f" style="margin-bottom:10px"><label>Supabase Project URL <span style="color:var(--red)">*</span></label><input id="recruit-supabase-url" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-family:'IBM Plex Mono',monospace;font-size:12px"></div>
+          <div class="f" style="margin-bottom:10px"><label>Supabase Anon / Public Key <span style="color:var(--red)">*</span></label><input id="recruit-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="font-family:'IBM Plex Mono',monospace;font-size:12px"></div>
+          <div class="f" style="margin-bottom:12px"><label>Application Form URL (for QR Code)</label><input id="recruit-form-url" placeholder="https://geraldvillanueva-prog.github.io/HRISCareers" oninput="recruitGenQR()"></div>
+          <div class="f" style="margin-bottom:12px"><label>Webhook Secret Key (optional)</label><div style="display:flex;gap:6px"><input id="recruit-webhook-secret" placeholder="Click Generate" style="font-family:'IBM Plex Mono',monospace"><button class="btn bs bp" onclick="recruitGenSecret()">Generate</button></div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn bp" onclick="recruitSaveWebhookConfig()">💾 Save &amp; Connect</button>
+            <button class="btn bs bg" onclick="recruitManualRefresh()" style="background:#e8f5e9;color:var(--green);border-color:#a5d6a7">🔄 Refresh Now</button>
+            <span id="webhook-ok" class="ok-msg">✓ Saved!</span>
+          </div>
+          <div id="recruit-supabase-status" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
           <div style="margin-top:16px">
             <div class="card-title" style="font-size:12px">Form Integration Snippet</div>
             <div style="background:#f0f4f8;border-radius:6px;padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--navy);white-space:pre-wrap;line-height:1.7;overflow-x:auto" id="recruit-snippet">// Paste AFTER your Supabase insert in the form submit handler:
@@ -4013,8 +4019,86 @@ function recruitPositionNextId(){return recruitPositions.length?Math.max(...recr
 function recruitGenCode(id){var yr=new Date().getFullYear();var seq=String(id).padStart(4,'0');return'APP-'+yr+'-'+seq;}
 function recruitGenEmpId(){var yr=new Date().getFullYear();var hired=employees.filter(e=>e.recruitedFrom).length;return'HMB-'+yr+'-'+String(hired+1).padStart(3,'0');}
 
-// ─── SAVE/LOAD (localStorage for standalone; swap to api() for full server) ─
-function recruitSave(){try{localStorage.setItem('hmb_recruit_applicants',JSON.stringify(recruitApplicants));localStorage.setItem('hmb_recruit_positions',JSON.stringify(recruitPositions));localStorage.setItem('hmb_recruit_logs',JSON.stringify(recruitPipelineLogs));localStorage.setItem('hmb_recruit_interviews',JSON.stringify(recruitInterviews));localStorage.setItem('hmb_recruit_notes',JSON.stringify(recruitNotes));localStorage.setItem('hmb_recruit_whlogs',JSON.stringify(recruitWebhookLogs));localStorage.setItem('hmb_recruit_cfg',JSON.stringify(recruitWebhookCfg));}catch(e){}}
+// ─── SUPABASE CONFIG (set these in the Webhook/QR tab UI) ───────────────────
+var SUPABASE_URL = '';
+var SUPABASE_ANON_KEY = '';
+
+function recruitSupabaseReady(){
+  return SUPABASE_URL && SUPABASE_ANON_KEY &&
+         SUPABASE_URL !== 'https://your-project.supabase.co';
+}
+
+async function recruitSupabaseGet(table, params){
+  var url = SUPABASE_URL+'/rest/v1/'+table+'?order=created_at.desc&limit=500';
+  if(params) url += '&'+params;
+  var r = await fetch(url, {
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json'
+    }
+  });
+  if(!r.ok) throw new Error('Supabase GET failed: '+r.status);
+  return r.json();
+}
+
+async function recruitSupabasePost(table, body){
+  var r = await fetch(SUPABASE_URL+'/rest/v1/'+table, {
+    method:'POST',
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){var t=await r.text();throw new Error('Supabase POST failed: '+t);}
+  return r.json();
+}
+
+async function recruitSupabasePatch(table, id, body){
+  var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+id, {
+    method:'PATCH',
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){var t=await r.text();throw new Error('Supabase PATCH failed: '+t);}
+  return r.json();
+}
+
+async function recruitSupabaseDelete(table, id){
+  var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+id, {
+    method:'DELETE',
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer '+SUPABASE_ANON_KEY
+    }
+  });
+  if(!r.ok) throw new Error('Supabase DELETE failed: '+r.status);
+  return true;
+}
+
+// ─── SAVE/LOAD ── (localStorage for non-applicant data; Supabase for applicants)
+function recruitSave(){
+  try{
+    // Positions, interviews, notes, logs, config stay in localStorage (HRIS-only data)
+    localStorage.setItem('hmb_recruit_positions',JSON.stringify(recruitPositions));
+    localStorage.setItem('hmb_recruit_interviews',JSON.stringify(recruitInterviews));
+    localStorage.setItem('hmb_recruit_notes',JSON.stringify(recruitNotes));
+    localStorage.setItem('hmb_recruit_logs',JSON.stringify(recruitPipelineLogs));
+    localStorage.setItem('hmb_recruit_whlogs',JSON.stringify(recruitWebhookLogs));
+    localStorage.setItem('hmb_recruit_cfg',JSON.stringify(recruitWebhookCfg));
+    // Applicants also cached locally for offline use
+    localStorage.setItem('hmb_recruit_applicants',JSON.stringify(recruitApplicants));
+  }catch(e){}
+}
+
 function recruitLoad(){
   try{
     var a=localStorage.getItem('hmb_recruit_applicants');if(a)recruitApplicants=JSON.parse(a);
@@ -4023,16 +4107,71 @@ function recruitLoad(){
     var i=localStorage.getItem('hmb_recruit_interviews');if(i)recruitInterviews=JSON.parse(i);
     var n=localStorage.getItem('hmb_recruit_notes');if(n)recruitNotes=JSON.parse(n);
     var w=localStorage.getItem('hmb_recruit_whlogs');if(w)recruitWebhookLogs=JSON.parse(w);
-    var c=localStorage.getItem('hmb_recruit_cfg');if(c){recruitWebhookCfg=JSON.parse(c);var el=document.getElementById('recruit-form-url');if(el&&recruitWebhookCfg.formUrl)el.value=recruitWebhookCfg.formUrl;var sel=document.getElementById('recruit-webhook-secret');if(sel&&recruitWebhookCfg.secret)sel.value=recruitWebhookCfg.secret;}
+    var c=localStorage.getItem('hmb_recruit_cfg');
+    if(c){
+      recruitWebhookCfg=JSON.parse(c);
+      // Restore Supabase credentials from saved config
+      if(recruitWebhookCfg.supabaseUrl) SUPABASE_URL=recruitWebhookCfg.supabaseUrl;
+      if(recruitWebhookCfg.supabaseKey) SUPABASE_ANON_KEY=recruitWebhookCfg.supabaseKey;
+      var el=document.getElementById('recruit-form-url');if(el&&recruitWebhookCfg.formUrl)el.value=recruitWebhookCfg.formUrl;
+      var sel=document.getElementById('recruit-webhook-secret');if(sel&&recruitWebhookCfg.secret)sel.value=recruitWebhookCfg.secret;
+      var su=document.getElementById('recruit-supabase-url');if(su&&recruitWebhookCfg.supabaseUrl)su.value=recruitWebhookCfg.supabaseUrl;
+      var sk=document.getElementById('recruit-supabase-key');if(sk&&recruitWebhookCfg.supabaseKey)sk.value=recruitWebhookCfg.supabaseKey;
+    }
   }catch(e){}
 }
 
-// ─── WEBHOOK SIMULATION (called by server when POST /api/recruitment/webhook) ─
-// In production this is called by server.js; here it's also exposed so the
-// existing form can POST directly and admin can simulate receipt.
+// ─── FETCH FROM SUPABASE (replaces localStorage read for applicants) ──────────
+async function recruitFetchFromSupabase(){
+  if(!recruitSupabaseReady()) return false;
+  try{
+    var rows = await recruitSupabaseGet('hmb_applicants');
+    // Map Supabase snake_case rows to the frontend object shape
+    recruitApplicants = rows.map(function(r){
+      return {
+        id: r.id,
+        applicant_code: r.applicant_code||'',
+        full_name: r.full_name||'',
+        address: r.address||'',
+        mobile_number: r.mobile_number||'',
+        email_address: r.email_address||'',
+        position_applied: r.position_applied||'',
+        expected_salary: parseFloat(r.expected_salary)||0,
+        company_name: r.company_name||'',
+        recent_position: r.recent_position||'',
+        current_salary: parseFloat(r.current_salary)||0,
+        employment_start: r.employment_start||'',
+        employment_end: r.employment_end||'',
+        years_experience: r.years_experience||'',
+        tools_proficient: r.tools_proficient||'',
+        key_strengths: r.key_strengths||'',
+        is_currently_employed: r.is_currently_employed||'',
+        earliest_start_date: r.earliest_start_date||'',
+        other_applications: r.other_applications||'',
+        resume_url: r.resume_url||'',
+        status: r.status||'New Applicant',
+        source: r.source||'Application Form (QR)',
+        rejection_reason: r.rejection_reason||'',
+        offer_salary: r.offer_salary||null,
+        offer_start_date: r.offer_start_date||null,
+        employee_id: r.employee_id||null,
+        employee_code: r.employee_code||'',
+        created_at: r.created_at||new Date().toISOString(),
+        updated_at: r.updated_at||new Date().toISOString()
+      };
+    });
+    // Cache locally
+    localStorage.setItem('hmb_recruit_applicants',JSON.stringify(recruitApplicants));
+    return true;
+  }catch(e){
+    console.warn('Supabase fetch failed, using local cache:',e.message);
+    return false;
+  }
+}
+
+// ─── RECEIVE/CREATE APPLICANT ─────────────────────────────────────────────────
 function recruitReceiveWebhook(payload, source){
   source = source || 'QR Form';
-  // Duplicate check (same email + position within 90 days)
   var ninety=90*24*60*60*1000;
   var dup=recruitApplicants.find(function(a){
     return a.email_address===payload.email_address &&
@@ -4044,9 +4183,11 @@ function recruitReceiveWebhook(payload, source){
     recruitWebhookLogs.unshift({ts:new Date().toISOString(),msg:'⚠️ Duplicate blocked: '+payload.full_name+' ('+payload.email_address+')',type:'warn'});
     recruitSave();recruitRenderWebhookLogs();return null;
   }
-  var id=recruitNextId();
+  var id=recruitApplicants.length?Math.max.apply(null,recruitApplicants.map(function(a){return a.id;}))+1:1;
+  var yr=new Date().getFullYear();
+  var code='APP-'+yr+'-'+String(id).padStart(4,'0');
   var rec={
-    id,applicant_code:recruitGenCode(id),
+    id,applicant_code:code,
     full_name:payload.full_name||'',address:payload.address||'',
     mobile_number:payload.mobile_number||'',email_address:payload.email_address||'',
     position_applied:payload.position_applied||'',expected_salary:parseFloat(payload.expected_salary)||0,
@@ -4070,14 +4211,12 @@ function recruitReceiveWebhook(payload, source){
   return rec;
 }
 
-// ─── STATUS UPDATE ─
+// ─── STATUS UPDATE (writes to Supabase if configured) ────────────────────────
 async function recruitUpdateStatus(){
   var a=recruitApplicants.find(x=>x.id===currentApplicantId);if(!a)return;
   var newStatus=document.getElementById('pd-new-status').value;
   if(newStatus===a.status)return;
-  // Validate rejection reason
   if(newStatus==='Rejected'){var reason=document.getElementById('pd-reject-reason').value.trim();if(!reason){alert('Please enter a rejection reason.');return;}a.rejection_reason=reason;}
-  // Capture offer details
   if(newStatus==='Job Offer'||newStatus==='Hired'){
     var ofSal=parseFloat(document.getElementById('pd-offer-sal').value)||null;
     var ofStart=document.getElementById('pd-offer-start').value||null;
@@ -4087,47 +4226,86 @@ async function recruitUpdateStatus(){
   var old=a.status;
   a.status=newStatus;
   a.updated_at=new Date().toISOString();
-  // Log transition
   recruitPipelineLogs.unshift({id:Date.now(),applicant_id:a.id,from_status:old,to_status:newStatus,changed_by:'HR',notes:'',timestamp:new Date().toISOString()});
-  // Auto-convert to employee on Hired
+
+  // Save to Supabase if configured
+  if(recruitSupabaseReady()){
+    try{
+      await recruitSupabasePatch('hmb_applicants', a.id, {
+        status: newStatus,
+        rejection_reason: a.rejection_reason||null,
+        offer_salary: a.offer_salary||null,
+        offer_start_date: a.offer_start_date||null,
+        updated_at: a.updated_at
+      });
+    }catch(e){console.warn('Supabase status update failed:',e.message);}
+  }
+
   if(newStatus==='Hired'){await recruitConvertToEmployee(a);}
   recruitSave();
   recruitUpdateNavBadge();
   renderApplicantList();
   renderRecruitDashboard();
-  openPdDrawer(a.id);// refresh drawer
+  openPdDrawer(a.id);
 }
 
-// ─── HIRE CONVERSION ─
+// ─── HIRE CONVERSION ─────────────────────────────────────────────────────────
 async function recruitConvertToEmployee(a){
   var empId=recruitGenEmpId();
   var newEmp={
-    id:nextId++,
-    name:a.full_name,pos:a.recent_position||a.position_applied,dept:'',
+    id:nextId++,name:a.full_name,pos:a.recent_position||a.position_applied,dept:'',
     type:'Probationary',start:a.offer_start_date||new Date().toISOString().slice(0,10),
     bank:'',email:a.email_address,mobile:a.mobile_number,emergency:'',
     smb:a.offer_salary||0,sss:0,phic:0,hdmf:0,mpl:0,dm:0,load:0,wht:0,
     vlBal:15,slBal:15,tin:'',address:a.address,
     loc_policy:'office',loc_lat:null,loc_lng:null,loc_radius:300,loc_wfh_days:null,
-    payslipNote:'',
-    recruitedFrom:a.id,hireDate:a.offer_start_date||new Date().toISOString().slice(0,10),
+    payslipNote:'',recruitedFrom:a.id,
+    hireDate:a.offer_start_date||new Date().toISOString().slice(0,10),
     employeeCode:empId
   };
-  // Save to HRIS employees (try API, fallback to local array)
-  try{
-    var r=await api('POST','/api/employees',[...employees,newEmp]);
-    if(r&&r.success){}
-  }catch(e){}
+  try{await api('POST','/api/employees',[...employees,newEmp]);}catch(e){}
   employees.push(newEmp);
-  a.employee_id=newEmp.id;
-  a.employee_code=empId;
-  recruitPipelineLogs.unshift({id:Date.now()+1,applicant_id:a.id,from_status:'Job Offer',to_status:'Hired',changed_by:'System',notes:'Employee ID '+empId+' created. Employee Record initialized.',timestamp:new Date().toISOString()});
-  renderEmpTable&&renderEmpTable();
-  populateAllSelects&&populateAllSelects();
-  showSaveIndicator&&showSaveIndicator();
-  alert('✅ Applicant converted to employee!\n\nEmployee ID: '+empId+'\nName: '+a.full_name+'\n\nEmployee record has been created and added to the system. You can now configure payroll, attendance, and evaluation.');
+  a.employee_id=newEmp.id;a.employee_code=empId;
+  // Update Supabase
+  if(recruitSupabaseReady()){
+    try{await recruitSupabasePatch('hmb_applicants',a.id,{employee_id:newEmp.id,employee_code:empId,status:'Hired'});}catch(e){}
+  }
+  recruitPipelineLogs.unshift({id:Date.now()+1,applicant_id:a.id,from_status:'Job Offer',to_status:'Hired',changed_by:'System',notes:'Employee ID '+empId+' created.',timestamp:new Date().toISOString()});
+  renderEmpTable&&renderEmpTable();populateAllSelects&&populateAllSelects();showSaveIndicator&&showSaveIndicator();
+  alert('✅ Applicant converted to employee!\n\nEmployee ID: '+empId+'\nName: '+a.full_name+'\n\nEmployee record created and added to the HRIS.');
 }
 
+// ─── WEBHOOK CONFIG SAVE ─────────────────────────────────────────────────────
+function recruitSaveWebhookConfig(){
+  recruitWebhookCfg.formUrl=document.getElementById('recruit-form-url').value;
+  recruitWebhookCfg.secret=document.getElementById('recruit-webhook-secret').value;
+  recruitWebhookCfg.webhookUrl=(document.getElementById('recruit-webhook-url')||{}).value||'/api/recruitment/webhook';
+  recruitWebhookCfg.supabaseUrl=document.getElementById('recruit-supabase-url').value.trim().replace(/\/$/,'');
+  recruitWebhookCfg.supabaseKey=document.getElementById('recruit-supabase-key').value.trim();
+  SUPABASE_URL=recruitWebhookCfg.supabaseUrl;
+  SUPABASE_ANON_KEY=recruitWebhookCfg.supabaseKey;
+  recruitSave();flash('webhook-ok');
+  // Immediately fetch from Supabase if credentials were just set
+  if(recruitSupabaseReady()){
+    recruitFetchFromSupabase().then(function(ok){
+      if(ok){renderRecruitDashboard();renderApplicantList();recruitUpdateNavBadge();recruitToast('✅ Connected to Supabase! Applicants loaded.');}
+    });
+  }
+}
+
+// ─── DELETE APPLICANT ─────────────────────────────────────────────────────────
+async function recruitDeleteApplicant(){
+  if(!currentApplicantId)return;
+  if(!confirm('Permanently delete this applicant record?'))return;
+  if(recruitSupabaseReady()){
+    try{await recruitSupabaseDelete('hmb_applicants',currentApplicantId);}catch(e){console.warn('Supabase delete failed:',e.message);}
+  }
+  recruitApplicants=recruitApplicants.filter(a=>a.id!==currentApplicantId);
+  recruitPipelineLogs=recruitPipelineLogs.filter(l=>l.applicant_id!==currentApplicantId);
+  recruitInterviews=recruitInterviews.filter(i=>i.applicant_id!==currentApplicantId);
+  recruitNotes=recruitNotes.filter(n=>n.applicant_id!==currentApplicantId);
+  recruitSave();closePdDrawer();renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();
+}
 // ─── APPLICANT LIST RENDER ─
 function renderApplicantList(){
   var status=document.getElementById('recruit-filter-status')?document.getElementById('recruit-filter-status').value:'';
@@ -4408,16 +4586,6 @@ function renderPositionsList(){
 function recruitTogglePos(id){var p=recruitPositions.find(x=>x.id===id);if(!p)return;p.is_active=p.is_active?0:1;recruitSave();renderPositionsList();}
 function recruitDelPos(id){if(!confirm('Delete this position?'))return;recruitPositions=recruitPositions.filter(p=>p.id!==id);recruitSave();renderPositionsList();}
 
-// ─── WEBHOOK CONFIG ─
-function recruitSaveWebhookConfig(){
-  recruitWebhookCfg.formUrl=document.getElementById('recruit-form-url').value;
-  recruitWebhookCfg.secret=document.getElementById('recruit-webhook-secret').value;
-  recruitWebhookCfg.webhookUrl=document.getElementById('recruit-webhook-url').value;
-  recruitSave();flash('webhook-ok');
-  // Update snippet
-  var snip=document.getElementById('recruit-snippet');
-  if(snip)snip.textContent=snip.textContent.replace("'YOUR_SECRET_KEY'",'\''+recruitWebhookCfg.secret+'\'');
-}
 function recruitGenSecret(){
   var chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   var secret=Array.from({length:32},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
@@ -4587,9 +4755,26 @@ function recruitUpdateNavBadge(){
   if(badge){badge.style.display=newCount>0?'inline-flex':'none';badge.textContent=newCount;}
 }
 
+// ─── MANUAL REFRESH ─
+async function recruitManualRefresh(){
+  var statusEl=document.getElementById('recruit-supabase-status');
+  if(!recruitSupabaseReady()){
+    if(statusEl)statusEl.innerHTML='<span style="color:var(--red)">❌ Enter your Supabase URL and key first, then click Save & Connect.</span>';
+    return;
+  }
+  if(statusEl)statusEl.textContent='⏳ Fetching from Supabase…';
+  var ok=await recruitFetchFromSupabase();
+  if(ok){
+    renderRecruitDashboard();renderApplicantList();recruitUpdateNavBadge();
+    if(statusEl)statusEl.innerHTML='<span style="color:var(--green)">✅ Synced — '+recruitApplicants.length+' applicant(s) loaded at '+new Date().toLocaleTimeString('en-PH')+'</span>';
+  }else{
+    if(statusEl)statusEl.innerHTML='<span style="color:var(--red)">❌ Connection failed. Check your Supabase URL and key.</span>';
+  }
+}
+
 // ─── INIT RECRUITMENT ─
-function initRecruitment(){
-  recruitLoad();
+async function initRecruitment(){
+  recruitLoad();// Load from localStorage first (instant, works offline)
   renderRecruitDashboard();
   renderApplicantList();
   renderPositionsList();
@@ -4602,72 +4787,42 @@ function initRecruitment(){
   if(ws&&recruitWebhookCfg.secret)ws.value=recruitWebhookCfg.secret;
   var wu=document.getElementById('recruit-webhook-url');
   if(wu&&recruitWebhookCfg.webhookUrl)wu.value=recruitWebhookCfg.webhookUrl;
-  // Expose global webhook receiver (called by server.js or form)
+  var su=document.getElementById('recruit-supabase-url');
+  if(su&&recruitWebhookCfg.supabaseUrl)su.value=recruitWebhookCfg.supabaseUrl;
+  var sk=document.getElementById('recruit-supabase-key');
+  if(sk&&recruitWebhookCfg.supabaseKey)sk.value=recruitWebhookCfg.supabaseKey;
+
+  // Fetch live data from Supabase if configured
+  if(recruitSupabaseReady()){
+    var ok=await recruitFetchFromSupabase();
+    if(ok){
+      renderRecruitDashboard();
+      renderApplicantList();
+      recruitUpdateNavBadge();
+    }
+  }
+
+  // Auto-refresh from Supabase every 30 seconds (catches new form submissions)
+  setInterval(async function(){
+    if(!recruitSupabaseReady())return;
+    var prevCount=recruitApplicants.length;
+    var ok=await recruitFetchFromSupabase();
+    if(ok&&recruitApplicants.length>prevCount){
+      renderRecruitDashboard();
+      var sec=document.getElementById('sec-recruitment');
+      if(sec&&sec.classList.contains('on'))renderApplicantList();
+      recruitUpdateNavBadge();
+      recruitToast('🎯 '+(recruitApplicants.length-prevCount)+' new applicant(s) received!');
+    }
+  },30000);
+
+  // Expose global webhook receiver
   window.hmbRecruitWebhook=function(payload,source){
     var rec=recruitReceiveWebhook(payload,source);
     renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();
     return rec;
   };
-
-  // ── REAL-TIME CROSS-TAB SYNC ──
-  // When hmb_apply.html writes to localStorage in another tab/window,
-  // this fires immediately and refreshes the HRIS recruitment panel.
-  window.addEventListener('storage',function(e){
-    if(e.key==='hmb_recruit_applicants'&&e.newValue){
-      try{
-        var incoming=JSON.parse(e.newValue);
-        // Only reload if count grew (new submission from form)
-        if(incoming.length>recruitApplicants.length){
-          recruitApplicants=incoming;
-          // Also reload logs and webhook logs for the new entry
-          var wl=localStorage.getItem('hmb_recruit_whlogs');if(wl)recruitWebhookLogs=JSON.parse(wl);
-          var pl=localStorage.getItem('hmb_recruit_logs');if(pl)recruitPipelineLogs=JSON.parse(pl);
-          // Refresh UI
-          renderRecruitDashboard();
-          renderApplicantList();
-          recruitUpdateNavBadge();
-          recruitRenderWebhookLogs();
-          // Flash a toast notification
-          recruitToast('🎯 New applicant received from application form!');
-        }
-      }catch(err){console.warn('Recruit storage sync error',err);}
-    }
-    // Also sync if the form wrote a pending_submission key (for same-tab fallback)
-    if(e.key==='hmb_recruit_pending'){
-      var ps=localStorage.getItem('hmb_recruit_pending');
-      if(ps){
-        try{var payload=JSON.parse(ps);recruitReceiveWebhook(payload,'Application Form');localStorage.removeItem('hmb_recruit_pending');renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();}
-        catch(err){}
-      }
-    }
-  });
-
-  // ── POLLING FALLBACK (every 8s) ──
-  // Catches submissions when HRIS and form are in the same tab or storage events are missed
-  var _recruitLastCount=recruitApplicants.length;
-  setInterval(function(){
-    try{
-      var raw=localStorage.getItem('hmb_recruit_applicants');
-      if(!raw)return;
-      var stored=JSON.parse(raw);
-      if(stored.length>_recruitLastCount){
-        _recruitLastCount=stored.length;
-        recruitApplicants=stored;
-        var wl=localStorage.getItem('hmb_recruit_whlogs');if(wl)recruitWebhookLogs=JSON.parse(wl);
-        var pl=localStorage.getItem('hmb_recruit_logs');if(pl)recruitPipelineLogs=JSON.parse(pl);
-        // Only refresh UI if recruitment section is active
-        var sec=document.getElementById('sec-recruitment');
-        if(sec&&sec.classList.contains('on')){
-          renderRecruitDashboard();renderApplicantList();recruitUpdateNavBadge();recruitRenderWebhookLogs();
-        } else {
-          recruitUpdateNavBadge();// always update badge
-        }
-        recruitToast('🎯 New applicant received!');
-      }
-    }catch(e){}
-  },8000);
 }
-
 // ── TOAST NOTIFICATION ──
 function recruitToast(msg){
   var existing=document.getElementById('recruit-toast');
