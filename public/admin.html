@@ -1111,28 +1111,26 @@ tr:hover td{background:#fafcff}
     </div>
   </div>
 
-  </div><!-- end content -->
-</div><!-- end main -->
 
   <!-- RECRUITMENT / ATS MODULE -->
-  <div id="sec-recruitment" class="sec" style="display:none">
-    <div class="page-title">🎯 Recruitment & Applicant Tracking</div>
-    <div class="page-sub">Manage applicants from application to hiring — integrated with Employee Records, Payroll, and Attendance</div>
+  <div id="sec-recruitment" class="sec">
+    <div class="page-title">&#127919; Recruitment &amp; Applicant Tracking</div>
+    <div class="page-sub">Manage applicants from application to hiring &#8212; integrated with Employee Records, Payroll, and Attendance</div>
     <div id="recruit-kpi" class="metrics" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))"></div>
     <div class="inner-tabs">
-      <button class="itab on" onclick="goITab('recruit','dashboard',this)">📊 Dashboard</button>
-      <button class="itab" onclick="goITab('recruit','applicants',this)">👤 Applicants</button>
-      <button class="itab" onclick="goITab('recruit','add',this)">➕ Add Applicant</button>
-      <button class="itab" onclick="goITab('recruit','positions',this)">💼 Job Positions</button>
-      <button class="itab" onclick="goITab('recruit','webhook',this)">🔗 Webhook / QR</button>
+      <button class="itab on" onclick="goITab('recruit','dashboard',this)">&#128202; Dashboard</button>
+      <button class="itab" onclick="goITab('recruit','applicants',this)">&#128100; Applicants</button>
+      <button class="itab" onclick="goITab('recruit','add',this)">&#10133; Add Applicant</button>
+      <button class="itab" onclick="goITab('recruit','positions',this)">&#128188; Job Positions</button>
+      <button class="itab" onclick="goITab('recruit','webhook',this)">&#128279; Webhook / QR</button>
     </div>
     <div id="recruit-itab-dashboard" class="itab-sec on">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-        <div class="card"><div class="card-title">📋 Pipeline Overview</div><div class="recruit-kanban" id="recruit-kanban"></div></div>
-        <div class="card"><div class="card-title">🕐 Recent Activity</div><div id="recruit-activity" style="max-height:320px;overflow-y:auto"></div></div>
+        <div class="card"><div class="card-title">Pipeline Overview</div><div class="recruit-kanban" id="recruit-kanban"></div></div>
+        <div class="card"><div class="card-title">Recent Activity</div><div id="recruit-activity" style="max-height:320px;overflow-y:auto"></div></div>
       </div>
       <div class="card" style="margin-top:0">
-        <div class="card-title" style="justify-content:space-between;display:flex"><span>📈 Applicants by Position</span><button class="btn bs" onclick="recruitExportCSV()">⬇ Export CSV</button></div>
+        <div class="card-title" style="justify-content:space-between;display:flex"><span>Applicants by Position</span><button class="btn bs" onclick="recruitExportCSV()">Export CSV</button></div>
         <div id="recruit-pos-summary"></div>
       </div>
     </div>
@@ -1141,59 +1139,60 @@ tr:hover td{background:#fafcff}
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div class="f" style="max-width:200px"><label>Status</label><select id="recruit-filter-status" onchange="renderApplicantList()"><option value="">All Statuses</option><option>New Applicant</option><option>Screening</option><option>Initial Interview</option><option>Final Interview</option><option>For Approval</option><option>Job Offer</option><option>Hired</option><option>Rejected</option></select></div>
           <div class="f" style="max-width:200px"><label>Position</label><select id="recruit-filter-pos" onchange="renderApplicantList()"><option value="">All Positions</option></select></div>
-          <div class="f" style="max-width:220px"><label>Search</label><input id="recruit-search" oninput="renderApplicantList()" placeholder="Name or email…"></div>
-          <button class="btn bs bp" style="align-self:flex-end" onclick="recruitExportCSV()">⬇ Export</button>
+          <div class="f" style="max-width:220px"><label>Search</label><input id="recruit-search" oninput="renderApplicantList()" placeholder="Name or email"></div>
+          <button class="btn bs bp" style="align-self:flex-end" onclick="recruitExportCSV()">Export</button>
         </div>
       </div>
-      <div id="recruit-applicant-list"><div class="empty">Loading applicants…</div></div>
+      <div id="recruit-applicant-list"><div class="empty">No applicants yet.</div></div>
     </div>
     <div id="recruit-itab-add" class="itab-sec">
       <div class="card">
-        <div class="card-title">➕ Add Applicant Manually</div>
-        <div class="infobox">This form mirrors the public QR application form. Use for walk-in or referred applicants. Source recorded as "Internal Entry".</div>
+        <div class="card-title">Add Applicant Manually</div>
+        <div class="infobox">This form mirrors the public QR application form. Use for walk-in or referred applicants. Source will be recorded as "Internal Entry".</div>
         <div class="row"><div class="f"><label>Full Name *</label><input id="ra-name" placeholder="Last, First MI"></div><div class="f"><label>Position Applied *</label><input id="ra-position" placeholder="e.g. Tax Associate"></div></div>
         <div class="row"><div class="f"><label>Mobile Number *</label><input id="ra-mobile" placeholder="09XX-XXX-XXXX"></div><div class="f"><label>Email Address *</label><input id="ra-email" type="email"></div></div>
-        <div class="row"><div class="f"><label>Address *</label><input id="ra-address"></div><div class="f" style="max-width:200px"><label>Expected Salary (₱/mo) *</label><input id="ra-salary" type="number"></div></div>
+        <div class="row"><div class="f"><label>Address *</label><input id="ra-address"></div><div class="f" style="max-width:200px"><label>Expected Salary (PHP/mo) *</label><input id="ra-salary" type="number"></div></div>
         <div style="font-size:12px;font-weight:700;color:var(--blue);margin:10px 0 6px">Most Recent Employment</div>
-        <div class="row"><div class="f"><label>Company Name</label><input id="ra-company"></div><div class="f"><label>Position / Title</label><input id="ra-prev-pos"></div><div class="f" style="max-width:150px"><label>Salary (₱)</label><input id="ra-curr-sal" type="number"></div></div>
+        <div class="row"><div class="f"><label>Company Name</label><input id="ra-company"></div><div class="f"><label>Position / Title</label><input id="ra-prev-pos"></div><div class="f" style="max-width:150px"><label>Salary (PHP)</label><input id="ra-curr-sal" type="number"></div></div>
         <div class="row"><div class="f" style="max-width:180px"><label>Start (MM/YYYY)</label><input id="ra-emp-start" placeholder="01/2022"></div><div class="f" style="max-width:220px"><label>End (MM/YYYY or Present)</label><input id="ra-emp-end" placeholder="Present"></div></div>
         <div style="font-size:12px;font-weight:700;color:var(--blue);margin:10px 0 6px">Screening Questions</div>
         <div class="row"><div class="f"><label>Years of Experience</label><input id="ra-exp" placeholder="e.g. 3 years"></div><div class="f"><label>Currently Employed?</label><select id="ra-employed"><option>Yes</option><option>No</option></select></div><div class="f"><label>Earliest Start if Hired</label><input id="ra-startdate" placeholder="Immediately"></div></div>
         <div class="row"><div class="f"><label>Tools / Software Proficient</label><input id="ra-tools" placeholder="e.g. MS Office, eBIR Forms"></div><div class="f"><label>Other Job Applications?</label><input id="ra-otherapps" placeholder="Yes / No"></div></div>
         <div class="row"><div class="f"><label>Key Strengths</label><textarea id="ra-strengths" rows="2"></textarea></div></div>
-        <div class="row"><div class="f"><label>Resume URL (Google Drive / Dropbox / Cloudinary)</label><input id="ra-resume" type="url" placeholder="https://…"></div></div>
+        <div class="row"><div class="f"><label>Resume URL (Google Drive / Cloudinary)</label><input id="ra-resume" type="url" placeholder="https://"></div></div>
         <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
-          <button class="btn bp" onclick="recruitAddManual()">💾 Save Applicant</button>
-          <span id="ra-ok" class="ok-msg">✓ Saved!</span>
+          <button class="btn bp" onclick="recruitAddManual()">Save Applicant</button>
+          <span id="ra-ok" class="ok-msg">Saved!</span>
           <span id="ra-err" style="font-size:12px;color:var(--red);display:none"></span>
         </div>
       </div>
     </div>
     <div id="recruit-itab-positions" class="itab-sec">
       <div class="card">
-        <div class="card-title">➕ Add Job Position</div>
+        <div class="card-title">Add Job Position</div>
         <div class="row">
           <div class="f"><label>Position Title *</label><input id="rp-title" placeholder="e.g. Tax Associate"></div>
           <div class="f" style="max-width:180px"><label>Department</label><input id="rp-dept" placeholder="Tax Services"></div>
-          <div class="f" style="max-width:140px"><label>Min Salary (₱)</label><input id="rp-min" type="number"></div>
-          <div class="f" style="max-width:140px"><label>Max Salary (₱)</label><input id="rp-max" type="number"></div>
+          <div class="f" style="max-width:140px"><label>Min Salary (PHP)</label><input id="rp-min" type="number"></div>
+          <div class="f" style="max-width:140px"><label>Max Salary (PHP)</label><input id="rp-max" type="number"></div>
           <div class="f" style="max-width:100px"><label>Headcount</label><input id="rp-hc" type="number" value="1" min="1"></div>
         </div>
-        <div style="display:flex;gap:10px;align-items:center"><button class="btn bp" onclick="recruitAddPosition()">+ Add Position</button><span id="rp-ok" class="ok-msg">✓ Saved!</span></div>
+        <div style="display:flex;gap:10px;align-items:center"><button class="btn bp" onclick="recruitAddPosition()">+ Add Position</button><span id="rp-ok" class="ok-msg">Saved!</span></div>
       </div>
       <div id="recruit-positions-list"><div class="empty">No positions added yet.</div></div>
     </div>
     <div id="recruit-itab-webhook" class="itab-sec">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="card">
-          <div class="card-title">🔗 Webhook Configuration</div>
-          <div class="infobox">The webhook endpoint receives POST submissions from your existing public application form. Add this call at the end of your form's submit handler after the Supabase insert succeeds.</div>
+          <div class="card-title">Webhook Configuration</div>
+          <div class="infobox">The webhook receives POST submissions from your existing application form. Paste the snippet below into your form submit handler after the Supabase insert.</div>
           <div class="f" style="margin-bottom:10px"><label>Application Form URL (for QR Code)</label><input id="recruit-form-url" placeholder="https://hmbtaxfirm.com/#careers" oninput="recruitGenQR()"></div>
-          <div class="f" style="margin-bottom:10px"><label>Webhook Secret Key</label><div style="display:flex;gap:6px"><input id="recruit-webhook-secret" placeholder="Click Generate →" style="font-family:'IBM Plex Mono',monospace"><button class="btn bs bp" onclick="recruitGenSecret()">Generate</button></div></div>
+          <div class="f" style="margin-bottom:10px"><label>Webhook Secret Key</label><div style="display:flex;gap:6px"><input id="recruit-webhook-secret" placeholder="Click Generate" style="font-family:'IBM Plex Mono',monospace"><button class="btn bs bp" onclick="recruitGenSecret()">Generate</button></div></div>
           <div class="f" style="margin-bottom:12px"><label>Webhook Endpoint</label><input id="recruit-webhook-url" value="/api/recruitment/webhook" style="font-family:'IBM Plex Mono',monospace;background:#f8fafc"></div>
-          <button class="btn bp" onclick="recruitSaveWebhookConfig()">💾 Save Config</button><span id="webhook-ok" class="ok-msg">✓ Saved!</span>
-          <div style="margin-top:16px"><div class="card-title" style="font-size:12px">📋 Form Integration Code Snippet</div>
-          <div style="background:#f0f4f8;border-radius:6px;padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--navy);white-space:pre-wrap;line-height:1.7;overflow-x:auto" id="recruit-snippet">// Paste this AFTER your Supabase insert in the form submit handler:
+          <button class="btn bp" onclick="recruitSaveWebhookConfig()">Save Config</button><span id="webhook-ok" class="ok-msg">Saved!</span>
+          <div style="margin-top:16px">
+            <div class="card-title" style="font-size:12px">Form Integration Snippet</div>
+            <div style="background:#f0f4f8;border-radius:6px;padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--navy);white-space:pre-wrap;line-height:1.7;overflow-x:auto" id="recruit-snippet">// Paste AFTER your Supabase insert in the form submit handler:
 await fetch('/api/recruitment/webhook', {
   method: 'POST',
   headers: {
@@ -1207,31 +1206,21 @@ await fetch('/api/recruitment/webhook', {
     email_address: formData.email_address,
     position_applied: formData.position_applied,
     expected_salary: formData.expected_salary,
-    company_name: formData.company_name,
-    recent_position: formData.recent_position,
-    current_salary: formData.current_salary,
-    employment_start: formData.employment_start,
-    employment_end: formData.employment_end,
-    years_experience: formData.years_experience,
-    tools_proficient: formData.tools_proficient,
-    key_strengths: formData.key_strengths,
-    is_currently_employed: formData.is_currently_employed,
-    earliest_start_date: formData.earliest_start_date,
-    other_applications: formData.other_applications,
-    resume_url: formData.resume_url // Cloudinary URL
+    resume_url: formData.resume_url
   })
-});</div></div>
-          <div style="margin-top:12px"><div class="card-title" style="font-size:12px">📊 Recent Webhook Activity</div><div id="recruit-webhook-log" style="max-height:180px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)"><div style="padding:8px 0">No webhook activity yet.</div></div></div>
+});</div>
+          </div>
+          <div style="margin-top:12px"><div class="card-title" style="font-size:12px">Recent Webhook Activity</div><div id="recruit-webhook-log" style="max-height:160px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)"><div style="padding:8px 0">No activity yet.</div></div></div>
         </div>
         <div class="card">
-          <div class="card-title">📱 Application Form QR Code</div>
-          <div class="infobox">This QR code points to your existing application form. The form itself is <strong>not changed</strong> — this just makes the link scannable for printing or sharing.</div>
+          <div class="card-title">Application Form QR Code</div>
+          <div class="infobox">This QR code points to your existing application form. The form itself is unchanged.</div>
           <div class="qr-display">
             <div class="qr-box" id="recruit-qr-box"><canvas id="recruit-qr-canvas" width="200" height="200"></canvas></div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:10px" id="recruit-qr-url-label">Enter form URL on the left to generate QR</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px" id="recruit-qr-url-label">Enter form URL to generate QR</div>
             <div style="display:flex;gap:8px;justify-content:center">
-              <button class="btn bs bp" onclick="recruitPrintQR()">🖨 Print QR</button>
-              <button class="btn bs" onclick="recruitDownloadQR()">⬇ Download PNG</button>
+              <button class="btn bs bp" onclick="recruitPrintQR()">Print QR</button>
+              <button class="btn bs" onclick="recruitDownloadQR()">Download PNG</button>
             </div>
           </div>
         </div>
@@ -1243,53 +1232,57 @@ await fetch('/api/recruitment/webhook', {
   <div id="recruit-profile-drawer" class="profile-drawer">
     <div class="pd-header">
       <div id="pd-avatar" class="appl-avatar" style="width:48px;height:48px;font-size:16px">?</div>
-      <div style="flex:1"><div class="appl-name" id="pd-name">—</div><div class="appl-pos" id="pd-pos">—</div></div>
-      <button onclick="closePdDrawer()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;padding:4px 8px">×</button>
+      <div style="flex:1"><div class="appl-name" id="pd-name">&#8212;</div><div class="appl-pos" id="pd-pos">&#8212;</div></div>
+      <button onclick="closePdDrawer()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;padding:4px 8px">&#215;</button>
     </div>
     <div class="pd-body">
       <div class="pd-section">
         <div class="pd-section-title">Pipeline Status</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-          <span id="pd-status-badge" class="badge">—</span>
-          <select id="pd-new-status" style="flex:1;min-width:160px"><option>New Applicant</option><option>Screening</option><option>Initial Interview</option><option>Final Interview</option><option>For Approval</option><option>Job Offer</option><option>Hired</option><option>Rejected</option></select>
-          <button class="btn bs bp" onclick="recruitUpdateStatus()">✓ Update</button>
+          <span id="pd-status-badge" class="badge">&#8212;</span>
+          <select id="pd-new-status" style="flex:1;min-width:160px">
+            <option>New Applicant</option><option>Screening</option><option>Initial Interview</option>
+            <option>Final Interview</option><option>For Approval</option><option>Job Offer</option>
+            <option>Hired</option><option>Rejected</option>
+          </select>
+          <button class="btn bs bp" onclick="recruitUpdateStatus()">Update</button>
         </div>
         <div id="pd-reject-row" style="display:none"><div class="f" style="margin-bottom:8px"><label>Rejection Reason (required)</label><input id="pd-reject-reason" placeholder="e.g. Salary expectations too high"></div></div>
-        <div id="pd-offer-row" style="display:none"><div class="row"><div class="f"><label>Offered Salary (₱/mo)</label><input id="pd-offer-sal" type="number"></div><div class="f"><label>Proposed Start Date</label><input id="pd-offer-start" type="date"></div></div></div>
-        <div id="pd-hire-row" style="display:none" class="warnbox">⚠️ Setting to <strong>Hired</strong> will automatically generate an Employee ID and create Employee, Payroll & Attendance records. Fill Offer fields first. This cannot be undone.</div>
+        <div id="pd-offer-row" style="display:none"><div class="row"><div class="f"><label>Offered Salary (PHP/mo)</label><input id="pd-offer-sal" type="number"></div><div class="f"><label>Proposed Start Date</label><input id="pd-offer-start" type="date"></div></div></div>
+        <div id="pd-hire-row" style="display:none" class="warnbox">Setting to Hired will automatically generate an Employee ID and create Employee, Payroll and Attendance records. Fill Offer fields first.</div>
       </div>
       <div class="pd-section">
         <div class="pd-section-title">Personal Information</div>
-        <div class="pd-row"><span class="pd-label">Applicant Code</span><span class="pd-val" id="pd-code">—</span></div>
-        <div class="pd-row"><span class="pd-label">Mobile</span><span class="pd-val" id="pd-mobile">—</span></div>
-        <div class="pd-row"><span class="pd-label">Email</span><span class="pd-val" id="pd-email">—</span></div>
-        <div class="pd-row"><span class="pd-label">Address</span><span class="pd-val" id="pd-address">—</span></div>
-        <div class="pd-row"><span class="pd-label">Expected Salary</span><span class="pd-val" id="pd-exp-sal">—</span></div>
-        <div class="pd-row"><span class="pd-label">Date Applied</span><span class="pd-val" id="pd-date">—</span></div>
-        <div class="pd-row"><span class="pd-label">Source</span><span class="pd-val" id="pd-source">—</span></div>
-        <div class="pd-row"><span class="pd-label">Resume</span><span class="pd-val" id="pd-resume">—</span></div>
+        <div class="pd-row"><span class="pd-label">Applicant Code</span><span class="pd-val" id="pd-code">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Mobile</span><span class="pd-val" id="pd-mobile">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Email</span><span class="pd-val" id="pd-email">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Address</span><span class="pd-val" id="pd-address">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Expected Salary</span><span class="pd-val" id="pd-exp-sal">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Date Applied</span><span class="pd-val" id="pd-date">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Source</span><span class="pd-val" id="pd-source">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Resume</span><span class="pd-val" id="pd-resume">&#8212;</span></div>
       </div>
       <div class="pd-section">
         <div class="pd-section-title">Most Recent Employment</div>
-        <div class="pd-row"><span class="pd-label">Company</span><span class="pd-val" id="pd-company">—</span></div>
-        <div class="pd-row"><span class="pd-label">Position</span><span class="pd-val" id="pd-prev-pos">—</span></div>
-        <div class="pd-row"><span class="pd-label">Salary</span><span class="pd-val" id="pd-curr-sal">—</span></div>
-        <div class="pd-row"><span class="pd-label">Period</span><span class="pd-val" id="pd-emp-period">—</span></div>
+        <div class="pd-row"><span class="pd-label">Company</span><span class="pd-val" id="pd-company">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Position</span><span class="pd-val" id="pd-prev-pos">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Salary</span><span class="pd-val" id="pd-curr-sal">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Period</span><span class="pd-val" id="pd-emp-period">&#8212;</span></div>
       </div>
       <div class="pd-section">
         <div class="pd-section-title">Screening Responses</div>
-        <div class="pd-row"><span class="pd-label">Years Experience</span><span class="pd-val" id="pd-exp">—</span></div>
-        <div class="pd-row"><span class="pd-label">Tools / Software</span><span class="pd-val" id="pd-tools">—</span></div>
-        <div class="pd-row"><span class="pd-label">Key Strengths</span><span class="pd-val" id="pd-strengths">—</span></div>
-        <div class="pd-row"><span class="pd-label">Currently Employed</span><span class="pd-val" id="pd-cur-emp">—</span></div>
-        <div class="pd-row"><span class="pd-label">Earliest Start</span><span class="pd-val" id="pd-earliest">—</span></div>
-        <div class="pd-row"><span class="pd-label">Other Applications</span><span class="pd-val" id="pd-otherapps">—</span></div>
+        <div class="pd-row"><span class="pd-label">Years Experience</span><span class="pd-val" id="pd-exp">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Tools / Software</span><span class="pd-val" id="pd-tools">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Key Strengths</span><span class="pd-val" id="pd-strengths">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Currently Employed</span><span class="pd-val" id="pd-cur-emp">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Earliest Start</span><span class="pd-val" id="pd-earliest">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Other Applications</span><span class="pd-val" id="pd-otherapps">&#8212;</span></div>
       </div>
       <div class="pd-section" id="pd-offer-details-section" style="display:none">
         <div class="pd-section-title">Job Offer / Hire Details</div>
-        <div class="pd-row"><span class="pd-label">Offered Salary</span><span class="pd-val" id="pd-off-sal">—</span></div>
-        <div class="pd-row"><span class="pd-label">Start Date</span><span class="pd-val" id="pd-off-start">—</span></div>
-        <div class="pd-row"><span class="pd-label">Employee ID (if hired)</span><span class="pd-val" id="pd-emp-id">—</span></div>
+        <div class="pd-row"><span class="pd-label">Offered Salary</span><span class="pd-val" id="pd-off-sal">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Start Date</span><span class="pd-val" id="pd-off-start">&#8212;</span></div>
+        <div class="pd-row"><span class="pd-label">Employee ID</span><span class="pd-val" id="pd-emp-id">&#8212;</span></div>
       </div>
       <div class="pd-section">
         <div class="pd-section-title">Pipeline History</div>
@@ -1301,25 +1294,28 @@ await fetch('/api/recruitment/webhook', {
         <div style="margin-top:10px">
           <div class="row">
             <div class="f" style="max-width:180px"><label>Stage</label><select id="pd-int-stage"><option>Initial Interview</option><option>Final Interview</option></select></div>
-            <div class="f" style="max-width:80px"><label>Rating (1–5)</label><input id="pd-int-rating" type="number" min="1" max="5" placeholder="4"></div>
+            <div class="f" style="max-width:80px"><label>Rating (1-5)</label><input id="pd-int-rating" type="number" min="1" max="5" placeholder="4"></div>
             <div class="f" style="max-width:160px"><label>Date</label><input id="pd-int-date" type="date"></div>
           </div>
-          <div class="row"><div class="f"><label>Feedback / Notes</label><textarea id="pd-int-feedback" rows="2" placeholder="Observations…"></textarea></div></div>
-          <div class="row"><div class="f" style="max-width:180px"><label>Recommendation</label><select id="pd-int-rec"><option>Advance</option><option>Hold</option><option>Reject</option></select></div><button class="btn bs bp" style="align-self:flex-end" onclick="recruitSaveInterview()">💾 Save</button></div>
+          <div class="row"><div class="f"><label>Feedback / Notes</label><textarea id="pd-int-feedback" rows="2" placeholder="Observations"></textarea></div></div>
+          <div class="row"><div class="f" style="max-width:180px"><label>Recommendation</label><select id="pd-int-rec"><option>Advance</option><option>Hold</option><option>Reject</option></select></div><button class="btn bs bp" style="align-self:flex-end" onclick="recruitSaveInterview()">Save Interview</button></div>
         </div>
       </div>
       <div class="pd-section">
         <div class="pd-section-title">Internal Notes</div>
         <div id="pd-notes-feed" style="max-height:180px;overflow-y:auto;margin-bottom:8px"></div>
-        <div style="display:flex;gap:6px"><input id="pd-note-input" placeholder="Add a note…" style="flex:1" onkeydown="if(event.key==='Enter')recruitSaveNote()"><button class="btn bs bp" onclick="recruitSaveNote()">Post</button></div>
+        <div style="display:flex;gap:6px"><input id="pd-note-input" placeholder="Add a note..." style="flex:1" onkeydown="if(event.key==='Enter')recruitSaveNote()"><button class="btn bs bp" onclick="recruitSaveNote()">Post</button></div>
       </div>
       <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--border)">
-        <button class="btn br" onclick="recruitDeleteApplicant()" style="font-size:12px">🗑 Delete Record</button>
+        <button class="btn br" onclick="recruitDeleteApplicant()" style="font-size:12px">Delete Record</button>
         <button class="btn bs" onclick="closePdDrawer()" style="margin-left:auto">Close</button>
       </div>
     </div>
   </div>
   <div id="pd-overlay" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,.3);z-index:499" onclick="closePdDrawer()"></div>
+
+  </div><!-- end content -->
+</div><!-- end main -->
 
   <!-- LOCATION POLICIES SECTION -->
   <div id="sec-location" class="sec">
