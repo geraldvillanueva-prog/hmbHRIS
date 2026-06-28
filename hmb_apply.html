@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HMB Tax Firm — Career Application</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0a1628;
+  --blue:#1565c0;
+  --blue2:#1976d2;
+  --gold:#c9a84c;
+  --gold-light:#f5e6b8;
+  --bg:#f0f4f8;
+  --card:#fff;
+  --border:#dce3ec;
+  --text:#1a2332;
+  --muted:#6b7c93;
+  --green:#2e7d32;
+  --red:#c62828;
+  --accent:#00b4d8;
+  --radius:10px;
+}
+
+body{
+  font-family:'IBM Plex Sans',sans-serif;
+  font-size:14px;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  padding:0;
+}
+
+/* ── HEADER ── */
+.site-header{
+  background:var(--navy);
+  padding:0;
+  position:sticky;
+  top:0;
+  z-index:100;
+  box-shadow:0 2px 12px rgba(10,22,40,0.3);
+}
+.header-inner{
+  max-width:720px;
+  margin:0 auto;
+  padding:18px 24px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+}
+.logo-box{
+  width:44px;height:44px;
+  background:var(--gold);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:16px;color:var(--navy);
+  letter-spacing:0.5px;
+  flex-shrink:0;
+}
+.header-text{}
+.header-brand{font-size:17px;font-weight:700;color:#fff;letter-spacing:0.2px}
+.header-tag{font-size:10px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-top:2px}
+
+/* ── HERO BANNER ── */
+.hero{
+  background:linear-gradient(135deg,var(--navy) 0%,#1a3a6e 60%,#1565c0 100%);
+  padding:48px 24px 40px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.hero::before{
+  content:'';
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at 70% 50%, rgba(201,168,76,0.10) 0%, transparent 60%);
+  pointer-events:none;
+}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(201,168,76,0.15);
+  border:1px solid rgba(201,168,76,0.35);
+  border-radius:20px;
+  padding:5px 14px;
+  font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--gold);font-family:'IBM Plex Mono',monospace;
+  margin-bottom:18px;
+}
+.hero-title{
+  font-size:clamp(24px,5vw,36px);
+  font-weight:700;color:#fff;
+  line-height:1.2;
+  margin-bottom:14px;
+  letter-spacing:-0.3px;
+}
+.hero-title span{color:var(--gold)}
+.hero-sub{
+  font-size:14.5px;color:rgba(255,255,255,0.75);
+  line-height:1.7;max-width:480px;margin:0 auto;
+}
+
+/* ── MAIN LAYOUT ── */
+.page{max-width:720px;margin:0 auto;padding:32px 16px 60px;}
+
+/* ── PROGRESS BAR ── */
+.progress-wrap{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 20px;margin-bottom:24px;
+  box-shadow:0 1px 4px rgba(10,22,40,0.06);
+}
+.progress-label{
+  display:flex;justify-content:space-between;
+  font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;
+  margin-bottom:10px;
+}
+.progress-steps{display:flex;gap:6px}
+.ps{
+  flex:1;height:4px;border-radius:2px;
+  background:var(--border);transition:background .3s;
+}
+.ps.done{background:var(--gold)}
+.ps.active{background:var(--blue)}
+
+/* ── SECTION CARDS ── */
+.form-section{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  margin-bottom:16px;
+  overflow:hidden;
+  box-shadow:0 1px 4px rgba(10,22,40,0.05);
+  transition:box-shadow .2s;
+}
+.form-section:focus-within{box-shadow:0 2px 12px rgba(21,101,192,0.10);border-color:#b3c8f0}
+
+.sec-header{
+  padding:16px 20px 14px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+  background:#fafcff;
+}
+.sec-number{
+  width:28px;height:28px;border-radius:50%;
+  background:var(--navy);color:#fff;
+  font-size:12px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-family:'IBM Plex Mono',monospace;
+}
+.sec-title{font-size:14px;font-weight:700;color:var(--navy)}
+.sec-subtitle{font-size:11.5px;color:var(--muted);margin-top:2px}
+
+.sec-body{padding:20px}
+
+/* ── FORM FIELDS ── */
+.field-grid{display:grid;gap:14px}
+.field-grid.col2{grid-template-columns:1fr 1fr}
+.field-grid.col3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:560px){
+  .field-grid.col2,.field-grid.col3{grid-template-columns:1fr}
+}
+
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{
+  font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;
+}
+.field label .req{color:var(--red);margin-left:2px}
+.field input,.field select,.field textarea{
+  font-family:'IBM Plex Sans',sans-serif;
+  font-size:13.5px;
+  padding:10px 13px;
+  border:1.5px solid var(--border);
+  border-radius:7px;
+  background:#fff;
+  color:var(--text);
+  width:100%;
+  transition:border-color .15s,box-shadow .15s;
+  -webkit-appearance:none;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  outline:none;
+  border-color:var(--blue);
+  box-shadow:0 0 0 3px rgba(21,101,192,0.10);
+}
+.field input.err,.field select.err,.field textarea.err{
+  border-color:var(--red);
+  box-shadow:0 0 0 3px rgba(198,40,40,0.08);
+}
+.field textarea{resize:vertical;min-height:80px;line-height:1.5}
+.field .hint{font-size:11px;color:var(--muted);margin-top:2px}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7c93' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+
+/* ── DIVIDER WITHIN SECTION ── */
+.subsec-label{
+  font-size:11px;font-weight:700;color:var(--blue);
+  text-transform:uppercase;letter-spacing:.08em;
+  margin:18px 0 12px;
+  display:flex;align-items:center;gap:8px;
+}
+.subsec-label::before{content:'';flex:0 0 3px;height:14px;background:var(--gold);border-radius:2px}
+
+/* ── SCREENING ITEM ── */
+.screen-item{
+  padding:14px 0;
+  border-bottom:1px solid #f0f4f8;
+}
+.screen-item:last-child{border-bottom:none;padding-bottom:0}
+.screen-q{
+  font-size:13px;font-weight:600;color:var(--navy);
+  margin-bottom:8px;
+  display:flex;align-items:flex-start;gap:8px;
+}
+.screen-qn{
+  background:var(--gold);color:var(--navy);
+  width:20px;height:20px;border-radius:50%;
+  font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-top:1px;
+}
+
+/* ── RESUME UPLOAD ── */
+.upload-zone{
+  border:2px dashed var(--border);
+  border-radius:10px;
+  padding:28px 20px;
+  text-align:center;
+  cursor:pointer;
+  transition:all .2s;
+  background:#fafcff;
+  position:relative;
+}
+.upload-zone:hover,.upload-zone.dragover{
+  border-color:var(--blue);
+  background:#e8f0fe;
+}
+.upload-zone input[type=file]{
+  position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;
+}
+.upload-icon{font-size:32px;margin-bottom:10px}
+.upload-title{font-size:14px;font-weight:600;color:var(--navy);margin-bottom:4px}
+.upload-sub{font-size:12px;color:var(--muted)}
+.upload-preview{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;
+  background:#e8f5e9;border:1.5px solid #a5d6a7;border-radius:8px;
+  margin-top:10px;font-size:13px;color:var(--green);font-weight:600;
+}
+.upload-preview .remove-file{
+  margin-left:auto;background:none;border:none;
+  color:var(--red);cursor:pointer;font-size:16px;line-height:1;
+}
+
+/* ── PRIVACY CONSENT ── */
+.consent-box{
+  background:#fffbf0;
+  border:1.5px solid #f5e6b8;
+  border-radius:10px;
+  padding:20px;
+  margin-bottom:8px;
+}
+.consent-text{
+  font-size:12.5px;color:#5a4a1c;
+  line-height:1.7;font-style:italic;
+  margin-bottom:14px;
+}
+.consent-check{
+  display:flex;align-items:flex-start;gap:12px;
+  cursor:pointer;
+}
+.consent-check input[type=checkbox]{
+  width:18px;height:18px;
+  border:2px solid var(--border);border-radius:4px;
+  cursor:pointer;flex-shrink:0;margin-top:1px;
+  accent-color:var(--navy);
+}
+.consent-check-label{
+  font-size:13px;color:var(--text);line-height:1.55;font-weight:500;
+}
+
+/* ── SUBMIT BUTTON ── */
+.submit-wrap{
+  margin-top:24px;
+  text-align:center;
+}
+.btn-submit{
+  background:var(--navy);
+  color:#fff;
+  border:none;
+  border-radius:8px;
+  padding:15px 40px;
+  font-size:15px;font-weight:700;
+  font-family:'IBM Plex Sans',sans-serif;
+  cursor:pointer;
+  transition:all .2s;
+  display:inline-flex;align-items:center;gap:10px;
+  letter-spacing:0.2px;
+  box-shadow:0 4px 14px rgba(10,22,40,0.25);
+  min-width:200px;justify-content:center;
+}
+.btn-submit:hover{background:var(--blue);box-shadow:0 6px 20px rgba(21,101,192,0.35);transform:translateY(-1px)}
+.btn-submit:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.submit-note{font-size:12px;color:var(--muted);margin-top:10px}
+
+/* ── SUCCESS STATE ── */
+.success-card{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:48px 32px;text-align:center;
+  box-shadow:0 2px 12px rgba(10,22,40,0.06);
+  display:none;
+}
+.success-icon{font-size:52px;margin-bottom:16px}
+.success-title{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:10px}
+.success-sub{font-size:14px;color:var(--muted);line-height:1.6;max-width:400px;margin:0 auto}
+.success-code{
+  display:inline-block;
+  background:#f0f4f8;
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:6px 16px;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:14px;font-weight:700;color:var(--navy);
+  margin:16px 0 8px;letter-spacing:1px;
+}
+
+/* ── ERROR BANNER ── */
+.error-banner{
+  background:#ffebee;border:1.5px solid #ef9a9a;border-radius:8px;
+  padding:12px 16px;margin-bottom:16px;
+  font-size:13px;color:var(--red);font-weight:600;
+  display:none;
+}
+
+/* ── FOOTER ── */
+.form-footer{
+  text-align:center;padding-top:32px;
+  font-size:11.5px;color:var(--muted);line-height:1.8;
+}
+.form-footer a{color:var(--blue);text-decoration:none}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="header-inner">
+    <div class="logo-box">HMB</div>
+    <div class="header-text">
+      <div class="header-brand">HMB Tax Firm</div>
+      <div class="header-tag">Career Application</div>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">🎯 We're Hiring</div>
+  <div class="hero-title">Join the <span>HMB</span> Team</div>
+  <div class="hero-sub">Thank you for your interest in joining our team! Please complete the form below and upload your updated resume. Qualified applicants will be contacted for the next stage of the recruitment process.</div>
+</div>
+
+<!-- PAGE -->
+<div class="page">
+
+  <!-- PROGRESS -->
+  <div class="progress-wrap">
+    <div class="progress-label">
+      <span id="progress-text">Step 1 of 4 — Personal Information</span>
+      <span id="progress-pct">0% complete</span>
+    </div>
+    <div class="progress-steps">
+      <div class="ps active" id="ps1"></div>
+      <div class="ps" id="ps2"></div>
+      <div class="ps" id="ps3"></div>
+      <div class="ps" id="ps4"></div>
+    </div>
+  </div>
+
+  <!-- ERROR BANNER -->
+  <div class="error-banner" id="error-banner">Please fill in all required fields before submitting.</div>
+
+  <form id="apply-form" novalidate>
+
+    <!-- SECTION 1: PERSONAL INFO -->
+    <div class="form-section">
+      <div class="sec-header">
+        <div class="sec-number">1</div>
+        <div>
+          <div class="sec-title">Personal Information</div>
+          <div class="sec-subtitle">Your contact details for the recruitment process</div>
+        </div>
+      </div>
+      <div class="sec-body">
+        <div class="field-grid">
+          <div class="field">
+            <label>Full Name <span class="req">*</span></label>
+            <input type="text" id="full_name" name="full_name" placeholder="Last Name, First Name M.I." required>
+            <div class="hint">e.g. Santos, Maria C.</div>
+          </div>
+          <div class="field">
+            <label>Current Address <span class="req">*</span></label>
+            <input type="text" id="address" name="address" placeholder="City, Province" required>
+          </div>
+        </div>
+        <div class="field-grid col2" style="margin-top:14px">
+          <div class="field">
+            <label>Active Mobile Number <span class="req">*</span></label>
+            <input type="tel" id="mobile_number" name="mobile_number" placeholder="09XX-XXX-XXXX" required>
+          </div>
+          <div class="field">
+            <label>Active Email Address <span class="req">*</span></label>
+            <input type="email" id="email_address" name="email_address" placeholder="yourname@email.com" required>
+          </div>
+        </div>
+        <div class="field-grid col2" style="margin-top:14px">
+          <div class="field">
+            <label>Position Applied For <span class="req">*</span></label>
+            <select id="position_applied" name="position_applied" required>
+              <option value="">— Select Position —</option>
+              <option>Tax Associate</option>
+              <option>Senior Tax Consultant</option>
+              <option>Bookkeeper</option>
+              <option>Audit Associate</option>
+              <option>Payroll Specialist</option>
+              <option>Business Consultant</option>
+              <option>Administrative Assistant</option>
+              <option>IT Staff</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Expected Monthly Salary (₱) <span class="req">*</span></label>
+            <input type="number" id="expected_salary" name="expected_salary" placeholder="e.g. 25000" min="0" required>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: EMPLOYMENT HISTORY -->
+    <div class="form-section">
+      <div class="sec-header">
+        <div class="sec-number">2</div>
+        <div>
+          <div class="sec-title">Current / Most Recent Employment</div>
+          <div class="sec-subtitle">Tell us about where you currently or most recently worked</div>
+        </div>
+      </div>
+      <div class="sec-body">
+        <div class="field-grid col2">
+          <div class="field">
+            <label>Company Name</label>
+            <input type="text" id="company_name" name="company_name" placeholder="e.g. ABC Accounting Firm">
+          </div>
+          <div class="field">
+            <label>Position / Job Title</label>
+            <input type="text" id="recent_position" name="recent_position" placeholder="e.g. Junior Tax Associate">
+          </div>
+        </div>
+        <div class="field-grid col3" style="margin-top:14px">
+          <div class="field">
+            <label>Current / Last Salary (₱)</label>
+            <input type="number" id="current_salary" name="current_salary" placeholder="e.g. 20000" min="0">
+          </div>
+          <div class="field">
+            <label>Start Date</label>
+            <input type="text" id="employment_start" name="employment_start" placeholder="MM/YYYY (e.g. 06/2021)">
+          </div>
+          <div class="field">
+            <label>End Date</label>
+            <input type="text" id="employment_end" name="employment_end" placeholder='MM/YYYY or "Present"'>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 3: SCREENING QUESTIONS -->
+    <div class="form-section">
+      <div class="sec-header">
+        <div class="sec-number">3</div>
+        <div>
+          <div class="sec-title">Basic Screening Questions</div>
+          <div class="sec-subtitle">Help us understand your background and availability</div>
+        </div>
+      </div>
+      <div class="sec-body">
+
+        <div class="screen-item">
+          <div class="screen-q"><span class="screen-qn">1</span>How many years of experience do you have related to this position?</div>
+          <div class="field">
+            <select id="years_experience" name="years_experience">
+              <option value="">— Select —</option>
+              <option>Less than 1 year</option>
+              <option>1 year</option>
+              <option>2 years</option>
+              <option>3 years</option>
+              <option>4 years</option>
+              <option>5 years</option>
+              <option>6–8 years</option>
+              <option>9–12 years</option>
+              <option>More than 12 years</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="screen-item">
+          <div class="screen-q"><span class="screen-qn">2</span>What software, tools, or systems are you proficient in?</div>
+          <div class="field">
+            <textarea id="tools_proficient" name="tools_proficient" rows="2" placeholder="e.g. MS Office, eBIR Forms, QuickBooks, SAP, Xero, AutoCount, etc."></textarea>
+          </div>
+        </div>
+
+        <div class="screen-item">
+          <div class="screen-q"><span class="screen-qn">3</span>What are your key strengths relevant to the role?</div>
+          <div class="field">
+            <textarea id="key_strengths" name="key_strengths" rows="2" placeholder="e.g. Attention to detail, tax compliance, client communication, ability to meet deadlines…"></textarea>
+          </div>
+        </div>
+
+        <div class="screen-item">
+          <div class="screen-q"><span class="screen-qn">4</span>Are you currently employed?</div>
+          <div class="field">
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13.5px;font-weight:500;padding:8px 16px;border:1.5px solid var(--border);border-radius:7px;transition:all .15s" id="emp-yes-lbl">
+                <input type="radio" name="is_currently_employed" id="emp-yes" value="Yes" style="accent-color:var(--navy);width:16px;height:16px"> Yes, currently employed
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13.5px;font-weight:500;padding:8px 16px;border:1.5px solid var(--border);border-radius:7px;transition:all .15s" id="emp-no-lbl">
+                <input type="radio" name="is_currently_employed" id="emp-no" value="No" style="accent-color:var(--navy);width:16px;height:16px"> No, not currently employed
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen-item">
+          <div class="screen-q"><span class="screen-qn">5</span>How soon can you start if selected?</div>
+          <div class="field">
+            <select id="earliest_start_date" name="earliest_start_date">
+              <option value="">— Select —</option>
+              <option>Immediately (within 1 week)</option>
+              <option>2 weeks notice</option>
+              <option>1 month notice</option>
+              <option>More than 1 month</option>
+              <option>Still negotiating with current employer</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="screen-item">
+          <div class="screen-q"><span class="screen-qn">6</span>Do you have ongoing job applications with other employers?</div>
+          <div class="field">
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13.5px;font-weight:500;padding:8px 16px;border:1.5px solid var(--border);border-radius:7px;transition:all .15s" id="app-yes-lbl">
+                <input type="radio" name="other_applications" id="app-yes" value="Yes" style="accent-color:var(--navy);width:16px;height:16px"> Yes
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13.5px;font-weight:500;padding:8px 16px;border:1.5px solid var(--border);border-radius:7px;transition:all .15s" id="app-no-lbl">
+                <input type="radio" name="other_applications" id="app-no" value="No" style="accent-color:var(--navy);width:16px;height:16px"> No
+              </label>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SECTION 4: RESUME + CONSENT -->
+    <div class="form-section">
+      <div class="sec-header">
+        <div class="sec-number">4</div>
+        <div>
+          <div class="sec-title">Resume &amp; Consent</div>
+          <div class="sec-subtitle">Upload your resume and confirm your agreement</div>
+        </div>
+      </div>
+      <div class="sec-body">
+
+        <div class="field" style="margin-bottom:20px">
+          <label>Resume / CV <span class="req">*</span></label>
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" id="resume_file" name="resume_file" accept=".pdf,.doc,.docx" onchange="handleFileSelect(this)">
+            <div id="upload-placeholder">
+              <div class="upload-icon">📄</div>
+              <div class="upload-title">Click to upload or drag & drop</div>
+              <div class="upload-sub">PDF, DOC, or DOCX · Max 10MB</div>
+            </div>
+            <div class="upload-preview" id="upload-preview" style="display:none">
+              <span>📎</span>
+              <span id="upload-filename">file.pdf</span>
+              <button type="button" class="remove-file" onclick="clearFile(event)">×</button>
+            </div>
+          </div>
+          <div class="hint">Please ensure your resume is updated and clearly shows your work experience and education.</div>
+        </div>
+
+        <div class="consent-box">
+          <div class="consent-text">
+            "I certify that the information provided is true and correct. I authorize the company to process my personal information for recruitment purposes in accordance with the Data Privacy Act of the Philippines (Republic Act No. 10173)."
+          </div>
+          <label class="consent-check">
+            <input type="checkbox" id="consent" name="consent" required>
+            <span class="consent-check-label">I have read and agree to the above statement. I understand that HMB Business Consultancy Services Corp. will handle my personal information in accordance with applicable data privacy laws.</span>
+          </label>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SUBMIT -->
+    <div class="submit-wrap">
+      <button type="submit" class="btn-submit" id="submit-btn">
+        <span id="submit-icon">📨</span>
+        <span id="submit-text">Submit Application</span>
+      </button>
+      <div class="submit-note">By submitting, you confirm all information provided is accurate and complete.</div>
+    </div>
+
+  </form>
+
+  <!-- SUCCESS CARD -->
+  <div class="success-card" id="success-card">
+    <div class="success-icon">🎉</div>
+    <div class="success-title">Application Submitted!</div>
+    <div class="success-sub">Thank you for applying to HMB Tax Firm. We have received your application and will review it carefully.</div>
+    <div class="success-code" id="success-code">APP-2026-0001</div>
+    <div class="success-sub" style="font-size:13px;margin-top:4px">Save your application code for reference. <br>Qualified applicants will be contacted within <strong>5–7 business days</strong>.</div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="form-footer">
+    HMB Business Consultancy Services Corp.<br>
+    For inquiries: <a href="mailto:hr@hmbconsultancy.ph">hr@hmbconsultancy.ph</a><br>
+    <span style="font-size:10.5px;color:#aab;margin-top:4px;display:block">Data collected is processed in accordance with RA 10173 – Data Privacy Act of the Philippines</span>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ── DRAG & DROP ──
+var zone=document.getElementById('upload-zone');
+zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add('dragover');});
+zone.addEventListener('dragleave',function(){zone.classList.remove('dragover');});
+zone.addEventListener('drop',function(e){
+  e.preventDefault();zone.classList.remove('dragover');
+  var f=e.dataTransfer.files[0];
+  if(f)applyFile(f);
+});
+
+function handleFileSelect(input){
+  if(input.files&&input.files[0])applyFile(input.files[0]);
+}
+function applyFile(f){
+  if(f.size>10*1024*1024){alert('File is too large. Please upload a file smaller than 10MB.');return;}
+  document.getElementById('upload-placeholder').style.display='none';
+  document.getElementById('upload-preview').style.display='flex';
+  document.getElementById('upload-filename').textContent=f.name;
+  updateProgress();
+}
+function clearFile(e){
+  e.stopPropagation();
+  document.getElementById('resume_file').value='';
+  document.getElementById('upload-placeholder').style.display='block';
+  document.getElementById('upload-preview').style.display='none';
+  updateProgress();
+}
+
+// ── RADIO BUTTON HIGHLIGHT ──
+document.querySelectorAll('input[type=radio]').forEach(function(r){
+  r.addEventListener('change',function(){
+    var grp=document.querySelectorAll('input[name="'+r.name+'"]');
+    grp.forEach(function(rb){
+      rb.closest('label').style.borderColor=rb.checked?'var(--navy)':'var(--border)';
+      rb.closest('label').style.background=rb.checked?'#f0f4ff':'';
+    });
+    updateProgress();
+  });
+});
+
+// ── PROGRESS ──
+var STEP_LABELS=['Personal Information','Employment History','Screening Questions','Resume & Consent'];
+function updateProgress(){
+  var form=document.getElementById('apply-form');
+  var fields=form.querySelectorAll('input[required],select[required]');
+  var filled=0;
+  fields.forEach(function(f){
+    if(f.type==='checkbox')filled+=f.checked?1:0;
+    else if(f.value.trim())filled++;
+  });
+  var hasFile=document.getElementById('resume_file').files&&document.getElementById('resume_file').files.length>0;
+  if(hasFile)filled++;
+  var total=fields.length+1;
+  var pct=Math.min(100,Math.round((filled/total)*100));
+
+  // Determine current section
+  var s1=checkSection1();var s2=true;var s3=checkSection3();var s4=hasFile&&document.getElementById('consent').checked;
+  var step=!s1?1:!s3?3:!s4?4:4;
+  var stepLabel=STEP_LABELS[Math.min(3,step-1)];
+
+  document.getElementById('progress-text').textContent='Step '+step+' of 4 — '+stepLabel;
+  document.getElementById('progress-pct').textContent=pct+'% complete';
+  for(var i=1;i<=4;i++){
+    var el=document.getElementById('ps'+i);
+    el.className='ps'+(i<step?' done':i===step?' active':'');
+  }
+}
+function checkSection1(){
+  return v('full_name')&&v('address')&&v('mobile_number')&&v('email_address')&&v('position_applied')&&v('expected_salary');
+}
+function checkSection3(){
+  return true;// screening is optional
+}
+function v(id){var el=document.getElementById(id);return el?el.value.trim():'';}
+
+// ── VALIDATION ──
+function validateForm(){
+  var ok=true;
+  var required=['full_name','address','mobile_number','email_address','position_applied','expected_salary'];
+  required.forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el||!el.value.trim()){el&&el.classList.add('err');ok=false;}
+    else{el&&el.classList.remove('err');}
+  });
+  var hasFile=document.getElementById('resume_file').files&&document.getElementById('resume_file').files.length>0;
+  if(!hasFile){document.getElementById('upload-zone').style.borderColor='var(--red)';ok=false;}
+  else{document.getElementById('upload-zone').style.borderColor='';}
+  if(!document.getElementById('consent').checked){ok=false;}
+  return ok;
+}
+
+// ═══════════════════════════════════════════════════════════
+// HMB APPLY FORM — HRIS INTEGRATION
+// Writes applicant data directly into the same localStorage keys
+// that admin.html (HRIS) reads, so submissions appear instantly
+// in the Recruitment module with no server required.
+// ═══════════════════════════════════════════════════════════
+
+var STORAGE_KEY_APPLICANTS = 'hmb_recruit_applicants';
+var STORAGE_KEY_LOGS       = 'hmb_recruit_logs';
+var STORAGE_KEY_WHLOGS     = 'hmb_recruit_whlogs';
+
+// ── GENERATE APPLICANT CODE ──
+function genCode(id){
+  var yr=new Date().getFullYear();
+  return'APP-'+yr+'-'+String(id).padStart(4,'0');
+}
+
+// ── WRITE TO HRIS localStorage ──
+// This is the core integration: mirrors recruitReceiveWebhook() from admin.html
+function writeToHRIS(payload){
+  try{
+    // Load current applicants
+    var raw=localStorage.getItem(STORAGE_KEY_APPLICANTS);
+    var applicants=raw?JSON.parse(raw):[];
+
+    // Duplicate check (same email + position within 90 days)
+    var ninety=90*24*60*60*1000;
+    var dup=applicants.find(function(a){
+      return a.email_address===payload.email_address &&
+             a.position_applied===payload.position_applied &&
+             (new Date()-new Date(a.created_at))<ninety &&
+             a.status!=='Rejected';
+    });
+    if(dup){
+      console.warn('Duplicate application blocked for',payload.email_address);
+      // Still show success to applicant — don't confuse them
+      return{id:dup.id, applicant_code:dup.applicant_code, duplicate:true};
+    }
+
+    // Determine next ID
+    var nextId=applicants.length?Math.max.apply(null,applicants.map(function(a){return a.id;}))+1:1;
+    var code=genCode(nextId);
+
+    // Build applicant record (exact same shape as recruitReceiveWebhook in admin.html)
+    var rec={
+      id:nextId,
+      applicant_code:code,
+      full_name:payload.full_name||'',
+      address:payload.address||'',
+      mobile_number:payload.mobile_number||'',
+      email_address:payload.email_address||'',
+      position_applied:payload.position_applied||'',
+      expected_salary:parseFloat(payload.expected_salary)||0,
+      company_name:payload.company_name||'',
+      recent_position:payload.recent_position||'',
+      current_salary:parseFloat(payload.current_salary)||0,
+      employment_start:payload.employment_start||'',
+      employment_end:payload.employment_end||'',
+      years_experience:payload.years_experience||'',
+      tools_proficient:payload.tools_proficient||'',
+      key_strengths:payload.key_strengths||'',
+      is_currently_employed:payload.is_currently_employed||'',
+      earliest_start_date:payload.earliest_start_date||'',
+      other_applications:payload.other_applications||'',
+      resume_url:payload.resume_url||'',
+      status:'New Applicant',
+      source:'Application Form (QR)',
+      offer_salary:null,
+      offer_start_date:null,
+      employee_id:null,
+      rejection_reason:'',
+      created_at:new Date().toISOString(),
+      updated_at:new Date().toISOString()
+    };
+
+    // Prepend (newest first)
+    applicants.unshift(rec);
+    localStorage.setItem(STORAGE_KEY_APPLICANTS, JSON.stringify(applicants));
+
+    // Write pipeline log entry
+    var logsRaw=localStorage.getItem(STORAGE_KEY_LOGS);
+    var logs=logsRaw?JSON.parse(logsRaw):[];
+    logs.unshift({
+      id:Date.now(),
+      applicant_id:rec.id,
+      from_status:'',
+      to_status:'New Applicant',
+      changed_by:'System',
+      notes:'Application received via QR Form',
+      timestamp:new Date().toISOString()
+    });
+    localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs));
+
+    // Write webhook activity log entry
+    var wlRaw=localStorage.getItem(STORAGE_KEY_WHLOGS);
+    var wlogs=wlRaw?JSON.parse(wlRaw):[];
+    wlogs.unshift({
+      ts:new Date().toISOString(),
+      msg:'✅ New applicant: '+rec.full_name+' → '+rec.position_applied+' ['+rec.applicant_code+']',
+      type:'ok'
+    });
+    localStorage.setItem(STORAGE_KEY_WHLOGS, JSON.stringify(wlogs));
+
+    // Fire StorageEvent so HRIS tab auto-refreshes instantly (cross-tab sync)
+    // This is automatic when writing localStorage from a different origin/tab.
+    // For same-tab (e.g. testing), we also write a pending key:
+    localStorage.setItem('hmb_recruit_pending_ts', Date.now().toString());
+
+    return{id:rec.id, applicant_code:code, duplicate:false};
+
+  }catch(err){
+    console.error('HRIS localStorage write failed:',err);
+    throw new Error('Could not save application locally: '+err.message);
+  }
+}
+
+// ── FILE → BASE64 (for localStorage resume storage) ──
+function fileToBase64(file){
+  return new Promise(function(resolve,reject){
+    var reader=new FileReader();
+    reader.onload=function(e){resolve(e.target.result);};
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── CLOUDINARY UPLOAD (optional — set your credentials to enable) ──
+var CLOUDINARY_ENABLED=false;// Set true and fill credentials below to enable cloud resume storage
+var CLOUD_NAME='your_cloud_name';     // e.g. 'hmbconsultancy'
+var UPLOAD_PRESET='your_upload_preset'; // unsigned upload preset name
+
+async function uploadResume(file){
+  if(CLOUDINARY_ENABLED&&CLOUD_NAME!=='your_cloud_name'){
+    var fd=new FormData();
+    fd.append('file',file);
+    fd.append('upload_preset',UPLOAD_PRESET);
+    fd.append('folder','hmb-resumes');
+    var r=await fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/raw/upload',{method:'POST',body:fd});
+    if(!r.ok)throw new Error('Resume upload failed');
+    var d=await r.json();
+    return d.secure_url;
+  }else{
+    // Fallback: store as base64 data URL in localStorage
+    // (works for small files; for large resumes, enable Cloudinary above)
+    try{
+      var b64=await fileToBase64(file);
+      return b64;// stored directly in applicant record
+    }catch(e){
+      return'[file: '+file.name+']';// just store filename if too large
+    }
+  }
+}
+
+// ── SUBMISSION HANDLER ──
+document.getElementById('apply-form').addEventListener('submit',async function(e){
+  e.preventDefault();
+  clearFieldErrors();
+  if(!validateForm()){
+    document.getElementById('error-banner').style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  document.getElementById('error-banner').style.display='none';
+
+  var btn=document.getElementById('submit-btn');
+  btn.disabled=true;
+  document.getElementById('submit-icon').textContent='⏳';
+  document.getElementById('submit-text').textContent='Submitting…';
+
+  try{
+    // 1) Handle resume
+    var resumeUrl='';
+    var fileInput=document.getElementById('resume_file');
+    if(fileInput.files&&fileInput.files[0]){
+      document.getElementById('submit-text').textContent='Uploading resume…';
+      resumeUrl=await uploadResume(fileInput.files[0]);
+    }
+
+    // 2) Build payload
+    var payload={
+      full_name:v('full_name'),
+      address:v('address'),
+      mobile_number:v('mobile_number'),
+      email_address:v('email_address'),
+      position_applied:v('position_applied'),
+      expected_salary:parseFloat(v('expected_salary'))||0,
+      company_name:v('company_name'),
+      recent_position:v('recent_position'),
+      current_salary:parseFloat(v('current_salary'))||0,
+      employment_start:v('employment_start'),
+      employment_end:v('employment_end'),
+      years_experience:v('years_experience'),
+      tools_proficient:v('tools_proficient'),
+      key_strengths:v('key_strengths'),
+      is_currently_employed:(function(){var r=document.querySelector('input[name="is_currently_employed"]:checked');return r?r.value:'';}()),
+      earliest_start_date:v('earliest_start_date'),
+      other_applications:(function(){var r=document.querySelector('input[name="other_applications"]:checked');return r?r.value:'';}()),
+      resume_url:resumeUrl,
+      submitted_at:new Date().toISOString()
+    };
+
+    // 3) Write to HRIS localStorage (primary integration)
+    document.getElementById('submit-text').textContent='Saving application…';
+    var result=writeToHRIS(payload);
+
+    // 4) Show success
+    document.getElementById('success-code').textContent=result.applicant_code;
+    document.getElementById('apply-form').style.display='none';
+    document.getElementById('success-card').style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+
+  }catch(err){
+    console.error('Submission error:',err);
+    btn.disabled=false;
+    document.getElementById('submit-icon').textContent='📨';
+    document.getElementById('submit-text').textContent='Submit Application';
+    document.getElementById('error-banner').textContent='Submission failed: '+err.message+'. Please try again or contact hr@hmbconsultancy.ph';
+    document.getElementById('error-banner').style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+});
+
+function clearFieldErrors(){
+  document.querySelectorAll('.err').forEach(function(el){el.classList.remove('err');});
+  document.getElementById('upload-zone').style.borderColor='';
+}
+
+// ── LIVE PROGRESS UPDATE ──
+document.getElementById('apply-form').querySelectorAll('input,select,textarea').forEach(function(el){
+  el.addEventListener('input',updateProgress);
+  el.addEventListener('change',updateProgress);
+});
+
+// Init
+updateProgress();
+</script>
+</body>
+</html>

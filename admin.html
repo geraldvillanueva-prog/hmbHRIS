@@ -4506,6 +4506,81 @@ function initRecruitment(){
     renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();
     return rec;
   };
+
+  // ── REAL-TIME CROSS-TAB SYNC ──
+  // When hmb_apply.html writes to localStorage in another tab/window,
+  // this fires immediately and refreshes the HRIS recruitment panel.
+  window.addEventListener('storage',function(e){
+    if(e.key==='hmb_recruit_applicants'&&e.newValue){
+      try{
+        var incoming=JSON.parse(e.newValue);
+        // Only reload if count grew (new submission from form)
+        if(incoming.length>recruitApplicants.length){
+          recruitApplicants=incoming;
+          // Also reload logs and webhook logs for the new entry
+          var wl=localStorage.getItem('hmb_recruit_whlogs');if(wl)recruitWebhookLogs=JSON.parse(wl);
+          var pl=localStorage.getItem('hmb_recruit_logs');if(pl)recruitPipelineLogs=JSON.parse(pl);
+          // Refresh UI
+          renderRecruitDashboard();
+          renderApplicantList();
+          recruitUpdateNavBadge();
+          recruitRenderWebhookLogs();
+          // Flash a toast notification
+          recruitToast('🎯 New applicant received from application form!');
+        }
+      }catch(err){console.warn('Recruit storage sync error',err);}
+    }
+    // Also sync if the form wrote a pending_submission key (for same-tab fallback)
+    if(e.key==='hmb_recruit_pending'){
+      var ps=localStorage.getItem('hmb_recruit_pending');
+      if(ps){
+        try{var payload=JSON.parse(ps);recruitReceiveWebhook(payload,'Application Form');localStorage.removeItem('hmb_recruit_pending');renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();}
+        catch(err){}
+      }
+    }
+  });
+
+  // ── POLLING FALLBACK (every 8s) ──
+  // Catches submissions when HRIS and form are in the same tab or storage events are missed
+  var _recruitLastCount=recruitApplicants.length;
+  setInterval(function(){
+    try{
+      var raw=localStorage.getItem('hmb_recruit_applicants');
+      if(!raw)return;
+      var stored=JSON.parse(raw);
+      if(stored.length>_recruitLastCount){
+        _recruitLastCount=stored.length;
+        recruitApplicants=stored;
+        var wl=localStorage.getItem('hmb_recruit_whlogs');if(wl)recruitWebhookLogs=JSON.parse(wl);
+        var pl=localStorage.getItem('hmb_recruit_logs');if(pl)recruitPipelineLogs=JSON.parse(pl);
+        // Only refresh UI if recruitment section is active
+        var sec=document.getElementById('sec-recruitment');
+        if(sec&&sec.classList.contains('on')){
+          renderRecruitDashboard();renderApplicantList();recruitUpdateNavBadge();recruitRenderWebhookLogs();
+        } else {
+          recruitUpdateNavBadge();// always update badge
+        }
+        recruitToast('🎯 New applicant received!');
+      }
+    }catch(e){}
+  },8000);
+}
+
+// ── TOAST NOTIFICATION ──
+function recruitToast(msg){
+  var existing=document.getElementById('recruit-toast');
+  if(existing)existing.remove();
+  var t=document.createElement('div');
+  t.id='recruit-toast';
+  t.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;font-family:\'IBM Plex Sans\',sans-serif;box-shadow:0 4px 18px rgba(10,22,40,0.3);z-index:9999;display:flex;align-items:center;gap:10px;animation:slideUp .3s ease;border-left:4px solid var(--gold)';
+  t.innerHTML=msg+'<button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:16px;line-height:1;margin-left:8px">×</button>';
+  if(!document.getElementById('recruit-toast-style')){
+    var s=document.createElement('style');s.id='recruit-toast-style';
+    s.textContent='@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}';
+    document.head.appendChild(s);
+  }
+  document.body.appendChild(t);
+  setTimeout(function(){if(t.parentElement)t.remove();},5000);
 }
 
 // ==================== INIT ====================
