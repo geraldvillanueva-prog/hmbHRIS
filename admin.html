@@ -1184,12 +1184,18 @@ tr:hover td{background:#fafcff}
     <div id="recruit-itab-webhook" class="itab-sec">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="card">
-          <div class="card-title">Webhook Configuration</div>
-          <div class="infobox">The webhook receives POST submissions from your existing application form. Paste the snippet below into your form submit handler after the Supabase insert.</div>
-          <div class="f" style="margin-bottom:10px"><label>Application Form URL (for QR Code)</label><input id="recruit-form-url" placeholder="https://hmbtaxfirm.com/#careers" oninput="recruitGenQR()"></div>
-          <div class="f" style="margin-bottom:10px"><label>Webhook Secret Key</label><div style="display:flex;gap:6px"><input id="recruit-webhook-secret" placeholder="Click Generate" style="font-family:'IBM Plex Mono',monospace"><button class="btn bs bp" onclick="recruitGenSecret()">Generate</button></div></div>
-          <div class="f" style="margin-bottom:12px"><label>Webhook Endpoint</label><input id="recruit-webhook-url" value="/api/recruitment/webhook" style="font-family:'IBM Plex Mono',monospace;background:#f8fafc"></div>
-          <button class="btn bp" onclick="recruitSaveWebhookConfig()">Save Config</button><span id="webhook-ok" class="ok-msg">Saved!</span>
+          <div class="card-title">🔗 Supabase Connection</div>
+          <div class="infobox" style="background:#e8f5e9;border-left-color:var(--green);color:#1b5e20">Connect to Supabase so applicants submitting from <strong>any device</strong> appear here instantly. Get your credentials from your Supabase project → Settings → API.</div>
+          <div class="f" style="margin-bottom:10px"><label>Supabase Project URL <span style="color:var(--red)">*</span></label><input id="recruit-supabase-url" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-family:'IBM Plex Mono',monospace;font-size:12px"></div>
+          <div class="f" style="margin-bottom:10px"><label>Supabase Anon / Public Key <span style="color:var(--red)">*</span></label><input id="recruit-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="font-family:'IBM Plex Mono',monospace;font-size:12px"></div>
+          <div class="f" style="margin-bottom:12px"><label>Application Form URL (for QR Code)</label><input id="recruit-form-url" placeholder="https://geraldvillanueva-prog.github.io/HRISCareers" oninput="recruitGenQR()"></div>
+          <div class="f" style="margin-bottom:12px"><label>Webhook Secret Key (optional)</label><div style="display:flex;gap:6px"><input id="recruit-webhook-secret" placeholder="Click Generate" style="font-family:'IBM Plex Mono',monospace"><button class="btn bs bp" onclick="recruitGenSecret()">Generate</button></div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn bp" onclick="recruitSaveWebhookConfig()">💾 Save &amp; Connect</button>
+            <button class="btn bs bg" onclick="recruitManualRefresh()" style="background:#e8f5e9;color:var(--green);border-color:#a5d6a7">🔄 Refresh Now</button>
+            <span id="webhook-ok" class="ok-msg">✓ Saved!</span>
+          </div>
+          <div id="recruit-supabase-status" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
           <div style="margin-top:16px">
             <div class="card-title" style="font-size:12px">Form Integration Snippet</div>
             <div style="background:#f0f4f8;border-radius:6px;padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--navy);white-space:pre-wrap;line-height:1.7;overflow-x:auto" id="recruit-snippet">// Paste AFTER your Supabase insert in the form submit handler:
@@ -1216,11 +1222,13 @@ await fetch('/api/recruitment/webhook', {
           <div class="card-title">Application Form QR Code</div>
           <div class="infobox">This QR code points to your existing application form. The form itself is unchanged.</div>
           <div class="qr-display">
-            <div class="qr-box" id="recruit-qr-box"><canvas id="recruit-qr-canvas" width="200" height="200"></canvas></div>
+            <div class="qr-box" id="recruit-qr-box" style="min-width:220px;min-height:220px;display:flex;align-items:center;justify-content:center;border-radius:10px">
+              <div style="color:var(--muted);font-size:12px;text-align:center;padding:20px;line-height:1.7">📱 Enter form URL<br>on the left to<br>generate QR code</div>
+            </div>
             <div style="font-size:12px;color:var(--muted);margin-bottom:10px" id="recruit-qr-url-label">Enter form URL to generate QR</div>
             <div style="display:flex;gap:8px;justify-content:center">
-              <button class="btn bs bp" onclick="recruitPrintQR()">Print QR</button>
-              <button class="btn bs" onclick="recruitDownloadQR()">Download PNG</button>
+              <button class="btn bs bp" onclick="recruitPrintQR()">🖨 Print QR</button>
+              <button class="btn bs" onclick="recruitDownloadQR()">⬇ Download PNG</button>
             </div>
           </div>
         </div>
@@ -4011,8 +4019,86 @@ function recruitPositionNextId(){return recruitPositions.length?Math.max(...recr
 function recruitGenCode(id){var yr=new Date().getFullYear();var seq=String(id).padStart(4,'0');return'APP-'+yr+'-'+seq;}
 function recruitGenEmpId(){var yr=new Date().getFullYear();var hired=employees.filter(e=>e.recruitedFrom).length;return'HMB-'+yr+'-'+String(hired+1).padStart(3,'0');}
 
-// ─── SAVE/LOAD (localStorage for standalone; swap to api() for full server) ─
-function recruitSave(){try{localStorage.setItem('hmb_recruit_applicants',JSON.stringify(recruitApplicants));localStorage.setItem('hmb_recruit_positions',JSON.stringify(recruitPositions));localStorage.setItem('hmb_recruit_logs',JSON.stringify(recruitPipelineLogs));localStorage.setItem('hmb_recruit_interviews',JSON.stringify(recruitInterviews));localStorage.setItem('hmb_recruit_notes',JSON.stringify(recruitNotes));localStorage.setItem('hmb_recruit_whlogs',JSON.stringify(recruitWebhookLogs));localStorage.setItem('hmb_recruit_cfg',JSON.stringify(recruitWebhookCfg));}catch(e){}}
+// ─── SUPABASE CONFIG (set these in the Webhook/QR tab UI) ───────────────────
+var SUPABASE_URL = '';
+var SUPABASE_ANON_KEY = '';
+
+function recruitSupabaseReady(){
+  return SUPABASE_URL && SUPABASE_ANON_KEY &&
+         SUPABASE_URL !== 'https://your-project.supabase.co';
+}
+
+async function recruitSupabaseGet(table, params){
+  var url = SUPABASE_URL+'/rest/v1/'+table+'?order=created_at.desc&limit=500';
+  if(params) url += '&'+params;
+  var r = await fetch(url, {
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json'
+    }
+  });
+  if(!r.ok) throw new Error('Supabase GET failed: '+r.status);
+  return r.json();
+}
+
+async function recruitSupabasePost(table, body){
+  var r = await fetch(SUPABASE_URL+'/rest/v1/'+table, {
+    method:'POST',
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){var t=await r.text();throw new Error('Supabase POST failed: '+t);}
+  return r.json();
+}
+
+async function recruitSupabasePatch(table, id, body){
+  var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+id, {
+    method:'PATCH',
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){var t=await r.text();throw new Error('Supabase PATCH failed: '+t);}
+  return r.json();
+}
+
+async function recruitSupabaseDelete(table, id){
+  var r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?id=eq.'+id, {
+    method:'DELETE',
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer '+SUPABASE_ANON_KEY
+    }
+  });
+  if(!r.ok) throw new Error('Supabase DELETE failed: '+r.status);
+  return true;
+}
+
+// ─── SAVE/LOAD ── (localStorage for non-applicant data; Supabase for applicants)
+function recruitSave(){
+  try{
+    // Positions, interviews, notes, logs, config stay in localStorage (HRIS-only data)
+    localStorage.setItem('hmb_recruit_positions',JSON.stringify(recruitPositions));
+    localStorage.setItem('hmb_recruit_interviews',JSON.stringify(recruitInterviews));
+    localStorage.setItem('hmb_recruit_notes',JSON.stringify(recruitNotes));
+    localStorage.setItem('hmb_recruit_logs',JSON.stringify(recruitPipelineLogs));
+    localStorage.setItem('hmb_recruit_whlogs',JSON.stringify(recruitWebhookLogs));
+    localStorage.setItem('hmb_recruit_cfg',JSON.stringify(recruitWebhookCfg));
+    // Applicants also cached locally for offline use
+    localStorage.setItem('hmb_recruit_applicants',JSON.stringify(recruitApplicants));
+  }catch(e){}
+}
+
 function recruitLoad(){
   try{
     var a=localStorage.getItem('hmb_recruit_applicants');if(a)recruitApplicants=JSON.parse(a);
@@ -4021,16 +4107,71 @@ function recruitLoad(){
     var i=localStorage.getItem('hmb_recruit_interviews');if(i)recruitInterviews=JSON.parse(i);
     var n=localStorage.getItem('hmb_recruit_notes');if(n)recruitNotes=JSON.parse(n);
     var w=localStorage.getItem('hmb_recruit_whlogs');if(w)recruitWebhookLogs=JSON.parse(w);
-    var c=localStorage.getItem('hmb_recruit_cfg');if(c){recruitWebhookCfg=JSON.parse(c);var el=document.getElementById('recruit-form-url');if(el&&recruitWebhookCfg.formUrl)el.value=recruitWebhookCfg.formUrl;var sel=document.getElementById('recruit-webhook-secret');if(sel&&recruitWebhookCfg.secret)sel.value=recruitWebhookCfg.secret;}
+    var c=localStorage.getItem('hmb_recruit_cfg');
+    if(c){
+      recruitWebhookCfg=JSON.parse(c);
+      // Restore Supabase credentials from saved config
+      if(recruitWebhookCfg.supabaseUrl) SUPABASE_URL=recruitWebhookCfg.supabaseUrl;
+      if(recruitWebhookCfg.supabaseKey) SUPABASE_ANON_KEY=recruitWebhookCfg.supabaseKey;
+      var el=document.getElementById('recruit-form-url');if(el&&recruitWebhookCfg.formUrl)el.value=recruitWebhookCfg.formUrl;
+      var sel=document.getElementById('recruit-webhook-secret');if(sel&&recruitWebhookCfg.secret)sel.value=recruitWebhookCfg.secret;
+      var su=document.getElementById('recruit-supabase-url');if(su&&recruitWebhookCfg.supabaseUrl)su.value=recruitWebhookCfg.supabaseUrl;
+      var sk=document.getElementById('recruit-supabase-key');if(sk&&recruitWebhookCfg.supabaseKey)sk.value=recruitWebhookCfg.supabaseKey;
+    }
   }catch(e){}
 }
 
-// ─── WEBHOOK SIMULATION (called by server when POST /api/recruitment/webhook) ─
-// In production this is called by server.js; here it's also exposed so the
-// existing form can POST directly and admin can simulate receipt.
+// ─── FETCH FROM SUPABASE (SINGLE SOURCE OF TRUTH) ────────────────────────────
+async function recruitFetchFromSupabase(){
+  if(!recruitSupabaseReady()) return false;
+  try{
+    var rows = await recruitSupabaseGet('hmb_applicants');
+    // Replace array completely — never merge with localStorage cache
+    recruitApplicants = rows.map(function(r){
+      return {
+        id: r.id,
+        applicant_code: r.applicant_code||'',
+        full_name: r.full_name||'',
+        address: r.address||'',
+        mobile_number: r.mobile_number||'',
+        email_address: r.email_address||'',
+        position_applied: r.position_applied||'',
+        expected_salary: parseFloat(r.expected_salary)||0,
+        company_name: r.company_name||'',
+        recent_position: r.recent_position||'',
+        current_salary: parseFloat(r.current_salary)||0,
+        employment_start: r.employment_start||'',
+        employment_end: r.employment_end||'',
+        years_experience: r.years_experience||'',
+        tools_proficient: r.tools_proficient||'',
+        key_strengths: r.key_strengths||'',
+        is_currently_employed: r.is_currently_employed||'',
+        earliest_start_date: r.earliest_start_date||'',
+        other_applications: r.other_applications||'',
+        resume_url: r.resume_url||'',
+        status: r.status||'New Applicant',
+        source: r.source||'Application Form (QR)',
+        rejection_reason: r.rejection_reason||'',
+        offer_salary: r.offer_salary||null,
+        offer_start_date: r.offer_start_date||null,
+        employee_id: r.employee_id||null,
+        employee_code: r.employee_code||'',
+        created_at: r.created_at||new Date().toISOString(),
+        updated_at: r.updated_at||new Date().toISOString()
+      };
+    });
+    // Overwrite local cache with Supabase truth
+    localStorage.setItem('hmb_recruit_applicants', JSON.stringify(recruitApplicants));
+    return true;
+  }catch(e){
+    console.warn('Supabase fetch failed, using local cache:', e.message);
+    return false;
+  }
+}
+
+// ─── RECEIVE/CREATE APPLICANT ─────────────────────────────────────────────────
 function recruitReceiveWebhook(payload, source){
   source = source || 'QR Form';
-  // Duplicate check (same email + position within 90 days)
   var ninety=90*24*60*60*1000;
   var dup=recruitApplicants.find(function(a){
     return a.email_address===payload.email_address &&
@@ -4042,9 +4183,11 @@ function recruitReceiveWebhook(payload, source){
     recruitWebhookLogs.unshift({ts:new Date().toISOString(),msg:'⚠️ Duplicate blocked: '+payload.full_name+' ('+payload.email_address+')',type:'warn'});
     recruitSave();recruitRenderWebhookLogs();return null;
   }
-  var id=recruitNextId();
+  var id=recruitApplicants.length?Math.max.apply(null,recruitApplicants.map(function(a){return a.id;}))+1:1;
+  var yr=new Date().getFullYear();
+  var code='APP-'+yr+'-'+String(id).padStart(4,'0');
   var rec={
-    id,applicant_code:recruitGenCode(id),
+    id,applicant_code:code,
     full_name:payload.full_name||'',address:payload.address||'',
     mobile_number:payload.mobile_number||'',email_address:payload.email_address||'',
     position_applied:payload.position_applied||'',expected_salary:parseFloat(payload.expected_salary)||0,
@@ -4068,14 +4211,12 @@ function recruitReceiveWebhook(payload, source){
   return rec;
 }
 
-// ─── STATUS UPDATE ─
+// ─── STATUS UPDATE (writes to Supabase if configured) ────────────────────────
 async function recruitUpdateStatus(){
   var a=recruitApplicants.find(x=>x.id===currentApplicantId);if(!a)return;
   var newStatus=document.getElementById('pd-new-status').value;
   if(newStatus===a.status)return;
-  // Validate rejection reason
   if(newStatus==='Rejected'){var reason=document.getElementById('pd-reject-reason').value.trim();if(!reason){alert('Please enter a rejection reason.');return;}a.rejection_reason=reason;}
-  // Capture offer details
   if(newStatus==='Job Offer'||newStatus==='Hired'){
     var ofSal=parseFloat(document.getElementById('pd-offer-sal').value)||null;
     var ofStart=document.getElementById('pd-offer-start').value||null;
@@ -4085,47 +4226,120 @@ async function recruitUpdateStatus(){
   var old=a.status;
   a.status=newStatus;
   a.updated_at=new Date().toISOString();
-  // Log transition
   recruitPipelineLogs.unshift({id:Date.now(),applicant_id:a.id,from_status:old,to_status:newStatus,changed_by:'HR',notes:'',timestamp:new Date().toISOString()});
-  // Auto-convert to employee on Hired
+
+  // Save to Supabase if configured
+  if(recruitSupabaseReady()){
+    try{
+      await recruitSupabasePatch('hmb_applicants', a.id, {
+        status: newStatus,
+        rejection_reason: a.rejection_reason||null,
+        offer_salary: a.offer_salary||null,
+        offer_start_date: a.offer_start_date||null,
+        updated_at: a.updated_at
+      });
+    }catch(e){console.warn('Supabase status update failed:',e.message);}
+  }
+
   if(newStatus==='Hired'){await recruitConvertToEmployee(a);}
   recruitSave();
   recruitUpdateNavBadge();
   renderApplicantList();
   renderRecruitDashboard();
-  openPdDrawer(a.id);// refresh drawer
+  openPdDrawer(a.id);
 }
 
-// ─── HIRE CONVERSION ─
+// ─── HIRE CONVERSION ─────────────────────────────────────────────────────────
 async function recruitConvertToEmployee(a){
   var empId=recruitGenEmpId();
   var newEmp={
-    id:nextId++,
-    name:a.full_name,pos:a.recent_position||a.position_applied,dept:'',
+    id:nextId++,name:a.full_name,pos:a.recent_position||a.position_applied,dept:'',
     type:'Probationary',start:a.offer_start_date||new Date().toISOString().slice(0,10),
     bank:'',email:a.email_address,mobile:a.mobile_number,emergency:'',
     smb:a.offer_salary||0,sss:0,phic:0,hdmf:0,mpl:0,dm:0,load:0,wht:0,
     vlBal:15,slBal:15,tin:'',address:a.address,
     loc_policy:'office',loc_lat:null,loc_lng:null,loc_radius:300,loc_wfh_days:null,
-    payslipNote:'',
-    recruitedFrom:a.id,hireDate:a.offer_start_date||new Date().toISOString().slice(0,10),
+    payslipNote:'',recruitedFrom:a.id,
+    hireDate:a.offer_start_date||new Date().toISOString().slice(0,10),
     employeeCode:empId
   };
-  // Save to HRIS employees (try API, fallback to local array)
-  try{
-    var r=await api('POST','/api/employees',[...employees,newEmp]);
-    if(r&&r.success){}
-  }catch(e){}
+  try{await api('POST','/api/employees',[...employees,newEmp]);}catch(e){}
   employees.push(newEmp);
-  a.employee_id=newEmp.id;
-  a.employee_code=empId;
-  recruitPipelineLogs.unshift({id:Date.now()+1,applicant_id:a.id,from_status:'Job Offer',to_status:'Hired',changed_by:'System',notes:'Employee ID '+empId+' created. Employee Record initialized.',timestamp:new Date().toISOString()});
-  renderEmpTable&&renderEmpTable();
-  populateAllSelects&&populateAllSelects();
-  showSaveIndicator&&showSaveIndicator();
-  alert('✅ Applicant converted to employee!\n\nEmployee ID: '+empId+'\nName: '+a.full_name+'\n\nEmployee record has been created and added to the system. You can now configure payroll, attendance, and evaluation.');
+  a.employee_id=newEmp.id;a.employee_code=empId;
+  // Update Supabase
+  if(recruitSupabaseReady()){
+    try{await recruitSupabasePatch('hmb_applicants',a.id,{employee_id:newEmp.id,employee_code:empId,status:'Hired'});}catch(e){}
+  }
+  recruitPipelineLogs.unshift({id:Date.now()+1,applicant_id:a.id,from_status:'Job Offer',to_status:'Hired',changed_by:'System',notes:'Employee ID '+empId+' created.',timestamp:new Date().toISOString()});
+  renderEmpTable&&renderEmpTable();populateAllSelects&&populateAllSelects();showSaveIndicator&&showSaveIndicator();
+  alert('✅ Applicant converted to employee!\n\nEmployee ID: '+empId+'\nName: '+a.full_name+'\n\nEmployee record created and added to the HRIS.');
 }
 
+// ─── WEBHOOK CONFIG SAVE ─────────────────────────────────────────────────────
+function recruitSaveWebhookConfig(){
+  recruitWebhookCfg.formUrl=document.getElementById('recruit-form-url').value;
+  recruitWebhookCfg.secret=document.getElementById('recruit-webhook-secret').value;
+  recruitWebhookCfg.webhookUrl=(document.getElementById('recruit-webhook-url')||{}).value||'/api/recruitment/webhook';
+  recruitWebhookCfg.supabaseUrl=document.getElementById('recruit-supabase-url').value.trim().replace(/\/$/,'');
+  recruitWebhookCfg.supabaseKey=document.getElementById('recruit-supabase-key').value.trim();
+  SUPABASE_URL=recruitWebhookCfg.supabaseUrl;
+  SUPABASE_ANON_KEY=recruitWebhookCfg.supabaseKey;
+  recruitSave();flash('webhook-ok');
+  // Immediately fetch from Supabase if credentials were just set
+  if(recruitSupabaseReady()){
+    recruitFetchFromSupabase().then(function(ok){
+      if(ok){renderRecruitDashboard();renderApplicantList();recruitUpdateNavBadge();recruitToast('✅ Connected to Supabase! Applicants loaded.');}
+    });
+  }
+}
+
+// ─── DELETE APPLICANT ─────────────────────────────────────────────────────────
+async function recruitDeleteApplicant(){
+  if(!currentApplicantId) return;
+  if(!confirm('Permanently delete this applicant record?\n\nThis cannot be undone.')) return;
+
+  var btn = document.querySelector('#recruit-profile-drawer .btn.br');
+  if(btn){ btn.disabled=true; btn.textContent='Deleting…'; }
+
+  // Delete from Supabase FIRST — if this fails, abort (don't delete locally)
+  if(recruitSupabaseReady()){
+    try{
+      var r = await fetch(SUPABASE_URL+'/rest/v1/hmb_applicants?id=eq.'+currentApplicantId, {
+        method: 'DELETE',
+        headers:{
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+          'Prefer': 'return=minimal'
+        }
+      });
+      if(!r.ok){
+        var errText = await r.text();
+        if(btn){ btn.disabled=false; btn.textContent='🗑 Delete Record'; }
+        alert('❌ Delete failed (Supabase HTTP '+r.status+').\n\n'+errText+'\n\nMake sure your Supabase RLS policy allows DELETE.\nRun this SQL in Supabase:\n\ncreate policy "allow_delete" on hmb_applicants\nfor delete using (true);');
+        return; // abort — don't remove locally if Supabase failed
+      }
+    }catch(e){
+      if(btn){ btn.disabled=false; btn.textContent='🗑 Delete Record'; }
+      alert('❌ Delete failed: '+e.message+'\n\nCheck your Supabase connection.');
+      return;
+    }
+  }
+
+  // Supabase delete succeeded (or no Supabase) — now clean up locally
+  var deletedId = currentApplicantId;
+  closePdDrawer();
+  recruitApplicants     = recruitApplicants.filter(a=>a.id!==deletedId);
+  recruitPipelineLogs   = recruitPipelineLogs.filter(l=>l.applicant_id!==deletedId);
+  recruitInterviews     = recruitInterviews.filter(i=>i.applicant_id!==deletedId);
+  recruitNotes          = recruitNotes.filter(n=>n.applicant_id!==deletedId);
+  // Clear local cache so auto-refresh doesn't restore it from stale cache
+  localStorage.setItem('hmb_recruit_applicants', JSON.stringify(recruitApplicants));
+  recruitSave();
+  renderApplicantList();
+  renderRecruitDashboard();
+  recruitUpdateNavBadge();
+  recruitToast('🗑 Applicant deleted successfully.');
+}
 // ─── APPLICANT LIST RENDER ─
 function renderApplicantList(){
   var status=document.getElementById('recruit-filter-status')?document.getElementById('recruit-filter-status').value:'';
@@ -4158,69 +4372,173 @@ function renderApplicantList(){
 
 // ─── DASHBOARD RENDER ─
 function renderRecruitDashboard(){
-  // KPI Cards
+  var total    = recruitApplicants.length;
+  var newCount = recruitApplicants.filter(a=>a.status==='New Applicant').length;
+  var screening= recruitApplicants.filter(a=>a.status==='Screening').length;
+  var int1     = recruitApplicants.filter(a=>a.status==='Initial Interview').length;
+  var int2     = recruitApplicants.filter(a=>a.status==='Final Interview').length;
+  var approval = recruitApplicants.filter(a=>a.status==='For Approval').length;
+  var offer    = recruitApplicants.filter(a=>a.status==='Job Offer').length;
+  var hired    = recruitApplicants.filter(a=>a.status==='Hired').length;
+  var rejected = recruitApplicants.filter(a=>a.status==='Rejected').length;
+  var active   = total - hired - rejected;
+  var hireRate = total>0?Math.round((hired/total)*100):0;
+  var avgDays  = '—';
+  if(hired>0){
+    var hiredRecs=recruitApplicants.filter(a=>a.status==='Hired');
+    var totalDays=hiredRecs.reduce(function(s,a){return s+(new Date(a.updated_at)-new Date(a.created_at))/(1000*60*60*24);},0);
+    avgDays=Math.round(totalDays/hiredRecs.length)+'d';
+  }
+
+  // ── KPI CARDS ──
   var kpi=document.getElementById('recruit-kpi');
   if(kpi){
-    var total=recruitApplicants.length;
-    var newCount=recruitApplicants.filter(a=>a.status==='New Applicant').length;
-    var hired=recruitApplicants.filter(a=>a.status==='Hired').length;
-    var rejected=recruitApplicants.filter(a=>a.status==='Rejected').length;
-    var active=recruitApplicants.filter(a=>a.status!=='Hired'&&a.status!=='Rejected').length;
     kpi.innerHTML=[
-      {l:'Total Applicants',v:total,c:'blue'},{l:'New (Unreviewed)',v:newCount,c:'accent'},
-      {l:'Active Pipeline',v:active,c:'orange'},{l:'Hired',v:hired,c:'green'},{l:'Rejected',v:rejected,c:'red'}
-    ].map(function(m){return'<div class="mc '+m.c+'"><div class="ml">'+m.l+'</div><div class="mv">'+m.v+'</div></div>';}).join('');
-  }
-  // Kanban columns
-  var kanban=document.getElementById('recruit-kanban');
-  if(kanban){
-    var stageKeys={'New Applicant':'rk-new','Screening':'rk-screen','Initial Interview':'rk-int1','Final Interview':'rk-int2','For Approval':'rk-approv','Job Offer':'rk-offer','Hired':'rk-hired','Rejected':'rk-reject'};
-    kanban.innerHTML=PIPELINE_STAGES.map(function(stage){
-      var items=recruitApplicants.filter(a=>a.status===stage);
-      var names=items.slice(0,3).map(a=>a.full_name.split(',')[0]).join(', ')+(items.length>3?'…':'');
-      return '<div class="rk-col '+stageKeys[stage]+'">'
-        +'<div class="rk-col-hd"><span>'+stage+'</span></div>'
-        +'<div class="rk-count">'+items.length+'</div>'
-        +'<div class="rk-names">'+(names||'—')+'</div>'
+      {l:'Total Applicants', v:total,    c:'blue',  icon:'👥'},
+      {l:'New / Unreviewed', v:newCount, c:'accent', icon:'🆕'},
+      {l:'Active Pipeline',  v:active,   c:'orange', icon:'⚡'},
+      {l:'Hired',            v:hired,    c:'green',  icon:'✅'},
+      {l:'Hire Rate',        v:hireRate+'%', c:'blue', icon:'📈'},
+      {l:'Avg. Days to Hire',v:avgDays,  c:'orange', icon:'⏱'},
+    ].map(function(m){
+      return '<div class="mc '+m.c+'" style="display:flex;flex-direction:column;gap:4px">'
+        +'<div class="ml" style="display:flex;align-items:center;gap:5px"><span>'+m.icon+'</span>'+m.l+'</div>'
+        +'<div class="mv">'+m.v+'</div>'
         +'</div>';
     }).join('');
   }
-  // Recent activity
-  var act=document.getElementById('recruit-activity');
-  if(act){
-    var logs=recruitPipelineLogs.slice(0,15);
-    if(!logs.length){act.innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">No activity yet.</div>';return;}
-    act.innerHTML=logs.map(function(l){
-      var a=recruitApplicants.find(x=>x.id===l.applicant_id);
-      var name=a?a.full_name:'Unknown';
-      var arrow=l.from_status?('<span style="color:var(--muted)">'+l.from_status+'</span> → '):'';
-      return '<div class="pipeline-step">'
-        +'<div class="pipeline-dot done"></div>'
-        +'<div><div style="font-weight:600;font-size:12px;color:var(--navy)">'+name+'</div>'
-        +'<div style="font-size:11.5px;color:var(--text);margin-top:1px">'+arrow+'<strong>'+l.to_status+'</strong>'+(l.notes?' · <span style="color:var(--muted)">'+l.notes+'</span>':'')+'</div>'
-        +'<div style="font-size:10.5px;color:var(--muted);margin-top:2px">'+fmtDT(l.timestamp)+'</div>'
-        +'</div></div>';
+
+  // ── FUNNEL + KANBAN ──
+  var kanban=document.getElementById('recruit-kanban');
+  if(kanban){
+    var stages=[
+      {key:'New Applicant',     n:newCount, css:'rk-new',    color:'#00838f', icon:'📥'},
+      {key:'Screening',         n:screening,css:'rk-screen', color:'#1565c0', icon:'🔍'},
+      {key:'Initial Interview', n:int1,     css:'rk-int1',   color:'#6a1b9a', icon:'🎙'},
+      {key:'Final Interview',   n:int2,     css:'rk-int2',   color:'#4a148c', icon:'🏁'},
+      {key:'For Approval',      n:approval, css:'rk-approv', color:'#e65100', icon:'📋'},
+      {key:'Job Offer',         n:offer,    css:'rk-offer',  color:'#f57f17', icon:'📨'},
+      {key:'Hired',             n:hired,    css:'rk-hired',  color:'#2e7d32', icon:'🎉'},
+      {key:'Rejected',          n:rejected, css:'rk-reject', color:'#c62828', icon:'❌'},
+    ];
+    var maxN=Math.max(1,...stages.map(s=>s.n));
+    kanban.innerHTML = stages.map(function(s){
+      var pct = Math.round((s.n/maxN)*100);
+      var names=recruitApplicants.filter(a=>a.status===s.key).slice(0,2).map(a=>a.full_name.split(',')[0]).join(', ');
+      return '<div class="rk-col '+s.css+'" onclick="recruitFilterByStage(\''+s.key+'\')" style="cursor:pointer;transition:transform .15s" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'\'">'
+        +'<div class="rk-col-hd"><span style="font-size:14px">'+s.icon+'</span><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:'+s.color+'">'+s.key+'</span></div>'
+        +'<div style="display:flex;align-items:flex-end;justify-content:space-between;margin:6px 0 4px">'
+        +'<div class="rk-count" style="color:'+s.color+'">'+s.n+'</div>'
+        +(total>0?'<div style="font-size:10px;color:var(--muted);font-weight:600">'+Math.round((s.n/total)*100)+'%</div>':'')
+        +'</div>'
+        +'<div style="height:4px;background:#f0f4f8;border-radius:2px;margin-bottom:6px"><div style="height:4px;background:'+s.color+';border-radius:2px;width:'+pct+'%;transition:width .4s ease"></div></div>'
+        +'<div class="rk-names" style="font-size:10.5px;color:var(--muted);min-height:14px">'+(names||'—')+'</div>'
+        +'</div>';
     }).join('');
   }
-  // Position summary
+
+  // ── RECENT ACTIVITY ──
+  var act=document.getElementById('recruit-activity');
+  if(act){
+    // Build logs from Supabase data (derive from applicant created_at + status)
+    var actItems=[];
+    // Pipeline logs first
+    recruitPipelineLogs.slice(0,20).forEach(function(l){
+      var a=recruitApplicants.find(x=>x.id===l.applicant_id);
+      if(a) actItems.push({ts:l.timestamp,name:a.full_name,pos:a.position_applied,from:l.from_status,to:l.to_status,notes:l.notes});
+    });
+    // If no logs yet, derive from applicant created_at
+    if(!actItems.length){
+      recruitApplicants.slice(0,10).forEach(function(a){
+        actItems.push({ts:a.created_at,name:a.full_name,pos:a.position_applied,from:'',to:a.status,notes:'Application received'});
+      });
+    }
+    actItems.sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});
+    if(!actItems.length){
+      act.innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px 0">No activity yet.</div>';
+    } else {
+      act.innerHTML=actItems.slice(0,12).map(function(l){
+        var dotColor=STAGE_COLORS[l.to]||'var(--blue)';
+        var timeAgo=_timeAgo(l.ts);
+        return '<div class="pipeline-step" style="padding:7px 0">'
+          +'<div class="pipeline-dot" style="background:'+dotColor+';flex-shrink:0;margin-top:4px"></div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
+          +'<div style="font-weight:600;font-size:12px;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+l.name+'</div>'
+          +'<div style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0">'+timeAgo+'</div>'
+          +'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:1px">'+l.pos+'</div>'
+          +'<div style="font-size:11.5px;color:var(--text);margin-top:2px">'
+          +(l.from?'<span style="color:var(--muted)">'+l.from+'</span> → ':'')
+          +'<span style="font-weight:600;color:'+dotColor+'">'+l.to+'</span>'
+          +'</div>'
+          +'</div></div>';
+      }).join('');
+    }
+  }
+
+  // ── POSITION SUMMARY ──
   var ps=document.getElementById('recruit-pos-summary');
   if(ps){
     var byPos={};
-    recruitApplicants.forEach(function(a){if(!byPos[a.position_applied])byPos[a.position_applied]=0;byPos[a.position_applied]++;});
-    var posArr=Object.entries(byPos).sort((a,b)=>b[1]-a[1]);
-    if(!posArr.length){ps.innerHTML='<div class="empty">No applicants yet.</div>';return;}
-    ps.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Position</th><th>Total Applicants</th><th>New</th><th>Active</th><th>Hired</th><th>Rejected</th></tr></thead><tbody>'
-      +posArr.map(function(p){
-        var pos=p[0],cnt=p[1];
-        var newC=recruitApplicants.filter(a=>a.position_applied===pos&&a.status==='New Applicant').length;
-        var actC=recruitApplicants.filter(a=>a.position_applied===pos&&a.status!=='Hired'&&a.status!=='Rejected').length;
-        var hirC=recruitApplicants.filter(a=>a.position_applied===pos&&a.status==='Hired').length;
-        var rejC=recruitApplicants.filter(a=>a.position_applied===pos&&a.status==='Rejected').length;
-        return '<tr><td><strong>'+pos+'</strong></td><td>'+cnt+'</td><td><span class="badge badge-accent">'+newC+'</span></td><td><span class="badge badge-orange">'+actC+'</span></td><td><span class="badge badge-green">'+hirC+'</span></td><td><span class="badge badge-red">'+rejC+'</span></td></tr>';
-      }).join('')+'</tbody></table></div>';
+    recruitApplicants.forEach(function(a){
+      if(!a.position_applied)return;
+      if(!byPos[a.position_applied])byPos[a.position_applied]={total:0,new:0,active:0,hired:0,rejected:0};
+      byPos[a.position_applied].total++;
+      if(a.status==='New Applicant')byPos[a.position_applied].new++;
+      if(a.status!=='Hired'&&a.status!=='Rejected')byPos[a.position_applied].active++;
+      if(a.status==='Hired')byPos[a.position_applied].hired++;
+      if(a.status==='Rejected')byPos[a.position_applied].rejected++;
+    });
+    var posArr=Object.entries(byPos).sort(function(a,b){return b[1].total-a[1].total;});
+    if(!posArr.length){
+      ps.innerHTML='<div class="empty" style="padding:20px 0">No applicants yet. Share your QR code to start receiving applications.</div>';
+    } else {
+      ps.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+        +'<th>Position</th><th style="text-align:center">Total</th>'
+        +'<th style="text-align:center">New</th><th style="text-align:center">Active</th>'
+        +'<th style="text-align:center">Hired</th><th style="text-align:center">Rejected</th>'
+        +'<th style="text-align:center">Hire Rate</th>'
+        +'</tr></thead><tbody>'
+        +posArr.map(function(p){
+          var nm=p[0],d=p[1];
+          var rate=d.total>0?Math.round((d.hired/d.total)*100):0;
+          return '<tr style="cursor:pointer" onclick="recruitFilterByStage(\'\',\''+nm+'\')">'
+            +'<td><strong>'+nm+'</strong></td>'
+            +'<td style="text-align:center"><span class="badge badge-blue">'+d.total+'</span></td>'
+            +'<td style="text-align:center"><span class="badge badge-accent">'+d.new+'</span></td>'
+            +'<td style="text-align:center"><span class="badge badge-orange">'+d.active+'</span></td>'
+            +'<td style="text-align:center"><span class="badge badge-green">'+d.hired+'</span></td>'
+            +'<td style="text-align:center"><span class="badge badge-red">'+d.rejected+'</span></td>'
+            +'<td style="text-align:center">'
+            +'<div style="display:flex;align-items:center;gap:6px;justify-content:center">'
+            +'<div style="width:60px;height:5px;background:#f0f4f8;border-radius:3px"><div style="height:5px;background:var(--green);border-radius:3px;width:'+rate+'%"></div></div>'
+            +'<span style="font-size:11px;font-weight:700;color:var(--green)">'+rate+'%</span>'
+            +'</div></td></tr>';
+        }).join('')+'</tbody></table></div>';
+    }
   }
-  // Filter dropdowns
+
   recruitPopulateFilters();
+}
+
+// ── FILTER BY STAGE (from kanban click) ──
+function recruitFilterByStage(stage, pos){
+  goITab('recruit','applicants',document.querySelector('.itab[onclick*="applicants"]'));
+  if(stage){var el=document.getElementById('recruit-filter-status');if(el)el.value=stage;}
+  if(pos){var ep=document.getElementById('recruit-filter-pos');if(ep)ep.value=pos;}
+  renderApplicantList();
+}
+
+// ── TIME AGO HELPER ──
+function _timeAgo(ts){
+  if(!ts)return'';
+  var diff=(Date.now()-new Date(ts))/1000;
+  if(diff<60)return'just now';
+  if(diff<3600)return Math.floor(diff/60)+'m ago';
+  if(diff<86400)return Math.floor(diff/3600)+'h ago';
+  if(diff<604800)return Math.floor(diff/86400)+'d ago';
+  return fmtDate(ts);
 }
 
 function recruitPopulateFilters(){
@@ -4248,7 +4566,24 @@ function openPdDrawer(id){
   document.getElementById('pd-date').textContent=fmtDate(a.created_at);
   document.getElementById('pd-source').textContent=a.source||'—';
   var resumeEl=document.getElementById('pd-resume');
-  if(a.resume_url){resumeEl.innerHTML='<a href="'+a.resume_url+'" target="_blank" style="color:var(--blue);font-weight:600">📄 Open Resume</a>';}else{resumeEl.textContent='Not provided';}
+  if(a.resume_url){
+    var url=a.resume_url;
+    if(url.startsWith('http')){
+      // Real URL — direct link
+      resumeEl.innerHTML='<a href="'+url+'" target="_blank" rel="noopener" style="color:var(--blue);font-weight:600;display:inline-flex;align-items:center;gap:5px">📄 Open Resume ↗</a>';
+    } else if(url.startsWith('data:')){
+      // Base64 — create download link
+      var ext=url.includes('pdf')?'pdf':url.includes('doc')?'doc':'file';
+      resumeEl.innerHTML='<a href="'+url+'" download="resume_'+a.full_name.replace(/\s+/g,'_')+'.'+ext+'" style="color:var(--blue);font-weight:600;display:inline-flex;align-items:center;gap:5px">📄 Download Resume</a>';
+    } else if(url.startsWith('[Uploaded:')){
+      // Old fallback — filename only, no file stored
+      resumeEl.innerHTML='<span style="color:var(--orange);font-size:12px">⚠️ '+url+' (file not stored — Cloudinary or Supabase Storage not configured)</span>';
+    } else {
+      resumeEl.innerHTML='<a href="'+url+'" target="_blank" style="color:var(--blue);font-weight:600">📄 Open Resume</a>';
+    }
+  } else {
+    resumeEl.textContent='Not provided';
+  }
   document.getElementById('pd-company').textContent=a.company_name||'—';
   document.getElementById('pd-prev-pos').textContent=a.recent_position||'—';
   document.getElementById('pd-curr-sal').textContent=a.current_salary?peso(a.current_salary):'—';
@@ -4406,16 +4741,6 @@ function renderPositionsList(){
 function recruitTogglePos(id){var p=recruitPositions.find(x=>x.id===id);if(!p)return;p.is_active=p.is_active?0:1;recruitSave();renderPositionsList();}
 function recruitDelPos(id){if(!confirm('Delete this position?'))return;recruitPositions=recruitPositions.filter(p=>p.id!==id);recruitSave();renderPositionsList();}
 
-// ─── WEBHOOK CONFIG ─
-function recruitSaveWebhookConfig(){
-  recruitWebhookCfg.formUrl=document.getElementById('recruit-form-url').value;
-  recruitWebhookCfg.secret=document.getElementById('recruit-webhook-secret').value;
-  recruitWebhookCfg.webhookUrl=document.getElementById('recruit-webhook-url').value;
-  recruitSave();flash('webhook-ok');
-  // Update snippet
-  var snip=document.getElementById('recruit-snippet');
-  if(snip)snip.textContent=snip.textContent.replace("'YOUR_SECRET_KEY'",'\''+recruitWebhookCfg.secret+'\'');
-}
 function recruitGenSecret(){
   var chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   var secret=Array.from({length:32},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
@@ -4431,42 +4756,142 @@ function recruitRenderWebhookLogs(){
   }).join('');
 }
 
-// ─── QR CODE GENERATOR (canvas-based, no external lib needed) ─
+// ─── REAL QR CODE GENERATOR (uses qrcode.js from CDN) ───────────────────────
+// Loads qrcode.min.js on demand the first time recruitGenQR() is called.
+var _qrLibLoaded=false;
+var _qrLibLoading=false;
+var _qrPendingUrl=null;
+
 function recruitGenQR(){
-  var url=document.getElementById('recruit-form-url')?document.getElementById('recruit-form-url').value:'';
+  var url=(document.getElementById('recruit-form-url')||{}).value||'';
   var label=document.getElementById('recruit-qr-url-label');
+  var box=document.getElementById('recruit-qr-box');
+  if(!box)return;
+  if(!url){
+    if(label)label.textContent='Enter form URL on the left to generate QR';
+    box.innerHTML='<canvas id="recruit-qr-canvas" width="220" height="220"></canvas>';
+    return;
+  }
+  if(label)label.textContent=url.length>55?url.slice(0,52)+'…':url;
+  if(_qrLibLoaded){
+    _drawRealQR(url,box);
+  } else {
+    _qrPendingUrl=url;
+    box.innerHTML='<div style="width:220px;height:220px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">Generating QR…</div>';
+    if(!_qrLibLoading){
+      _qrLibLoading=true;
+      var s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+      s.onload=function(){
+        _qrLibLoaded=true;_qrLibLoading=false;
+        if(_qrPendingUrl)_drawRealQR(_qrPendingUrl,box);
+      };
+      s.onerror=function(){
+        // CDN failed — try alternate
+        _qrLibLoading=false;
+        var s2=document.createElement('script');
+        s2.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+        s2.onload=function(){_qrLibLoaded=true;if(_qrPendingUrl)_drawRealQRCanvas(_qrPendingUrl,box);};
+        s2.onerror=function(){box.innerHTML='<div style="color:var(--red);font-size:12px;padding:10px;text-align:center">QR library failed to load.<br>Check internet connection.</div>';};
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    }
+  }
+}
+
+function _drawRealQR(url,box){
+  // qrcodejs library — creates a div with img inside
+  box.innerHTML='<div id="qr-inner" style="line-height:0"></div>';
+  try{
+    new QRCode(document.getElementById('qr-inner'),{
+      text:url,
+      width:220,height:220,
+      colorDark:'#0a1628',
+      colorLight:'#ffffff',
+      correctLevel:QRCode.CorrectLevel.M
+    });
+    // After render, replace canvas id for download function compatibility
+    setTimeout(function(){
+      var img=box.querySelector('img');
+      var cvs=box.querySelector('canvas');
+      if(cvs)cvs.id='recruit-qr-canvas';
+      else if(img){img.id='recruit-qr-img';img.style.width='220px';img.style.height='220px';}
+    },200);
+  }catch(e){
+    // Fallback to qrcode npm canvas variant
+    _drawRealQRCanvas(url,box);
+  }
+}
+
+function _drawRealQRCanvas(url,box){
+  // qrcode npm build — uses QRCode.toCanvas()
+  box.innerHTML='<canvas id="recruit-qr-canvas" width="220" height="220"></canvas>';
   var canvas=document.getElementById('recruit-qr-canvas');
-  if(!canvas)return;
-  var ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,200,200);
-  if(!url){if(label)label.textContent='Enter form URL on the left to generate QR';return;}
-  // Draw a placeholder styled block (real QR needs qrcode.js CDN)
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,200,200);
-  ctx.fillStyle='#0a1628';
-  // Draw simple grid pattern as placeholder
-  var modules=21,size=Math.floor(180/modules),off=10;
-  for(var r=0;r<modules;r++){for(var c=0;c<modules;c++){
-    if(r<7&&c<7){if(r===0||r===6||c===0||c===6||(r>=2&&r<=4&&c>=2&&c<=4)){ctx.fillRect(off+c*size,off+r*size,size-1,size-1);}
-    }else if(r<7&&c>modules-8){if(r===0||r===6||c===modules-7||c===modules-1||(r>=2&&r<=4&&c>=modules-5&&c<=modules-3)){ctx.fillRect(off+c*size,off+r*size,size-1,size-1);}
-    }else if(r>modules-8&&c<7){if(r===modules-7||r===modules-1||c===0||c===6||(r>=modules-5&&r<=modules-3&&c>=2&&c<=4)){ctx.fillRect(off+c*size,off+r*size,size-1,size-1);}
-    }else if(Math.random()>0.55){ctx.fillRect(off+c*size,off+r*size,size-1,size-1);}
-  }}
-  ctx.strokeStyle='#1565c0';ctx.lineWidth=3;ctx.strokeRect(1,1,198,198);
-  if(label){label.textContent=url.length>50?url.slice(0,47)+'…':url;}
-  // Note: for production, load qrcode.js from CDN and replace above with:
-  // QRCode.toCanvas(canvas, url, {width:200, margin:1});
+  if(typeof QRCode!=='undefined'&&QRCode.toCanvas){
+    QRCode.toCanvas(canvas,url,{width:220,margin:2,color:{dark:'#0a1628',light:'#ffffff'}},function(err){
+      if(err)console.error('QR render error',err);
+    });
+  }
 }
+
+function _getQRImageDataUrl(){
+  // Try canvas first, then img tag
+  var canvas=document.getElementById('recruit-qr-canvas');
+  if(canvas)return canvas.toDataURL('image/png');
+  var img=document.getElementById('recruit-qr-img');
+  if(img)return img.src;
+  // Last resort: get any img inside the qr box
+  var anyImg=document.querySelector('#recruit-qr-box img');
+  if(anyImg)return anyImg.src;
+  return null;
+}
+
 function recruitPrintQR(){
-  var canvas=document.getElementById('recruit-qr-canvas');if(!canvas)return;
-  var url=canvas.toDataURL();
-  var formUrl=document.getElementById('recruit-form-url').value||'';
+  var dataUrl=_getQRImageDataUrl();
+  var formUrl=(document.getElementById('recruit-form-url')||{}).value||'';
+  if(!dataUrl||!formUrl){alert('Please enter a form URL first to generate the QR code.');return;}
   var w=window.open('','_blank');
-  w.document.write('<html><head><title>HMB Application Form QR</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:40px}h2{color:#0a1628}p{font-size:13px;color:#666;margin-top:8px}</style></head><body><h2>HMB Tax Firm — Career Application</h2><img src="'+url+'" style="width:250px;height:250px"><p>Scan to apply: '+formUrl+'</p><p style="font-size:11px;color:#aaa;margin-top:20px">HMB Business Consultancy Services Corp.</p></body></html>');
-  w.document.close();w.print();
+  w.document.write(`<!DOCTYPE html>
+<html><head><title>HMB Tax Firm — Application QR Code</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+  .card{text-align:center;border:2px solid #0a1628;border-radius:16px;padding:32px 40px;max-width:380px;width:100%}
+  .logo{font-size:28px;font-weight:800;color:#0a1628;letter-spacing:1px;margin-bottom:4px}
+  .tagline{font-size:13px;color:#c9a84c;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px}
+  .qr-wrap{background:#fff;border:1px solid #dce3ec;border-radius:10px;display:inline-block;padding:12px;margin-bottom:18px}
+  .qr-wrap img{width:240px;height:240px;display:block}
+  h2{font-size:16px;color:#0a1628;font-weight:700;margin-bottom:6px}
+  .sub{font-size:12px;color:#6b7c93;line-height:1.6;margin-bottom:14px}
+  .url-box{background:#f0f4f8;border-radius:6px;padding:8px 12px;font-size:11px;color:#1565c0;word-break:break-all;font-family:monospace}
+  .footer{margin-top:16px;font-size:10px;color:#aab;padding-top:12px;border-top:1px solid #f0f4f8}
+  @media print{body{padding:0}.card{border:2px solid #0a1628;box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">HMB</div>
+  <div class="tagline">We're Hiring</div>
+  <div class="qr-wrap"><img src="${dataUrl}" alt="QR Code"></div>
+  <h2>Join Our Team</h2>
+  <div class="sub">Scan the QR code with your phone camera<br>to access the application form.</div>
+  <div class="url-box">${formUrl}</div>
+  <div class="footer">HMB Business Consultancy Services Corp.<br>Data collected in accordance with RA 10173 – Data Privacy Act</div>
+</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`);
+  w.document.close();
 }
+
 function recruitDownloadQR(){
-  var canvas=document.getElementById('recruit-qr-canvas');if(!canvas)return;
-  var a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='HMB_Application_QR.png';document.body.appendChild(a);a.click();document.body.removeChild(a);
+  var dataUrl=_getQRImageDataUrl();
+  var formUrl=(document.getElementById('recruit-form-url')||{}).value||'';
+  if(!dataUrl||!formUrl){alert('Please enter a form URL first to generate the QR code.');return;}
+  var a=document.createElement('a');
+  a.href=dataUrl;
+  a.download='HMB_Application_QR_Code.png';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
 // ─── EXPORT CSV ─
@@ -4485,87 +4910,78 @@ function recruitUpdateNavBadge(){
   if(badge){badge.style.display=newCount>0?'inline-flex':'none';badge.textContent=newCount;}
 }
 
+// ─── MANUAL REFRESH ─
+async function recruitManualRefresh(){
+  var statusEl=document.getElementById('recruit-supabase-status');
+  if(!recruitSupabaseReady()){
+    if(statusEl)statusEl.innerHTML='<span style="color:var(--red)">❌ Enter your Supabase URL and key first, then click Save & Connect.</span>';
+    return;
+  }
+  if(statusEl)statusEl.textContent='⏳ Fetching from Supabase…';
+  var ok=await recruitFetchFromSupabase();
+  if(ok){
+    renderRecruitDashboard();renderApplicantList();recruitUpdateNavBadge();
+    if(statusEl)statusEl.innerHTML='<span style="color:var(--green)">✅ Synced — '+recruitApplicants.length+' applicant(s) loaded at '+new Date().toLocaleTimeString('en-PH')+'</span>';
+  }else{
+    if(statusEl)statusEl.innerHTML='<span style="color:var(--red)">❌ Connection failed. Check your Supabase URL and key.</span>';
+  }
+}
+
 // ─── INIT RECRUITMENT ─
-function initRecruitment(){
-  recruitLoad();
+async function initRecruitment(){
+  recruitLoad(); // load config, positions, interviews, notes from localStorage
+  // If Supabase is configured, clear local applicant cache immediately
+  // to prevent stale local entries from doubling with Supabase data
+  if(recruitSupabaseReady()){
+    recruitApplicants = []; // start clean — Supabase is the source of truth
+  }
   renderRecruitDashboard();
   renderApplicantList();
   renderPositionsList();
   recruitRenderWebhookLogs();
   recruitUpdateNavBadge();
-  // Restore webhook config UI
+  // Restore UI fields
   var fu=document.getElementById('recruit-form-url');
   if(fu&&recruitWebhookCfg.formUrl){fu.value=recruitWebhookCfg.formUrl;recruitGenQR();}
   var ws=document.getElementById('recruit-webhook-secret');
   if(ws&&recruitWebhookCfg.secret)ws.value=recruitWebhookCfg.secret;
-  var wu=document.getElementById('recruit-webhook-url');
-  if(wu&&recruitWebhookCfg.webhookUrl)wu.value=recruitWebhookCfg.webhookUrl;
-  // Expose global webhook receiver (called by server.js or form)
+  var su=document.getElementById('recruit-supabase-url');
+  if(su&&recruitWebhookCfg.supabaseUrl)su.value=recruitWebhookCfg.supabaseUrl;
+  var sk=document.getElementById('recruit-supabase-key');
+  if(sk&&recruitWebhookCfg.supabaseKey)sk.value=recruitWebhookCfg.supabaseKey;
+
+  // Fetch from Supabase (authoritative source)
+  if(recruitSupabaseReady()){
+    var ok=await recruitFetchFromSupabase();
+    if(ok){
+      renderRecruitDashboard();
+      renderApplicantList();
+      recruitUpdateNavBadge();
+    }
+  }
+
+  // Auto-refresh every 30s — always replaces, never appends
+  setInterval(async function(){
+    if(!recruitSupabaseReady()) return;
+    var prevCount = recruitApplicants.length;
+    var ok = await recruitFetchFromSupabase();
+    if(ok){
+      renderRecruitDashboard();
+      recruitUpdateNavBadge();
+      var sec=document.getElementById('sec-recruitment');
+      if(sec&&sec.classList.contains('on')) renderApplicantList();
+      if(recruitApplicants.length > prevCount){
+        recruitToast('🎯 '+(recruitApplicants.length-prevCount)+' new applicant(s) received!');
+      }
+    }
+  }, 30000);
+
   window.hmbRecruitWebhook=function(payload,source){
     var rec=recruitReceiveWebhook(payload,source);
     renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();
     return rec;
   };
-
-  // ── REAL-TIME CROSS-TAB SYNC ──
-  // When hmb_apply.html writes to localStorage in another tab/window,
-  // this fires immediately and refreshes the HRIS recruitment panel.
-  window.addEventListener('storage',function(e){
-    if(e.key==='hmb_recruit_applicants'&&e.newValue){
-      try{
-        var incoming=JSON.parse(e.newValue);
-        // Only reload if count grew (new submission from form)
-        if(incoming.length>recruitApplicants.length){
-          recruitApplicants=incoming;
-          // Also reload logs and webhook logs for the new entry
-          var wl=localStorage.getItem('hmb_recruit_whlogs');if(wl)recruitWebhookLogs=JSON.parse(wl);
-          var pl=localStorage.getItem('hmb_recruit_logs');if(pl)recruitPipelineLogs=JSON.parse(pl);
-          // Refresh UI
-          renderRecruitDashboard();
-          renderApplicantList();
-          recruitUpdateNavBadge();
-          recruitRenderWebhookLogs();
-          // Flash a toast notification
-          recruitToast('🎯 New applicant received from application form!');
-        }
-      }catch(err){console.warn('Recruit storage sync error',err);}
-    }
-    // Also sync if the form wrote a pending_submission key (for same-tab fallback)
-    if(e.key==='hmb_recruit_pending'){
-      var ps=localStorage.getItem('hmb_recruit_pending');
-      if(ps){
-        try{var payload=JSON.parse(ps);recruitReceiveWebhook(payload,'Application Form');localStorage.removeItem('hmb_recruit_pending');renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();}
-        catch(err){}
-      }
-    }
-  });
-
-  // ── POLLING FALLBACK (every 8s) ──
-  // Catches submissions when HRIS and form are in the same tab or storage events are missed
-  var _recruitLastCount=recruitApplicants.length;
-  setInterval(function(){
-    try{
-      var raw=localStorage.getItem('hmb_recruit_applicants');
-      if(!raw)return;
-      var stored=JSON.parse(raw);
-      if(stored.length>_recruitLastCount){
-        _recruitLastCount=stored.length;
-        recruitApplicants=stored;
-        var wl=localStorage.getItem('hmb_recruit_whlogs');if(wl)recruitWebhookLogs=JSON.parse(wl);
-        var pl=localStorage.getItem('hmb_recruit_logs');if(pl)recruitPipelineLogs=JSON.parse(pl);
-        // Only refresh UI if recruitment section is active
-        var sec=document.getElementById('sec-recruitment');
-        if(sec&&sec.classList.contains('on')){
-          renderRecruitDashboard();renderApplicantList();recruitUpdateNavBadge();recruitRenderWebhookLogs();
-        } else {
-          recruitUpdateNavBadge();// always update badge
-        }
-        recruitToast('🎯 New applicant received!');
-      }
-    }catch(e){}
-  },8000);
 }
-
 // ── TOAST NOTIFICATION ──
 function recruitToast(msg){
   var existing=document.getElementById('recruit-toast');
