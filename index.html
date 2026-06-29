@@ -813,57 +813,76 @@ async function saveToSupabase(payload, resumeUrl){
   return rows[0] || rec;
 }
 
-// ── CLOUDINARY CONFIG (optional — alternative to Supabase Storage) ──
+// ── CLOUDINARY CONFIG (optional) ──
 var CLOUDINARY_ENABLED = false;
-var CLOUD_NAME         = 'your_cloud_name';    // e.g. 'hmbconsultancy'
-var UPLOAD_PRESET      = 'your_upload_preset'; // unsigned preset name
+var CLOUD_NAME         = 'your_cloud_name';
+var UPLOAD_PRESET      = 'your_upload_preset';
 
-// ── RESUME UPLOAD — uses Supabase Storage ──
-// Files go to: your-project.supabase.co/storage/v1/object/public/resumes/
+// ── RESUME UPLOAD ─────────────────────────────────────────────────────────────
+// Priority: 1) Supabase Storage  2) Cloudinary  3) Base64 in DB
 async function uploadResume(file){
-  // Option A: Cloudinary (set credentials below to enable)
-  if(CLOUDINARY_ENABLED && CLOUD_NAME !== 'your_cloud_name'){
-    var fd = new FormData();
-    fd.append('file', file);
-    fd.append('upload_preset', UPLOAD_PRESET);
-    fd.append('folder','hmb-resumes');
-    var r = await fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/raw/upload',{method:'POST',body:fd});
-    if(!r.ok) throw new Error('Cloudinary upload failed: '+r.status);
-    var d = await r.json();
-    return d.secure_url;
+
+  // Validate file size (max 5MB for base64 fallback, 50MB for storage)
+  if(file.size > 50*1024*1024){
+    throw new Error('File too large (max 50MB). Please compress your PDF.');
   }
 
-  // Option B: Supabase Storage (uses same credentials, no extra setup)
+  // Option 1: Supabase Storage (same credentials, no extra config)
   if(supabaseConfigured()){
-    var ts = Date.now();
-    var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-    var path = 'resumes/'+ts+'_'+safeName;
-    var r = await fetch(
-      SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/resumes/'+ts+'_'+safeName,
-      {
+    try{
+      var ts       = Date.now();
+      var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+      var fileName = ts+'_'+safeName;
+      var uploadUrl= SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/resumes/'+fileName;
+      var r = await fetch(uploadUrl, {
         method: 'POST',
         headers:{
-          'apikey': SUPABASE_ANON,
+          'apikey':        SUPABASE_ANON,
           'Authorization': 'Bearer '+SUPABASE_ANON,
-          'Content-Type': file.type||'application/pdf',
-          'x-upsert': 'true'
+          'Content-Type':  file.type||'application/pdf',
+          'x-upsert':      'true'
         },
         body: file
+      });
+      if(r.ok){
+        return SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/public/resumes/'+fileName;
       }
-    );
-    if(r.ok){
-      // Return the public URL
-      return SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/public/resumes/'+ts+'_'+safeName;
+      // 404 = bucket doesn't exist yet, fall through to base64
+      if(r.status !== 404){
+        console.warn('Supabase Storage upload failed:', r.status);
+      }
+    }catch(e){
+      console.warn('Supabase Storage error:', e.message);
     }
-    // If storage bucket not set up, fall back to base64
-    console.warn('Supabase Storage upload failed ('+r.status+'), falling back to base64');
   }
 
-  // Option C: Base64 fallback (works always, stored in DB)
-  return new Promise(function(resolve){
+  // Option 2: Cloudinary
+  if(CLOUDINARY_ENABLED && CLOUD_NAME !== 'your_cloud_name'){
+    try{
+      var fd = new FormData();
+      fd.append('file', file);
+      fd.append('upload_preset', UPLOAD_PRESET);
+      fd.append('folder','hmb-resumes');
+      var r2 = await fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/raw/upload',{method:'POST',body:fd});
+      if(r2.ok){
+        var d = await r2.json();
+        return d.secure_url;
+      }
+    }catch(e){
+      console.warn('Cloudinary upload error:', e.message);
+    }
+  }
+
+  // Option 3: Base64 stored directly in Supabase DB column
+  // Works for files up to ~5MB (Supabase row limit)
+  if(file.size > 5*1024*1024){
+    // Too large for base64 in DB — store filename only with instructions
+    return 'PENDING:'+file.name+'|'+file.size;
+  }
+  return new Promise(function(resolve, reject){
     var reader = new FileReader();
-    reader.onload = function(e){ resolve(e.target.result); };
-    reader.onerror = function(){ resolve('[file: '+file.name+']'); };
+    reader.onload  = function(e){ resolve(e.target.result); };
+    reader.onerror = function(){ resolve('PENDING:'+file.name+'|'+file.size); };
     reader.readAsDataURL(file);
   });
 }

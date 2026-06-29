@@ -4019,6 +4019,31 @@ function recruitPositionNextId(){return recruitPositions.length?Math.max(...recr
 function recruitGenCode(id){var yr=new Date().getFullYear();var seq=String(id).padStart(4,'0');return'APP-'+yr+'-'+seq;}
 function recruitGenEmpId(){var yr=new Date().getFullYear();var hired=employees.filter(e=>e.recruitedFrom).length;return'HMB-'+yr+'-'+String(hired+1).padStart(3,'0');}
 
+// ─── DELETED IDs BLACKLIST (persists across page refreshes) ─────────────────
+// Keeps a local record of IDs deleted from Supabase so they are never
+// restored by the auto-refresh fetch, even if Supabase RLS delayed the delete.
+var recruitDeletedIds = [];
+
+function recruitLoadDeletedIds(){
+  try{
+    var raw = localStorage.getItem('hmb_recruit_deleted');
+    if(raw) recruitDeletedIds = JSON.parse(raw);
+  }catch(e){ recruitDeletedIds = []; }
+}
+
+function recruitSaveDeletedIds(){
+  try{
+    localStorage.setItem('hmb_recruit_deleted', JSON.stringify(recruitDeletedIds));
+  }catch(e){}
+}
+
+function recruitMarkDeleted(id){
+  if(!recruitDeletedIds.includes(id)){
+    recruitDeletedIds.push(id);
+    recruitSaveDeletedIds();
+  }
+}
+
 // ─── SUPABASE CONFIG (set these in the Webhook/QR tab UI) ───────────────────
 var SUPABASE_URL = '';
 var SUPABASE_ANON_KEY = '';
@@ -4126,8 +4151,10 @@ async function recruitFetchFromSupabase(){
   if(!recruitSupabaseReady()) return false;
   try{
     var rows = await recruitSupabaseGet('hmb_applicants');
+    // Filter out any IDs that were deleted locally (handles RLS delay)
+    var filtered = rows.filter(function(r){ return !recruitDeletedIds.includes(r.id); });
     // Replace array completely — never merge with localStorage cache
-    recruitApplicants = rows.map(function(r){
+    recruitApplicants = filtered.map(function(r){
       return {
         id: r.id,
         applicant_code: r.applicant_code||'',
@@ -4298,67 +4325,56 @@ async function recruitDeleteApplicant(){
   if(!currentApplicantId) return;
   if(!confirm('Permanently delete this applicant record?\n\nThis cannot be undone.')) return;
 
-  var btn = document.querySelector('#recruit-profile-drawer .btn.br');
-  if(btn){ btn.disabled=true; btn.textContent='Deleting…'; }
-
-  if(recruitSupabaseReady()){
-    try{
-      // Use return=representation so Supabase returns the deleted row(s)
-      // An empty array [] means RLS blocked the delete (returns 200 but no rows affected)
-      var r = await fetch(SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/hmb_applicants?id=eq.'+currentApplicantId, {
-        method: 'DELETE',
-        headers:{
-          'apikey':        SUPABASE_ANON_KEY,
-          'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
-          'Prefer':        'return=representation',
-          'Content-Type':  'application/json'
-        }
-      });
-
-      if(!r.ok){
-        var errText = await r.text();
-        if(btn){ btn.disabled=false; btn.textContent='🗑 Delete Record'; }
-        alert('❌ Delete failed (HTTP '+r.status+').\n\n'
-          +'Run this SQL in Supabase → SQL Editor to fix:\n\n'
-          +'drop policy if exists "allow_delete" on hmb_applicants;\n'
-          +'create policy "allow_delete" on hmb_applicants\n'
-          +'for delete using (true);');
-        return;
-      }
-
-      // Check if a row was actually deleted (empty = RLS silently blocked it)
-      var deleted = await r.json();
-      if(!deleted || deleted.length === 0){
-        if(btn){ btn.disabled=false; btn.textContent='🗑 Delete Record'; }
-        alert('❌ Delete was blocked by Supabase Row Level Security.\n\n'
-          +'Run this SQL in Supabase → SQL Editor:\n\n'
-          +'drop policy if exists "public_access" on hmb_applicants;\n'
-          +'drop policy if exists "allow_delete" on hmb_applicants;\n\n'
-          +'create policy "allow_all" on hmb_applicants\n'
-          +'for all using (true) with check (true);');
-        return;
-      }
-    }catch(e){
-      if(btn){ btn.disabled=false; btn.textContent='🗑 Delete Record'; }
-      alert('❌ Delete error: '+e.message);
-      return;
-    }
-  }
-
-  // Confirmed deleted from Supabase — clean up local state
   var deletedId = currentApplicantId;
+
+  // 1) Immediately add to local blacklist — this prevents it from EVER
+  //    coming back from Supabase fetch, regardless of RLS or network issues
+  recruitMarkDeleted(deletedId);
+
+  // 2) Remove from local state right now (instant UI response)
   closePdDrawer();
   recruitApplicants   = recruitApplicants.filter(a=>a.id!==deletedId);
   recruitPipelineLogs = recruitPipelineLogs.filter(l=>l.applicant_id!==deletedId);
   recruitInterviews   = recruitInterviews.filter(i=>i.applicant_id!==deletedId);
   recruitNotes        = recruitNotes.filter(n=>n.applicant_id!==deletedId);
-  // Write cleaned array back to localStorage cache immediately
   localStorage.setItem('hmb_recruit_applicants', JSON.stringify(recruitApplicants));
   recruitSave();
   renderApplicantList();
   renderRecruitDashboard();
   recruitUpdateNavBadge();
-  recruitToast('🗑 Applicant deleted successfully.');
+  recruitToast('🗑 Applicant deleted.');
+
+  // 3) Delete from Supabase in background (non-blocking)
+  if(recruitSupabaseReady()){
+    try{
+      var r = await fetch(
+        SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/hmb_applicants?id=eq.'+deletedId,
+        {
+          method: 'DELETE',
+          headers:{
+            'apikey':        SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+            'Prefer':        'return=representation',
+            'Content-Type':  'application/json'
+          }
+        }
+      );
+      if(r.ok){
+        var gone = await r.json();
+        if(gone && gone.length > 0){
+          // Confirmed deleted from Supabase — remove from blacklist (clean up)
+          recruitDeletedIds = recruitDeletedIds.filter(function(id){ return id !== deletedId; });
+          recruitSaveDeletedIds();
+        } else {
+          // RLS blocked it — stays in blacklist, will be filtered on every fetch
+          console.warn('Supabase RLS blocked delete for id='+deletedId+'. Item blacklisted locally.');
+          recruitToast('⚠️ Deleted locally. Run the SQL policy fix in Supabase to permanently remove.');
+        }
+      }
+    }catch(e){
+      console.warn('Supabase delete network error:', e.message);
+    }
+  }
 }
 // ─── APPLICANT LIST RENDER ─
 function renderApplicantList(){
@@ -4587,17 +4603,21 @@ function openPdDrawer(id){
   document.getElementById('pd-source').textContent=a.source||'—';
   var resumeEl=document.getElementById('pd-resume');
   if(a.resume_url){
-    var url=a.resume_url;
+    var url = a.resume_url;
     if(url.startsWith('http')){
-      // Real URL — direct link
       resumeEl.innerHTML='<a href="'+url+'" target="_blank" rel="noopener" style="color:var(--blue);font-weight:600;display:inline-flex;align-items:center;gap:5px">📄 Open Resume ↗</a>';
     } else if(url.startsWith('data:')){
-      // Base64 — create download link
-      var ext=url.includes('pdf')?'pdf':url.includes('doc')?'doc':'file';
-      resumeEl.innerHTML='<a href="'+url+'" download="resume_'+a.full_name.replace(/\s+/g,'_')+'.'+ext+'" style="color:var(--blue);font-weight:600;display:inline-flex;align-items:center;gap:5px">📄 Download Resume</a>';
-    } else if(url.startsWith('[Uploaded:')){
-      // Old fallback — filename only, no file stored
-      resumeEl.innerHTML='<span style="color:var(--orange);font-size:12px">⚠️ '+url+' (file not stored — Cloudinary or Supabase Storage not configured)</span>';
+      var ext = url.includes('pdf')?'pdf':url.includes('docx')?'docx':'doc';
+      var fname = 'Resume_'+(a.full_name||'applicant').replace(/[\s,]+/g,'_')+'.'+ext;
+      resumeEl.innerHTML='<a href="'+url+'" download="'+fname+'" style="color:var(--blue);font-weight:600;display:inline-flex;align-items:center;gap:5px">📄 Download Resume</a>';
+    } else if(url.startsWith('PENDING:')){
+      var parts = url.replace('PENDING:','').split('|');
+      var fname2 = parts[0]||'resume';
+      var fsize  = parts[1]?Math.round(parseInt(parts[1])/1024)+'KB':'';
+      resumeEl.innerHTML='<span style="color:var(--orange);font-size:12px">⚠️ File too large for DB storage ('+fsize+'). '
+        +'<strong>Set up Supabase Storage bucket</strong> to enable PDF uploads. Filename: '+fname2+'</span>';
+    } else if(url.startsWith('[Uploaded:')||url.startsWith('[file:')){
+      resumeEl.innerHTML='<span style="color:var(--orange);font-size:12px">⚠️ Resume filename stored but file not uploaded. Set up Supabase Storage.</span>';
     } else {
       resumeEl.innerHTML='<a href="'+url+'" target="_blank" style="color:var(--blue);font-weight:600">📄 Open Resume</a>';
     }
@@ -4949,6 +4969,7 @@ async function recruitManualRefresh(){
 
 // ─── INIT RECRUITMENT ─
 async function initRecruitment(){
+  recruitLoadDeletedIds(); // load blacklist first — before any fetch
   recruitLoad(); // load config, positions, interviews, notes from localStorage
   // If Supabase is configured, clear local applicant cache immediately
   // to prevent stale local entries from doubling with Supabase data
