@@ -4121,12 +4121,12 @@ function recruitLoad(){
   }catch(e){}
 }
 
-// ─── FETCH FROM SUPABASE (replaces localStorage read for applicants) ──────────
+// ─── FETCH FROM SUPABASE (SINGLE SOURCE OF TRUTH) ────────────────────────────
 async function recruitFetchFromSupabase(){
   if(!recruitSupabaseReady()) return false;
   try{
     var rows = await recruitSupabaseGet('hmb_applicants');
-    // Map Supabase snake_case rows to the frontend object shape
+    // Replace array completely — never merge with localStorage cache
     recruitApplicants = rows.map(function(r){
       return {
         id: r.id,
@@ -4160,11 +4160,11 @@ async function recruitFetchFromSupabase(){
         updated_at: r.updated_at||new Date().toISOString()
       };
     });
-    // Cache locally
-    localStorage.setItem('hmb_recruit_applicants',JSON.stringify(recruitApplicants));
+    // Overwrite local cache with Supabase truth
+    localStorage.setItem('hmb_recruit_applicants', JSON.stringify(recruitApplicants));
     return true;
   }catch(e){
-    console.warn('Supabase fetch failed, using local cache:',e.message);
+    console.warn('Supabase fetch failed, using local cache:', e.message);
     return false;
   }
 }
@@ -4295,16 +4295,50 @@ function recruitSaveWebhookConfig(){
 
 // ─── DELETE APPLICANT ─────────────────────────────────────────────────────────
 async function recruitDeleteApplicant(){
-  if(!currentApplicantId)return;
-  if(!confirm('Permanently delete this applicant record?'))return;
+  if(!currentApplicantId) return;
+  if(!confirm('Permanently delete this applicant record?\n\nThis cannot be undone.')) return;
+
+  var btn = document.querySelector('#recruit-profile-drawer .btn.br');
+  if(btn){ btn.disabled=true; btn.textContent='Deleting…'; }
+
+  // Delete from Supabase FIRST — if this fails, abort (don't delete locally)
   if(recruitSupabaseReady()){
-    try{await recruitSupabaseDelete('hmb_applicants',currentApplicantId);}catch(e){console.warn('Supabase delete failed:',e.message);}
+    try{
+      var r = await fetch(SUPABASE_URL+'/rest/v1/hmb_applicants?id=eq.'+currentApplicantId, {
+        method: 'DELETE',
+        headers:{
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer '+SUPABASE_ANON_KEY,
+          'Prefer': 'return=minimal'
+        }
+      });
+      if(!r.ok){
+        var errText = await r.text();
+        if(btn){ btn.disabled=false; btn.textContent='🗑 Delete Record'; }
+        alert('❌ Delete failed (Supabase HTTP '+r.status+').\n\n'+errText+'\n\nMake sure your Supabase RLS policy allows DELETE.\nRun this SQL in Supabase:\n\ncreate policy "allow_delete" on hmb_applicants\nfor delete using (true);');
+        return; // abort — don't remove locally if Supabase failed
+      }
+    }catch(e){
+      if(btn){ btn.disabled=false; btn.textContent='🗑 Delete Record'; }
+      alert('❌ Delete failed: '+e.message+'\n\nCheck your Supabase connection.');
+      return;
+    }
   }
-  recruitApplicants=recruitApplicants.filter(a=>a.id!==currentApplicantId);
-  recruitPipelineLogs=recruitPipelineLogs.filter(l=>l.applicant_id!==currentApplicantId);
-  recruitInterviews=recruitInterviews.filter(i=>i.applicant_id!==currentApplicantId);
-  recruitNotes=recruitNotes.filter(n=>n.applicant_id!==currentApplicantId);
-  recruitSave();closePdDrawer();renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();
+
+  // Supabase delete succeeded (or no Supabase) — now clean up locally
+  var deletedId = currentApplicantId;
+  closePdDrawer();
+  recruitApplicants     = recruitApplicants.filter(a=>a.id!==deletedId);
+  recruitPipelineLogs   = recruitPipelineLogs.filter(l=>l.applicant_id!==deletedId);
+  recruitInterviews     = recruitInterviews.filter(i=>i.applicant_id!==deletedId);
+  recruitNotes          = recruitNotes.filter(n=>n.applicant_id!==deletedId);
+  // Clear local cache so auto-refresh doesn't restore it from stale cache
+  localStorage.setItem('hmb_recruit_applicants', JSON.stringify(recruitApplicants));
+  recruitSave();
+  renderApplicantList();
+  renderRecruitDashboard();
+  recruitUpdateNavBadge();
+  recruitToast('🗑 Applicant deleted successfully.');
 }
 // ─── APPLICANT LIST RENDER ─
 function renderApplicantList(){
@@ -4338,69 +4372,173 @@ function renderApplicantList(){
 
 // ─── DASHBOARD RENDER ─
 function renderRecruitDashboard(){
-  // KPI Cards
+  var total    = recruitApplicants.length;
+  var newCount = recruitApplicants.filter(a=>a.status==='New Applicant').length;
+  var screening= recruitApplicants.filter(a=>a.status==='Screening').length;
+  var int1     = recruitApplicants.filter(a=>a.status==='Initial Interview').length;
+  var int2     = recruitApplicants.filter(a=>a.status==='Final Interview').length;
+  var approval = recruitApplicants.filter(a=>a.status==='For Approval').length;
+  var offer    = recruitApplicants.filter(a=>a.status==='Job Offer').length;
+  var hired    = recruitApplicants.filter(a=>a.status==='Hired').length;
+  var rejected = recruitApplicants.filter(a=>a.status==='Rejected').length;
+  var active   = total - hired - rejected;
+  var hireRate = total>0?Math.round((hired/total)*100):0;
+  var avgDays  = '—';
+  if(hired>0){
+    var hiredRecs=recruitApplicants.filter(a=>a.status==='Hired');
+    var totalDays=hiredRecs.reduce(function(s,a){return s+(new Date(a.updated_at)-new Date(a.created_at))/(1000*60*60*24);},0);
+    avgDays=Math.round(totalDays/hiredRecs.length)+'d';
+  }
+
+  // ── KPI CARDS ──
   var kpi=document.getElementById('recruit-kpi');
   if(kpi){
-    var total=recruitApplicants.length;
-    var newCount=recruitApplicants.filter(a=>a.status==='New Applicant').length;
-    var hired=recruitApplicants.filter(a=>a.status==='Hired').length;
-    var rejected=recruitApplicants.filter(a=>a.status==='Rejected').length;
-    var active=recruitApplicants.filter(a=>a.status!=='Hired'&&a.status!=='Rejected').length;
     kpi.innerHTML=[
-      {l:'Total Applicants',v:total,c:'blue'},{l:'New (Unreviewed)',v:newCount,c:'accent'},
-      {l:'Active Pipeline',v:active,c:'orange'},{l:'Hired',v:hired,c:'green'},{l:'Rejected',v:rejected,c:'red'}
-    ].map(function(m){return'<div class="mc '+m.c+'"><div class="ml">'+m.l+'</div><div class="mv">'+m.v+'</div></div>';}).join('');
-  }
-  // Kanban columns
-  var kanban=document.getElementById('recruit-kanban');
-  if(kanban){
-    var stageKeys={'New Applicant':'rk-new','Screening':'rk-screen','Initial Interview':'rk-int1','Final Interview':'rk-int2','For Approval':'rk-approv','Job Offer':'rk-offer','Hired':'rk-hired','Rejected':'rk-reject'};
-    kanban.innerHTML=PIPELINE_STAGES.map(function(stage){
-      var items=recruitApplicants.filter(a=>a.status===stage);
-      var names=items.slice(0,3).map(a=>a.full_name.split(',')[0]).join(', ')+(items.length>3?'…':'');
-      return '<div class="rk-col '+stageKeys[stage]+'">'
-        +'<div class="rk-col-hd"><span>'+stage+'</span></div>'
-        +'<div class="rk-count">'+items.length+'</div>'
-        +'<div class="rk-names">'+(names||'—')+'</div>'
+      {l:'Total Applicants', v:total,    c:'blue',  icon:'👥'},
+      {l:'New / Unreviewed', v:newCount, c:'accent', icon:'🆕'},
+      {l:'Active Pipeline',  v:active,   c:'orange', icon:'⚡'},
+      {l:'Hired',            v:hired,    c:'green',  icon:'✅'},
+      {l:'Hire Rate',        v:hireRate+'%', c:'blue', icon:'📈'},
+      {l:'Avg. Days to Hire',v:avgDays,  c:'orange', icon:'⏱'},
+    ].map(function(m){
+      return '<div class="mc '+m.c+'" style="display:flex;flex-direction:column;gap:4px">'
+        +'<div class="ml" style="display:flex;align-items:center;gap:5px"><span>'+m.icon+'</span>'+m.l+'</div>'
+        +'<div class="mv">'+m.v+'</div>'
         +'</div>';
     }).join('');
   }
-  // Recent activity
-  var act=document.getElementById('recruit-activity');
-  if(act){
-    var logs=recruitPipelineLogs.slice(0,15);
-    if(!logs.length){act.innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">No activity yet.</div>';return;}
-    act.innerHTML=logs.map(function(l){
-      var a=recruitApplicants.find(x=>x.id===l.applicant_id);
-      var name=a?a.full_name:'Unknown';
-      var arrow=l.from_status?('<span style="color:var(--muted)">'+l.from_status+'</span> → '):'';
-      return '<div class="pipeline-step">'
-        +'<div class="pipeline-dot done"></div>'
-        +'<div><div style="font-weight:600;font-size:12px;color:var(--navy)">'+name+'</div>'
-        +'<div style="font-size:11.5px;color:var(--text);margin-top:1px">'+arrow+'<strong>'+l.to_status+'</strong>'+(l.notes?' · <span style="color:var(--muted)">'+l.notes+'</span>':'')+'</div>'
-        +'<div style="font-size:10.5px;color:var(--muted);margin-top:2px">'+fmtDT(l.timestamp)+'</div>'
-        +'</div></div>';
+
+  // ── FUNNEL + KANBAN ──
+  var kanban=document.getElementById('recruit-kanban');
+  if(kanban){
+    var stages=[
+      {key:'New Applicant',     n:newCount, css:'rk-new',    color:'#00838f', icon:'📥'},
+      {key:'Screening',         n:screening,css:'rk-screen', color:'#1565c0', icon:'🔍'},
+      {key:'Initial Interview', n:int1,     css:'rk-int1',   color:'#6a1b9a', icon:'🎙'},
+      {key:'Final Interview',   n:int2,     css:'rk-int2',   color:'#4a148c', icon:'🏁'},
+      {key:'For Approval',      n:approval, css:'rk-approv', color:'#e65100', icon:'📋'},
+      {key:'Job Offer',         n:offer,    css:'rk-offer',  color:'#f57f17', icon:'📨'},
+      {key:'Hired',             n:hired,    css:'rk-hired',  color:'#2e7d32', icon:'🎉'},
+      {key:'Rejected',          n:rejected, css:'rk-reject', color:'#c62828', icon:'❌'},
+    ];
+    var maxN=Math.max(1,...stages.map(s=>s.n));
+    kanban.innerHTML = stages.map(function(s){
+      var pct = Math.round((s.n/maxN)*100);
+      var names=recruitApplicants.filter(a=>a.status===s.key).slice(0,2).map(a=>a.full_name.split(',')[0]).join(', ');
+      return '<div class="rk-col '+s.css+'" onclick="recruitFilterByStage(\''+s.key+'\')" style="cursor:pointer;transition:transform .15s" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'\'">'
+        +'<div class="rk-col-hd"><span style="font-size:14px">'+s.icon+'</span><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:'+s.color+'">'+s.key+'</span></div>'
+        +'<div style="display:flex;align-items:flex-end;justify-content:space-between;margin:6px 0 4px">'
+        +'<div class="rk-count" style="color:'+s.color+'">'+s.n+'</div>'
+        +(total>0?'<div style="font-size:10px;color:var(--muted);font-weight:600">'+Math.round((s.n/total)*100)+'%</div>':'')
+        +'</div>'
+        +'<div style="height:4px;background:#f0f4f8;border-radius:2px;margin-bottom:6px"><div style="height:4px;background:'+s.color+';border-radius:2px;width:'+pct+'%;transition:width .4s ease"></div></div>'
+        +'<div class="rk-names" style="font-size:10.5px;color:var(--muted);min-height:14px">'+(names||'—')+'</div>'
+        +'</div>';
     }).join('');
   }
-  // Position summary
+
+  // ── RECENT ACTIVITY ──
+  var act=document.getElementById('recruit-activity');
+  if(act){
+    // Build logs from Supabase data (derive from applicant created_at + status)
+    var actItems=[];
+    // Pipeline logs first
+    recruitPipelineLogs.slice(0,20).forEach(function(l){
+      var a=recruitApplicants.find(x=>x.id===l.applicant_id);
+      if(a) actItems.push({ts:l.timestamp,name:a.full_name,pos:a.position_applied,from:l.from_status,to:l.to_status,notes:l.notes});
+    });
+    // If no logs yet, derive from applicant created_at
+    if(!actItems.length){
+      recruitApplicants.slice(0,10).forEach(function(a){
+        actItems.push({ts:a.created_at,name:a.full_name,pos:a.position_applied,from:'',to:a.status,notes:'Application received'});
+      });
+    }
+    actItems.sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});
+    if(!actItems.length){
+      act.innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px 0">No activity yet.</div>';
+    } else {
+      act.innerHTML=actItems.slice(0,12).map(function(l){
+        var dotColor=STAGE_COLORS[l.to]||'var(--blue)';
+        var timeAgo=_timeAgo(l.ts);
+        return '<div class="pipeline-step" style="padding:7px 0">'
+          +'<div class="pipeline-dot" style="background:'+dotColor+';flex-shrink:0;margin-top:4px"></div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
+          +'<div style="font-weight:600;font-size:12px;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+l.name+'</div>'
+          +'<div style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0">'+timeAgo+'</div>'
+          +'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:1px">'+l.pos+'</div>'
+          +'<div style="font-size:11.5px;color:var(--text);margin-top:2px">'
+          +(l.from?'<span style="color:var(--muted)">'+l.from+'</span> → ':'')
+          +'<span style="font-weight:600;color:'+dotColor+'">'+l.to+'</span>'
+          +'</div>'
+          +'</div></div>';
+      }).join('');
+    }
+  }
+
+  // ── POSITION SUMMARY ──
   var ps=document.getElementById('recruit-pos-summary');
   if(ps){
     var byPos={};
-    recruitApplicants.forEach(function(a){if(!byPos[a.position_applied])byPos[a.position_applied]=0;byPos[a.position_applied]++;});
-    var posArr=Object.entries(byPos).sort((a,b)=>b[1]-a[1]);
-    if(!posArr.length){ps.innerHTML='<div class="empty">No applicants yet.</div>';return;}
-    ps.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Position</th><th>Total Applicants</th><th>New</th><th>Active</th><th>Hired</th><th>Rejected</th></tr></thead><tbody>'
-      +posArr.map(function(p){
-        var pos=p[0],cnt=p[1];
-        var newC=recruitApplicants.filter(a=>a.position_applied===pos&&a.status==='New Applicant').length;
-        var actC=recruitApplicants.filter(a=>a.position_applied===pos&&a.status!=='Hired'&&a.status!=='Rejected').length;
-        var hirC=recruitApplicants.filter(a=>a.position_applied===pos&&a.status==='Hired').length;
-        var rejC=recruitApplicants.filter(a=>a.position_applied===pos&&a.status==='Rejected').length;
-        return '<tr><td><strong>'+pos+'</strong></td><td>'+cnt+'</td><td><span class="badge badge-accent">'+newC+'</span></td><td><span class="badge badge-orange">'+actC+'</span></td><td><span class="badge badge-green">'+hirC+'</span></td><td><span class="badge badge-red">'+rejC+'</span></td></tr>';
-      }).join('')+'</tbody></table></div>';
+    recruitApplicants.forEach(function(a){
+      if(!a.position_applied)return;
+      if(!byPos[a.position_applied])byPos[a.position_applied]={total:0,new:0,active:0,hired:0,rejected:0};
+      byPos[a.position_applied].total++;
+      if(a.status==='New Applicant')byPos[a.position_applied].new++;
+      if(a.status!=='Hired'&&a.status!=='Rejected')byPos[a.position_applied].active++;
+      if(a.status==='Hired')byPos[a.position_applied].hired++;
+      if(a.status==='Rejected')byPos[a.position_applied].rejected++;
+    });
+    var posArr=Object.entries(byPos).sort(function(a,b){return b[1].total-a[1].total;});
+    if(!posArr.length){
+      ps.innerHTML='<div class="empty" style="padding:20px 0">No applicants yet. Share your QR code to start receiving applications.</div>';
+    } else {
+      ps.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+        +'<th>Position</th><th style="text-align:center">Total</th>'
+        +'<th style="text-align:center">New</th><th style="text-align:center">Active</th>'
+        +'<th style="text-align:center">Hired</th><th style="text-align:center">Rejected</th>'
+        +'<th style="text-align:center">Hire Rate</th>'
+        +'</tr></thead><tbody>'
+        +posArr.map(function(p){
+          var nm=p[0],d=p[1];
+          var rate=d.total>0?Math.round((d.hired/d.total)*100):0;
+          return '<tr style="cursor:pointer" onclick="recruitFilterByStage(\'\',\''+nm+'\')">'
+            +'<td><strong>'+nm+'</strong></td>'
+            +'<td style="text-align:center"><span class="badge badge-blue">'+d.total+'</span></td>'
+            +'<td style="text-align:center"><span class="badge badge-accent">'+d.new+'</span></td>'
+            +'<td style="text-align:center"><span class="badge badge-orange">'+d.active+'</span></td>'
+            +'<td style="text-align:center"><span class="badge badge-green">'+d.hired+'</span></td>'
+            +'<td style="text-align:center"><span class="badge badge-red">'+d.rejected+'</span></td>'
+            +'<td style="text-align:center">'
+            +'<div style="display:flex;align-items:center;gap:6px;justify-content:center">'
+            +'<div style="width:60px;height:5px;background:#f0f4f8;border-radius:3px"><div style="height:5px;background:var(--green);border-radius:3px;width:'+rate+'%"></div></div>'
+            +'<span style="font-size:11px;font-weight:700;color:var(--green)">'+rate+'%</span>'
+            +'</div></td></tr>';
+        }).join('')+'</tbody></table></div>';
+    }
   }
-  // Filter dropdowns
+
   recruitPopulateFilters();
+}
+
+// ── FILTER BY STAGE (from kanban click) ──
+function recruitFilterByStage(stage, pos){
+  goITab('recruit','applicants',document.querySelector('.itab[onclick*="applicants"]'));
+  if(stage){var el=document.getElementById('recruit-filter-status');if(el)el.value=stage;}
+  if(pos){var ep=document.getElementById('recruit-filter-pos');if(ep)ep.value=pos;}
+  renderApplicantList();
+}
+
+// ── TIME AGO HELPER ──
+function _timeAgo(ts){
+  if(!ts)return'';
+  var diff=(Date.now()-new Date(ts))/1000;
+  if(diff<60)return'just now';
+  if(diff<3600)return Math.floor(diff/60)+'m ago';
+  if(diff<86400)return Math.floor(diff/3600)+'h ago';
+  if(diff<604800)return Math.floor(diff/86400)+'d ago';
+  return fmtDate(ts);
 }
 
 function recruitPopulateFilters(){
@@ -4428,7 +4566,24 @@ function openPdDrawer(id){
   document.getElementById('pd-date').textContent=fmtDate(a.created_at);
   document.getElementById('pd-source').textContent=a.source||'—';
   var resumeEl=document.getElementById('pd-resume');
-  if(a.resume_url){resumeEl.innerHTML='<a href="'+a.resume_url+'" target="_blank" style="color:var(--blue);font-weight:600">📄 Open Resume</a>';}else{resumeEl.textContent='Not provided';}
+  if(a.resume_url){
+    var url=a.resume_url;
+    if(url.startsWith('http')){
+      // Real URL — direct link
+      resumeEl.innerHTML='<a href="'+url+'" target="_blank" rel="noopener" style="color:var(--blue);font-weight:600;display:inline-flex;align-items:center;gap:5px">📄 Open Resume ↗</a>';
+    } else if(url.startsWith('data:')){
+      // Base64 — create download link
+      var ext=url.includes('pdf')?'pdf':url.includes('doc')?'doc':'file';
+      resumeEl.innerHTML='<a href="'+url+'" download="resume_'+a.full_name.replace(/\s+/g,'_')+'.'+ext+'" style="color:var(--blue);font-weight:600;display:inline-flex;align-items:center;gap:5px">📄 Download Resume</a>';
+    } else if(url.startsWith('[Uploaded:')){
+      // Old fallback — filename only, no file stored
+      resumeEl.innerHTML='<span style="color:var(--orange);font-size:12px">⚠️ '+url+' (file not stored — Cloudinary or Supabase Storage not configured)</span>';
+    } else {
+      resumeEl.innerHTML='<a href="'+url+'" target="_blank" style="color:var(--blue);font-weight:600">📄 Open Resume</a>';
+    }
+  } else {
+    resumeEl.textContent='Not provided';
+  }
   document.getElementById('pd-company').textContent=a.company_name||'—';
   document.getElementById('pd-prev-pos').textContent=a.recent_position||'—';
   document.getElementById('pd-curr-sal').textContent=a.current_salary?peso(a.current_salary):'—';
@@ -4774,25 +4929,28 @@ async function recruitManualRefresh(){
 
 // ─── INIT RECRUITMENT ─
 async function initRecruitment(){
-  recruitLoad();// Load from localStorage first (instant, works offline)
+  recruitLoad(); // load config, positions, interviews, notes from localStorage
+  // If Supabase is configured, clear local applicant cache immediately
+  // to prevent stale local entries from doubling with Supabase data
+  if(recruitSupabaseReady()){
+    recruitApplicants = []; // start clean — Supabase is the source of truth
+  }
   renderRecruitDashboard();
   renderApplicantList();
   renderPositionsList();
   recruitRenderWebhookLogs();
   recruitUpdateNavBadge();
-  // Restore webhook config UI
+  // Restore UI fields
   var fu=document.getElementById('recruit-form-url');
   if(fu&&recruitWebhookCfg.formUrl){fu.value=recruitWebhookCfg.formUrl;recruitGenQR();}
   var ws=document.getElementById('recruit-webhook-secret');
   if(ws&&recruitWebhookCfg.secret)ws.value=recruitWebhookCfg.secret;
-  var wu=document.getElementById('recruit-webhook-url');
-  if(wu&&recruitWebhookCfg.webhookUrl)wu.value=recruitWebhookCfg.webhookUrl;
   var su=document.getElementById('recruit-supabase-url');
   if(su&&recruitWebhookCfg.supabaseUrl)su.value=recruitWebhookCfg.supabaseUrl;
   var sk=document.getElementById('recruit-supabase-key');
   if(sk&&recruitWebhookCfg.supabaseKey)sk.value=recruitWebhookCfg.supabaseKey;
 
-  // Fetch live data from Supabase if configured
+  // Fetch from Supabase (authoritative source)
   if(recruitSupabaseReady()){
     var ok=await recruitFetchFromSupabase();
     if(ok){
@@ -4802,21 +4960,22 @@ async function initRecruitment(){
     }
   }
 
-  // Auto-refresh from Supabase every 30 seconds (catches new form submissions)
+  // Auto-refresh every 30s — always replaces, never appends
   setInterval(async function(){
-    if(!recruitSupabaseReady())return;
-    var prevCount=recruitApplicants.length;
-    var ok=await recruitFetchFromSupabase();
-    if(ok&&recruitApplicants.length>prevCount){
+    if(!recruitSupabaseReady()) return;
+    var prevCount = recruitApplicants.length;
+    var ok = await recruitFetchFromSupabase();
+    if(ok){
       renderRecruitDashboard();
-      var sec=document.getElementById('sec-recruitment');
-      if(sec&&sec.classList.contains('on'))renderApplicantList();
       recruitUpdateNavBadge();
-      recruitToast('🎯 '+(recruitApplicants.length-prevCount)+' new applicant(s) received!');
+      var sec=document.getElementById('sec-recruitment');
+      if(sec&&sec.classList.contains('on')) renderApplicantList();
+      if(recruitApplicants.length > prevCount){
+        recruitToast('🎯 '+(recruitApplicants.length-prevCount)+' new applicant(s) received!');
+      }
     }
-  },30000);
+  }, 30000);
 
-  // Expose global webhook receiver
   window.hmbRecruitWebhook=function(payload,source){
     var rec=recruitReceiveWebhook(payload,source);
     renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();

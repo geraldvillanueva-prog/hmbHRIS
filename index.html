@@ -627,7 +627,7 @@ body{
   <!-- FOOTER -->
   <div class="form-footer">
     HMB Business Consultancy Services Corp.<br>
-    For inquiries: <a href="mailto:hr@hmbconsultancy.ph">email.us@hmbconsultancy.ph</a><br>
+    For inquiries: <a href="mailto:hr@hmbconsultancy.ph">hr@hmbconsultancy.ph</a><br>
     <span style="font-size:10.5px;color:#aab;margin-top:4px;display:block">Data collected is processed in accordance with RA 10173 – Data Privacy Act of the Philippines</span>
   </div>
 
@@ -739,8 +739,8 @@ function validateForm(){
 // Replace these two values with your actual Supabase credentials
 // before uploading to GitHub. Get them from:
 // supabase.com → your project → Settings → API
-var SUPABASE_URL  = 'https://mjckdtcaapgziuqsqopc.supabase.co'; // ← replace
-var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qY2tkdGNhYXBneml1cXNxb3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNjEzOTYsImV4cCI6MjA5NzczNzM5Nn0.BnBkSEe07IJl9rvF6vp2z4ybuYKs-3-fkccGlFYvaU8';             // ← replace
+var SUPABASE_URL  = 'https://your-project.supabase.co'; // ← replace
+var SUPABASE_ANON = 'your-anon-public-key';             // ← replace
 // ────────────────────────────────────────────────────────────
 
 function supabaseConfigured(){
@@ -813,23 +813,59 @@ async function saveToSupabase(payload, resumeUrl){
   return rows[0] || rec;
 }
 
-// ── CLOUDINARY UPLOAD (optional) ──
+// ── CLOUDINARY CONFIG (optional — alternative to Supabase Storage) ──
 var CLOUDINARY_ENABLED = false;
-var CLOUD_NAME         = 'your_cloud_name';
-var UPLOAD_PRESET      = 'your_upload_preset';
+var CLOUD_NAME         = 'your_cloud_name';    // e.g. 'hmbconsultancy'
+var UPLOAD_PRESET      = 'your_upload_preset'; // unsigned preset name
 
+// ── RESUME UPLOAD — uses Supabase Storage ──
+// Files go to: your-project.supabase.co/storage/v1/object/public/resumes/
 async function uploadResume(file){
+  // Option A: Cloudinary (set credentials below to enable)
   if(CLOUDINARY_ENABLED && CLOUD_NAME !== 'your_cloud_name'){
     var fd = new FormData();
     fd.append('file', file);
     fd.append('upload_preset', UPLOAD_PRESET);
     fd.append('folder','hmb-resumes');
     var r = await fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/raw/upload',{method:'POST',body:fd});
-    if(!r.ok) throw new Error('Resume upload failed');
+    if(!r.ok) throw new Error('Cloudinary upload failed: '+r.status);
     var d = await r.json();
     return d.secure_url;
   }
-  return '[Uploaded: '+file.name+']';
+
+  // Option B: Supabase Storage (uses same credentials, no extra setup)
+  if(supabaseConfigured()){
+    var ts = Date.now();
+    var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+    var path = 'resumes/'+ts+'_'+safeName;
+    var r = await fetch(
+      SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/resumes/'+ts+'_'+safeName,
+      {
+        method: 'POST',
+        headers:{
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer '+SUPABASE_ANON,
+          'Content-Type': file.type||'application/pdf',
+          'x-upsert': 'true'
+        },
+        body: file
+      }
+    );
+    if(r.ok){
+      // Return the public URL
+      return SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/public/resumes/'+ts+'_'+safeName;
+    }
+    // If storage bucket not set up, fall back to base64
+    console.warn('Supabase Storage upload failed ('+r.status+'), falling back to base64');
+  }
+
+  // Option C: Base64 fallback (works always, stored in DB)
+  return new Promise(function(resolve){
+    var reader = new FileReader();
+    reader.onload = function(e){ resolve(e.target.result); };
+    reader.onerror = function(){ resolve('[file: '+file.name+']'); };
+    reader.readAsDataURL(file);
+  });
 }
 
 // ── LIVE PROGRESS UPDATE ──
@@ -1055,7 +1091,7 @@ document.getElementById('apply-form').addEventListener('submit', async function(
     btn.disabled = false;
     document.getElementById('submit-icon').textContent='📨';
     document.getElementById('submit-text').textContent='Submit Application';
-    document.getElementById('error-banner').textContent='Submission failed: '+err.message+'. Please check your connection and try again, or contact email.us@hmbconsultancy.ph';
+    document.getElementById('error-banner').textContent='Submission failed: '+err.message+'. Please check your connection and try again, or contact hr@hmbconsultancy.ph';
     document.getElementById('error-banner').style.display='block';
     window.scrollTo({top:0,behavior:'smooth'});
   }
