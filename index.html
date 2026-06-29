@@ -818,71 +818,105 @@ var CLOUDINARY_ENABLED = false;
 var CLOUD_NAME         = 'your_cloud_name';
 var UPLOAD_PRESET      = 'your_upload_preset';
 
-// ── RESUME UPLOAD ─────────────────────────────────────────────────────────────
-// Priority: 1) Supabase Storage  2) Cloudinary  3) Base64 in DB
-async function uploadResume(file){
+// Track if we already tried creating the bucket this session
+var _bucketReady = false;
 
-  // Validate file size (max 5MB for base64 fallback, 50MB for storage)
+// ── AUTO-CREATE SUPABASE STORAGE BUCKET ──────────────────────────────────────
+async function ensureResumeBucket(){
+  if(_bucketReady) return true;
+  try{
+    // Try creating the bucket (idempotent — ok if already exists)
+    var r = await fetch(SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/bucket', {
+      method: 'POST',
+      headers:{
+        'apikey':        SUPABASE_ANON,
+        'Authorization': 'Bearer '+SUPABASE_ANON,
+        'Content-Type':  'application/json'
+      },
+      body: JSON.stringify({
+        id:     'resumes',
+        name:   'resumes',
+        public: true
+      })
+    });
+    // 200 = created, 409 = already exists — both are fine
+    if(r.ok || r.status === 409){
+      _bucketReady = true;
+      return true;
+    }
+    var err = await r.text();
+    console.warn('Bucket create failed:', r.status, err);
+    return false;
+  }catch(e){
+    console.warn('Bucket create error:', e.message);
+    return false;
+  }
+}
+
+// ── RESUME UPLOAD ─────────────────────────────────────────────────────────────
+async function uploadResume(file){
   if(file.size > 50*1024*1024){
-    throw new Error('File too large (max 50MB). Please compress your PDF.');
+    throw new Error('File too large (max 50MB). Please compress your resume.');
   }
 
-  // Option 1: Supabase Storage (same credentials, no extra config)
+  // ── Option 1: Supabase Storage ──
   if(supabaseConfigured()){
     try{
+      // Ensure bucket exists before uploading
+      await ensureResumeBucket();
+
       var ts       = Date.now();
       var safeName = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
       var fileName = ts+'_'+safeName;
-      var uploadUrl= SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/resumes/'+fileName;
-      var r = await fetch(uploadUrl, {
+      var base     = SUPABASE_URL.replace(/\/$/,'');
+
+      var r = await fetch(base+'/storage/v1/object/resumes/'+fileName, {
         method: 'POST',
         headers:{
           'apikey':        SUPABASE_ANON,
           'Authorization': 'Bearer '+SUPABASE_ANON,
-          'Content-Type':  file.type||'application/pdf',
+          'Content-Type':  file.type || 'application/pdf',
           'x-upsert':      'true'
         },
         body: file
       });
+
       if(r.ok){
-        return SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/public/resumes/'+fileName;
+        return base+'/storage/v1/object/public/resumes/'+fileName;
       }
-      // 404 = bucket doesn't exist yet, fall through to base64
-      if(r.status !== 404){
-        console.warn('Supabase Storage upload failed:', r.status);
-      }
+
+      var errBody = await r.text();
+      console.warn('Supabase Storage upload failed:', r.status, errBody);
+
     }catch(e){
       console.warn('Supabase Storage error:', e.message);
     }
   }
 
-  // Option 2: Cloudinary
+  // ── Option 2: Cloudinary ──
   if(CLOUDINARY_ENABLED && CLOUD_NAME !== 'your_cloud_name'){
     try{
       var fd = new FormData();
       fd.append('file', file);
       fd.append('upload_preset', UPLOAD_PRESET);
       fd.append('folder','hmb-resumes');
-      var r2 = await fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/raw/upload',{method:'POST',body:fd});
-      if(r2.ok){
-        var d = await r2.json();
-        return d.secure_url;
-      }
-    }catch(e){
-      console.warn('Cloudinary upload error:', e.message);
-    }
+      var rc = await fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/raw/upload',{method:'POST',body:fd});
+      if(rc.ok){ var d=await rc.json(); return d.secure_url; }
+    }catch(e){ console.warn('Cloudinary error:', e.message); }
   }
 
-  // Option 3: Base64 stored directly in Supabase DB column
-  // Works for files up to ~5MB (Supabase row limit)
+  // ── Option 3: Base64 in DB (reliable fallback, works for files ≤5MB) ──
   if(file.size > 5*1024*1024){
-    // Too large for base64 in DB — store filename only with instructions
-    return 'PENDING:'+file.name+'|'+file.size;
+    throw new Error(
+      'Resume file is '+Math.round(file.size/1024/1024)+'MB. '
+      +'Supabase Storage is not available (check your credentials). '
+      +'Please compress your PDF to under 5MB and try again.'
+    );
   }
   return new Promise(function(resolve, reject){
     var reader = new FileReader();
     reader.onload  = function(e){ resolve(e.target.result); };
-    reader.onerror = function(){ resolve('PENDING:'+file.name+'|'+file.size); };
+    reader.onerror = function(){ reject(new Error('Could not read file.')); };
     reader.readAsDataURL(file);
   });
 }
@@ -895,6 +929,8 @@ document.getElementById('apply-form').querySelectorAll('input,select,textarea').
 
 // ── INIT ──
 updateProgress();
+// Pre-create storage bucket in background so it's ready when applicant submits
+if(supabaseConfigured()){ ensureResumeBucket(); }
 
 // ── SUBMISSION HANDLER ──
 document.getElementById('apply-form').addEventListener('submit', async function(e){
