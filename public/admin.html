@@ -4750,17 +4750,6 @@ function recruitSaveNote(){
   recruitSave();openPdDrawer(currentApplicantId);
 }
 
-// ─── DELETE APPLICANT ─
-function recruitDeleteApplicant(){
-  if(!currentApplicantId)return;
-  if(!confirm('Permanently delete this applicant record?'))return;
-  recruitApplicants=recruitApplicants.filter(a=>a.id!==currentApplicantId);
-  recruitPipelineLogs=recruitPipelineLogs.filter(l=>l.applicant_id!==currentApplicantId);
-  recruitInterviews=recruitInterviews.filter(i=>i.applicant_id!==currentApplicantId);
-  recruitNotes=recruitNotes.filter(n=>n.applicant_id!==currentApplicantId);
-  recruitSave();closePdDrawer();renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();
-}
-
 // ─── MANUAL ADD ─
 function recruitAddManual(){
   var name=document.getElementById('ra-name').value.trim();
