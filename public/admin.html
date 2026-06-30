@@ -4039,6 +4039,7 @@ function recruitSaveDeletedIds(){
 }
 
 function recruitMarkDeleted(id){
+  id = String(id);
   if(!recruitDeletedIds.includes(id)){
     recruitDeletedIds.push(id);
     recruitSaveDeletedIds();
@@ -4153,7 +4154,7 @@ async function recruitFetchFromSupabase(){
   try{
     var rows = await recruitSupabaseGet('hmb_applicants');
     // Filter out any IDs that were deleted locally (handles RLS delay)
-    var filtered = rows.filter(function(r){ return !recruitDeletedIds.includes(r.id); });
+    var filtered = rows.filter(function(r){ return !recruitDeletedIds.includes(String(r.id)); });
     // Replace array completely — never merge with localStorage cache
     recruitApplicants = filtered.map(function(r){
       return {
@@ -4384,7 +4385,7 @@ async function recruitDeleteApplicant(){
 
     if(gone && gone.length > 0){
       // Successfully deleted from Supabase — remove from blacklist
-      recruitDeletedIds = recruitDeletedIds.filter(function(id){ return id !== deletedId; });
+      recruitDeletedIds = recruitDeletedIds.filter(function(id){ return id !== String(deletedId); });
       recruitSaveDeletedIds();
       recruitToast('🗑 Applicant permanently deleted.');
     } else {
