@@ -4039,6 +4039,7 @@ function recruitSaveDeletedIds(){
 }
 
 function recruitMarkDeleted(id){
+  id = String(id);
   if(!recruitDeletedIds.includes(id)){
     recruitDeletedIds.push(id);
     recruitSaveDeletedIds();
@@ -4153,7 +4154,7 @@ async function recruitFetchFromSupabase(){
   try{
     var rows = await recruitSupabaseGet('hmb_applicants');
     // Filter out any IDs that were deleted locally (handles RLS delay)
-    var filtered = rows.filter(function(r){ return !recruitDeletedIds.includes(r.id); });
+    var filtered = rows.filter(function(r){ return !recruitDeletedIds.includes(String(r.id)); });
     // Replace array completely — never merge with localStorage cache
     recruitApplicants = filtered.map(function(r){
       return {
@@ -4384,7 +4385,7 @@ async function recruitDeleteApplicant(){
 
     if(gone && gone.length > 0){
       // Successfully deleted from Supabase — remove from blacklist
-      recruitDeletedIds = recruitDeletedIds.filter(function(id){ return id !== deletedId; });
+      recruitDeletedIds = recruitDeletedIds.filter(function(id){ return id !== String(deletedId); });
       recruitSaveDeletedIds();
       recruitToast('🗑 Applicant permanently deleted.');
     } else {
@@ -4747,17 +4748,6 @@ function recruitSaveNote(){
   recruitNotes.push({id:Date.now(),applicant_id:currentApplicantId,author:'HR',text:txt,ts:new Date().toISOString()});
   document.getElementById('pd-note-input').value='';
   recruitSave();openPdDrawer(currentApplicantId);
-}
-
-// ─── DELETE APPLICANT ─
-function recruitDeleteApplicant(){
-  if(!currentApplicantId)return;
-  if(!confirm('Permanently delete this applicant record?'))return;
-  recruitApplicants=recruitApplicants.filter(a=>a.id!==currentApplicantId);
-  recruitPipelineLogs=recruitPipelineLogs.filter(l=>l.applicant_id!==currentApplicantId);
-  recruitInterviews=recruitInterviews.filter(i=>i.applicant_id!==currentApplicantId);
-  recruitNotes=recruitNotes.filter(n=>n.applicant_id!==currentApplicantId);
-  recruitSave();closePdDrawer();renderApplicantList();renderRecruitDashboard();recruitUpdateNavBadge();
 }
 
 // ─── MANUAL ADD ─
