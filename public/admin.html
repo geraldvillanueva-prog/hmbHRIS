@@ -3145,6 +3145,13 @@ async function loadTimeLogs(){
   if(to)params.append('to',to);
   var rows=await api('GET','/api/timelogs?'+params.toString());
   allTimeLogs=rows||[];
+  if(!empId){
+    allTimeLogs=allTimeLogs.slice().sort((a,b)=>{
+      var n=(a.emp_name||'').localeCompare(b.emp_name||'');
+      return n!==0?n:(a.log_date||'').localeCompare(b.log_date||'');
+    });
+  }
+  rows=allTimeLogs;
   var w=document.getElementById('tl-wrap');
   if(!rows.length){w.innerHTML='<div class="empty">No time log records found.</div>';return;}
   // Compute per-row shift and late
