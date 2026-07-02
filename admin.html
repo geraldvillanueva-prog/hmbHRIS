@@ -1950,10 +1950,16 @@ function nextPeriodAfter(label){
   }
 }
 
-// Build the period list: always show only the two cutoff periods of the current month
+// Build the period list: current month's two cutoffs plus the previous
+// month's two cutoffs, so a period doesn't vanish from the dropdown the
+// moment the calendar rolls into the next month (payroll for the 16-30/31
+// period is often still being encoded a few days into the next month).
 function buildPeriodList(){
   var today=new Date(),cy=today.getFullYear(),cm=today.getMonth();
+  var pm=cm-1,py=cy;if(pm<0){pm=11;py--;}
   return [
+    fmtPeriod(py,pm,1,15),
+    fmtPeriod(py,pm,16,lastDay(py,pm)),
     fmtPeriod(cy,cm,1,15),
     fmtPeriod(cy,cm,16,lastDay(cy,cm))
   ];
