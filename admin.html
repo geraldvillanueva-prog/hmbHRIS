@@ -4821,7 +4821,7 @@ function renderApplicantList(){
       +'<div class="appl-name">'+a.full_name+'</div>'
       +'<span class="badge '+sc+'">'+a.status+'</span>'
       +'</div>'
-      +'<div class="appl-pos">'+a.position_applied+(a.expected_salary?' · ₱'+fp(a.expected_salary)+'/mo':'')+'</div>'
+      +'<div class="appl-pos">'+a.position_applied+(a.expected_salary?' · ₱'+fp(a.expected_salary)+'/mo':'')+(a.source==='Indeed'?' <span class="badge" style="background:#e3f2fd;color:#0057b8;font-size:9px">Indeed</span>':'')+'</div>'
       +'<div class="appl-meta">'+a.applicant_code+' · '+fmtDate(a.created_at)+' · '+a.source+'</div>'
       +'</div></div>';
   }).join('');
