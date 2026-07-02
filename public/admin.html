@@ -3189,20 +3189,34 @@ function getEmpShift(empId){
   if(e&&e.shiftId){var s=shifts.find(x=>x.id==e.shiftId);if(s)return s;}
   return{name:'Default',start:'08:00',end:'17:00'};
 }
+// Parses a time string into minutes-since-midnight. Handles both 24-hour
+// ('17:30', '07:00:13') and 12-hour with AM/PM ('07:00:13 AM', '5:38 PM') formats.
+function parseTimeStrToMinutes(str){
+  if(!str)return null;
+  str=String(str).trim();
+  var m=str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/);
+  if(!m)return null;
+  var h=parseInt(m[1],10),min=parseInt(m[2],10);
+  var ap=m[4];
+  if(ap){
+    ap=ap.toUpperCase();
+    if(ap==='PM'&&h!==12)h+=12;
+    if(ap==='AM'&&h===12)h=0;
+  }
+  return h*60+min;
+}
 function calcLateMinutes(timeIn, shiftStart){
-  // timeIn: 'HH:MM:SS' or 'HH:MM', shiftStart: 'HH:MM'
   if(!timeIn||!shiftStart)return 0;
-  var ti=timeIn.slice(0,5); // 'HH:MM'
-  var toMins=t=>parseInt(t.split(':')[0])*60+parseInt(t.split(':')[1]);
-  var diff=toMins(ti)-toMins(shiftStart);
+  var tiMin=parseTimeStrToMinutes(timeIn),startMin=parseTimeStrToMinutes(shiftStart);
+  if(tiMin==null||startMin==null)return 0;
+  var diff=tiMin-startMin;
   return diff>0?diff:0;
 }
 function calcUndertimeMinutes(timeOut, shiftEnd){
-  // timeOut: 'HH:MM:SS' or 'HH:MM', shiftEnd: 'HH:MM'
   if(!timeOut||!shiftEnd)return 0;
-  var to=timeOut.slice(0,5); // 'HH:MM'
-  var toMins=t=>parseInt(t.split(':')[0])*60+parseInt(t.split(':')[1]);
-  var diff=toMins(shiftEnd)-toMins(to);
+  var toMin=parseTimeStrToMinutes(timeOut),endMin=parseTimeStrToMinutes(shiftEnd);
+  if(toMin==null||endMin==null)return 0;
+  var diff=endMin-toMin;
   return diff>0?diff:0;
 }
 function fmtLate(mins){
