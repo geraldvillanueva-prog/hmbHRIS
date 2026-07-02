@@ -1042,6 +1042,23 @@ tr:hover td{background:#fafcff}
       </div>
       <div id="holidays-list-wrap" style="margin-top:10px"><div class="empty">No holidays added yet.</div></div>
     </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">⏱ Time Offset / Make-up Time</div>
+      <div class="page-sub">File make-up time to cancel out late or undertime minutes on a specific date. The offset amount is deducted from that date's Late/Undertime total in the time logs above.</div>
+      <input id="off-edit-id" type="hidden" value="">
+      <div class="row">
+        <div class="f"><label>Employee</label>
+          <select id="off-emp"><option value="">-- Select --</option></select>
+        </div>
+        <div class="f" style="max-width:170px"><label>Date to offset</label><input id="off-date" type="date"></div>
+        <div class="f" style="max-width:150px"><label>Minutes to offset</label><input id="off-minutes" type="number" min="1" step="1" placeholder="e.g. 30"></div>
+        <div class="f" style="max-width:240px"><label>Note (optional)</label><input id="off-note" type="text" placeholder="e.g. Rendered extra time on Jun 20"></div>
+      </div>
+      <button class="btn bp" id="off-save-btn" onclick="saveOffsetForm()">+ Add Offset</button>
+      <button class="btn bs" id="off-cancel-btn" style="display:none" onclick="cancelOffsetEdit()">Cancel</button>
+      <div id="offsets-list-wrap" style="margin-top:10px"><div class="empty">No offsets added yet.</div></div>
+    </div>
   </div>
 
   <!-- SHIFT MANAGEMENT -->
@@ -1511,6 +1528,7 @@ await fetch('/api/recruitment/webhook', {
 var employees=[],attendance={},payslipHistory=[],nextId=1;
 var leaveRecords=[],perfRecords=[],discRecords=[];
 var holidays=[];
+var offsetRecords=[];
 var payslipApprovals={};  // { [period_key]: true } — set by management
 var setup={name:'HMB Management Consultant',tin:'126-757-146-000',addr1:'21 B1 L5 Sta. Ana St',addr2:'Pacita 1B, San Pedro, Laguna',prep:'KMD. GRASPARIL',appr:'KKM. BUÑAG',prepSig:'',apprSig:''};
 var emailCfg={svc:'service_egeu3v1',tpl:'template_7jtdhwe',key:'N1iAC7sZ5RVfPhug5'};
@@ -1776,6 +1794,7 @@ async function loadFromStorage(){
       setup={name:cfg.co_name||'',tin:cfg.co_tin||'',addr1:cfg.co_addr1||'',addr2:cfg.co_addr2||'',prep:cfg.co_prep||'',appr:cfg.co_appr||'',prepSig:cfg.co_prep_sig||'',apprSig:cfg.co_appr_sig||''};
       emailCfg={svc:cfg.ejs_svc||'',tpl:cfg.ejs_tpl||'',key:cfg.ejs_key||''};
       try{holidays=cfg.holidays_json?JSON.parse(cfg.holidays_json):[];}catch(e){holidays=[];}
+      try{offsetRecords=cfg.offsets_json?JSON.parse(cfg.offsets_json):[];}catch(e){offsetRecords=[];}
       var setVal=(id,v)=>{var el=document.getElementById(id);if(el)el.value=v;};
       setVal('co-name',setup.name);setVal('co-tin',setup.tin);setVal('co-addr1',setup.addr1);setVal('co-addr2',setup.addr2);setVal('co-prep',setup.prep);setVal('co-appr',setup.appr);
       // Restore signature previews
@@ -1843,7 +1862,7 @@ function goSec(name,el){
   if(name==='attendance')renderAttRecords();
   if(name==='reports'){}
   if(name==='recruitment'){renderRecruitDashboard();renderApplicantList();renderPositionsList();recruitRenderWebhookLogs();}
-  if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();}
+  if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();}
   if(name==='users'){populateTlEmpFilter();loadUsers();}
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();}
   if(name==='location'){renderLocationTable();}
@@ -1937,7 +1956,7 @@ function populatePeriodSelects(){
   }
 }
 function populateAllSelects(){
-  var sels=['lv-emp','lv-filter-emp','disc-emp','disc-filter-emp','perf-emp','perf-filter-emp','hist-emp','att-emp-sel'];
+  var sels=['lv-emp','lv-filter-emp','disc-emp','disc-filter-emp','perf-emp','perf-filter-emp','hist-emp','att-emp-sel','off-emp'];
   sels.forEach(id=>{
     var sel=document.getElementById(id);if(!sel)return;
     var cur=sel.value;
@@ -3297,14 +3316,22 @@ async function loadTimeLogs(){
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
     var underMin=calcUndertimeMinutes(r.time_out,shift.end);
-    return{r,shift,lateMin,underMin,status:'present'};
+    var offsetMin=getOffsetMinutesFor(r.employee_id||r.emp_id,r.log_date);
+    var offsetApplied=0;
+    if(offsetMin>0){
+      var fromLate=Math.min(lateMin,offsetMin);
+      lateMin-=fromLate;offsetMin-=fromLate;offsetApplied+=fromLate;
+      var fromUnder=Math.min(underMin,offsetMin);
+      underMin-=fromUnder;offsetMin-=fromUnder;offsetApplied+=fromUnder;
+    }
+    return{r,shift,lateMin,underMin,offsetApplied,status:'present'};
   });
   w.innerHTML='<div style="overflow-x:auto"><table style="min-width:800px"><thead><tr>'
     +'<th>Employee</th><th>Date</th><th>Shift</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th>'
     +'<th style="color:var(--red)">Late / Undertime</th>'
     +'<th>Route</th>'
     +'</tr></thead><tbody>'
-  +tableRows.map(function({r,shift,lateMin,underMin,status},rowIdx){
+  +tableRows.map(function({r,shift,lateMin,underMin,offsetApplied,status},rowIdx){
     if(status==='halfday-leave'){
       window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
       return'<tr style="background:#fff8e1">'
@@ -3365,7 +3392,7 @@ async function loadTimeLogs(){
     +tlCell(r.merienda_out,'var(--orange)')
     +tlCell(r.merienda_in,'#0277bd')
     +tlCell(r.time_out,'var(--muted)')
-    +'<td style="text-align:center">'+fmtLateUndertime(lateMin,underMin)+'</td>'
+    +'<td style="text-align:center">'+fmtLateUndertime(lateMin,underMin)+(offsetApplied>0?'<br><span class="badge badge-purple" style="font-size:9px">⏱ -'+fmtDuration(offsetApplied)+' offset</span>':'')+'</td>'
     +mapBtn
     +'</tr>';}).join('')
   +'</tbody></table></div>';
@@ -3377,19 +3404,27 @@ function exportTimeLogsCSV(){
   if(!allTimeLogs.length&&!(window._tlCombined&&window._tlCombined.length)){alert('Load time logs first.');return;}
   var overrideShiftId=v('tl-shift-override');
   var overrideShift=overrideShiftId?shifts.find(x=>x.id==parseInt(overrideShiftId)):null;
-  var rows=[['Employee','Date','Status','Shift','Shift Start','Shift End','Time In','Lunch Out','Lunch In','Merienda Out','Merienda In','Time Out','Late (mins)','Undertime (mins)']];
+  var rows=[['Employee','Date','Status','Shift','Shift Start','Shift End','Time In','Lunch Out','Lunch In','Merienda Out','Merienda In','Time Out','Late (mins)','Undertime (mins)','Offset Applied (mins)']];
   var source=window._tlCombined&&window._tlCombined.length?window._tlCombined:allTimeLogs.map(r=>({r,status:'present'}));
   source.forEach(item=>{
     var r=item.r,status=item.status||'present';
     if(status!=='present'){
       var label=status==='leave'?'On Leave':(status==='halfday-leave'?'Half Day Leave':(status==='restday'?'Rest Day':(status==='holiday'?'Holiday':'Absent')));
-      rows.push([r.emp_name,r.log_date,label,'','','','','','','','','','','']);
+      rows.push([r.emp_name,r.log_date,label,'','','','','','','','','','','','']);
       return;
     }
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
     var underMin=calcUndertimeMinutes(r.time_out,shift.end);
-    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave)':''),r.log_date,'Present',shift.name,shift.start,shift.end,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin,underMin]);
+    var offsetMin=getOffsetMinutesFor(r.employee_id||r.emp_id,r.log_date);
+    var offsetApplied=0;
+    if(offsetMin>0){
+      var fromLate=Math.min(lateMin,offsetMin);
+      lateMin-=fromLate;offsetMin-=fromLate;offsetApplied+=fromLate;
+      var fromUnder=Math.min(underMin,offsetMin);
+      underMin-=fromUnder;offsetMin-=fromUnder;offsetApplied+=fromUnder;
+    }
+    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave)':''),r.log_date,'Present',shift.name,shift.start,shift.end,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin,underMin,offsetApplied]);
   });
   downloadCSV('HMB_TimeLogs_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
@@ -3445,6 +3480,71 @@ function renderHolidaysList(){
   +'</tbody></table></div>';
 }
 function isHoliday(dateStr){return holidays.some(h=>h.date===dateStr);}
+
+// ==================== TIME OFFSET / MAKE-UP TIME ====================
+async function saveOffsets(){
+  await api('POST','/api/settings',{offsets_json:JSON.stringify(offsetRecords)});
+}
+async function saveOffsetForm(){
+  var empId=parseInt(v('off-emp'));
+  var date=v('off-date');
+  var minutes=parseInt(v('off-minutes'));
+  var note=v('off-note').trim();
+  if(!empId){alert('Select an employee.');return;}
+  if(!date){alert('Select the date to offset.');return;}
+  if(!minutes||minutes<=0){alert('Enter a valid number of minutes.');return;}
+  var editId=v('off-edit-id');
+  if(editId){
+    var rec=offsetRecords.find(x=>String(x.id)===editId);
+    if(rec){rec.empId=empId;rec.date=date;rec.minutes=minutes;rec.note=note;}
+  }else{
+    offsetRecords.push({id:Date.now(),empId,date,minutes,note,filedAt:new Date().toISOString()});
+  }
+  offsetRecords.sort((a,b)=>a.date.localeCompare(b.date));
+  await saveOffsets();
+  cancelOffsetEdit();
+  renderOffsetsList();
+  showSaveIndicator();
+}
+function editOffset(id){
+  var rec=offsetRecords.find(x=>x.id===id);if(!rec)return;
+  document.getElementById('off-edit-id').value=rec.id;
+  document.getElementById('off-emp').value=rec.empId;
+  document.getElementById('off-date').value=rec.date;
+  document.getElementById('off-minutes').value=rec.minutes;
+  document.getElementById('off-note').value=rec.note||'';
+  document.getElementById('off-save-btn').textContent='💾 Save Changes';
+  document.getElementById('off-cancel-btn').style.display='';
+}
+function cancelOffsetEdit(){
+  document.getElementById('off-edit-id').value='';
+  document.getElementById('off-emp').value='';
+  document.getElementById('off-date').value='';
+  document.getElementById('off-minutes').value='';
+  document.getElementById('off-note').value='';
+  document.getElementById('off-save-btn').textContent='+ Add Offset';
+  document.getElementById('off-cancel-btn').style.display='none';
+}
+async function deleteOffset(id){
+  if(!confirm('Remove this offset?'))return;
+  offsetRecords=offsetRecords.filter(x=>x.id!==id);
+  await saveOffsets();
+  renderOffsetsList();
+  showSaveIndicator();
+}
+function renderOffsetsList(){
+  var w=document.getElementById('offsets-list-wrap');if(!w)return;
+  if(!offsetRecords.length){w.innerHTML='<div class="empty">No offsets added yet.</div>';return;}
+  var list=offsetRecords.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Date Offset</th><th>Minutes</th><th>Note</th><th></th></tr></thead><tbody>'
+  +list.map(rec=>'<tr><td><strong>'+empName(rec.empId)+'</strong></td><td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(rec.date)+'</td><td>'+fmtDuration(rec.minutes)+'</td><td style="font-size:12px;color:var(--muted)">'+(rec.note||'—')+'</td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="editOffset('+rec.id+')">✏️ Edit</button><button class="btn bs br" onclick="deleteOffset('+rec.id+')">🗑 Delete</button></td></tr>').join('')
+  +'</tbody></table></div>';
+}
+// Total offset minutes filed for an employee on a specific date
+function getOffsetMinutesFor(empId,dateStr){
+  return offsetRecords.filter(o=>o.empId==empId&&o.date===dateStr).reduce((s,o)=>s+(o.minutes||0),0);
+}
+
 
 
 function renderShiftsList(){
