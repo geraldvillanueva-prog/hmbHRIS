@@ -1159,6 +1159,7 @@ tr:hover td{background:#fafcff}
       <button class="itab" onclick="goITab('recruit','add',this)">&#10133; Add Applicant</button>
       <button class="itab" onclick="goITab('recruit','positions',this)">&#128188; Job Positions</button>
       <button class="itab" onclick="goITab('recruit','webhook',this)">&#128279; Webhook / QR</button>
+      <button class="itab" onclick="goITab('recruit','screening',this)">&#128269; AI Screening</button>
     </div>
     <div id="recruit-itab-dashboard" class="itab-sec on">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -1212,6 +1213,9 @@ tr:hover td{background:#fafcff}
           <div class="f" style="max-width:140px"><label>Min Salary (PHP)</label><input id="rp-min" type="number"></div>
           <div class="f" style="max-width:140px"><label>Max Salary (PHP)</label><input id="rp-max" type="number"></div>
           <div class="f" style="max-width:100px"><label>Headcount</label><input id="rp-hc" type="number" value="1" min="1"></div>
+        </div>
+        <div class="row">
+          <div class="f"><label>Requirements / Qualifications (optional, used by AI Screening)</label><textarea id="rp-reqs" rows="2" placeholder="e.g. CPA license preferred, 2+ years tax experience, proficient in Excel and eBIR Forms"></textarea></div>
         </div>
         <div style="display:flex;gap:10px;align-items:center"><button class="btn bp" onclick="recruitAddPosition()">+ Add Position</button><span id="rp-ok" class="ok-msg">Saved!</span></div>
       </div>
@@ -1270,6 +1274,34 @@ await fetch('/api/recruitment/webhook', {
           </div>
         </div>
       </div>
+    </div>
+    <div id="recruit-itab-screening" class="itab-sec">
+      <div id="screening-kpi" class="metrics" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))"></div>
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between;display:flex">
+          <span>🔍 AI Applicant Screening</span>
+          <span style="font-size:11px;font-weight:400;color:var(--muted)">Scores applicants against their applied position's requirements using AI</span>
+        </div>
+        <div class="row" style="margin-bottom:0">
+          <div class="f" style="max-width:200px"><label>Position</label><select id="screen-filter-pos" onchange="renderScreeningList()"><option value="">All Positions</option></select></div>
+          <div class="f" style="max-width:200px"><label>Recommendation</label><select id="screen-filter-rec" onchange="renderScreeningList()"><option value="">All</option><option>Strong Fit</option><option>Possible Fit</option><option>Not a Fit</option><option value="unscreened">Not Screened Yet</option></select></div>
+        </div>
+      </div>
+      <div id="screening-list-wrap"><div class="empty">No applicants yet.</div></div>
+    </div>
+  </div>
+
+  <!-- AI SCREENING DOSSIER MODAL -->
+  <div id="screen-modal-overlay" class="modal-overlay">
+    <div class="modal-box" style="max-width:720px">
+      <div class="modal-title">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div id="screen-modal-avatar" class="appl-avatar" style="width:40px;height:40px;font-size:14px">?</div>
+          <div><div id="screen-modal-name">—</div><div id="screen-modal-pos" style="font-size:12px;color:var(--muted);font-weight:400">—</div></div>
+        </div>
+        <button class="modal-close" onclick="closeScreenModal()">&#215;</button>
+      </div>
+      <div id="screen-modal-body" style="max-height:65vh;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -1861,7 +1893,7 @@ function goSec(name,el){
   if(name==='disciplinary')renderDiscList();
   if(name==='attendance')renderAttRecords();
   if(name==='reports'){}
-  if(name==='recruitment'){renderRecruitDashboard();renderApplicantList();renderPositionsList();recruitRenderWebhookLogs();}
+  if(name==='recruitment'){renderRecruitDashboard();renderApplicantList();renderPositionsList();recruitRenderWebhookLogs();populateScreeningFilters();renderScreeningKpis();}
   if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();}
   if(name==='users'){populateTlEmpFilter();loadUsers();}
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();}
@@ -1883,6 +1915,7 @@ function goITab(group,name,el){
     if(name==='applicants'){renderApplicantList();}
     if(name==='positions'){renderPositionsList();}
     if(name==='webhook'){recruitRenderWebhookLogs();setTimeout(recruitGenQR,100);}
+    if(name==='screening'){populateScreeningFilters();renderScreeningList();}
   }
 }
 
@@ -4354,6 +4387,7 @@ async function applyImportedPayroll() {
 // ==================== RECRUITMENT / ATS ====================
 var recruitApplicants = [];
 var recruitPositions = [];
+var recruitScreenings = {}; // keyed by applicant id -> {score, recommendation, summary, strengths, concerns, criteria, steps, screenedAt}
 var recruitPipelineLogs = [];
 var recruitInterviews = [];
 var recruitNotes = [];
@@ -4471,6 +4505,7 @@ function recruitSave(){
     localStorage.setItem('hmb_recruit_logs',JSON.stringify(recruitPipelineLogs));
     localStorage.setItem('hmb_recruit_whlogs',JSON.stringify(recruitWebhookLogs));
     localStorage.setItem('hmb_recruit_cfg',JSON.stringify(recruitWebhookCfg));
+    localStorage.setItem('hmb_recruit_screenings',JSON.stringify(recruitScreenings));
     // Applicants also cached locally for offline use
     localStorage.setItem('hmb_recruit_applicants',JSON.stringify(recruitApplicants));
   }catch(e){}
@@ -4484,6 +4519,7 @@ function recruitLoad(){
     var i=localStorage.getItem('hmb_recruit_interviews');if(i)recruitInterviews=JSON.parse(i);
     var n=localStorage.getItem('hmb_recruit_notes');if(n)recruitNotes=JSON.parse(n);
     var w=localStorage.getItem('hmb_recruit_whlogs');if(w)recruitWebhookLogs=JSON.parse(w);
+    var sc=localStorage.getItem('hmb_recruit_screenings');if(sc)recruitScreenings=JSON.parse(sc);
     var c=localStorage.getItem('hmb_recruit_cfg');
     if(c){
       recruitWebhookCfg=JSON.parse(c);
@@ -5138,9 +5174,9 @@ function recruitAddManual(){
 function recruitAddPosition(){
   var title=document.getElementById('rp-title').value.trim();
   if(!title){alert('Position title is required.');return;}
-  var rec={id:recruitPositionNextId(),title,dept:document.getElementById('rp-dept').value,salary_min:parseFloat(document.getElementById('rp-min').value)||0,salary_max:parseFloat(document.getElementById('rp-max').value)||0,headcount:parseInt(document.getElementById('rp-hc').value)||1,is_active:1,created_at:new Date().toISOString()};
+  var rec={id:recruitPositionNextId(),title,dept:document.getElementById('rp-dept').value,salary_min:parseFloat(document.getElementById('rp-min').value)||0,salary_max:parseFloat(document.getElementById('rp-max').value)||0,headcount:parseInt(document.getElementById('rp-hc').value)||1,requirements:document.getElementById('rp-reqs').value.trim(),is_active:1,created_at:new Date().toISOString()};
   recruitPositions.push(rec);recruitSave();flash('rp-ok');
-  ['rp-title','rp-dept','rp-min','rp-max'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  ['rp-title','rp-dept','rp-min','rp-max','rp-reqs'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   renderPositionsList();
 }
 function renderPositionsList(){
@@ -5154,6 +5190,135 @@ function renderPositionsList(){
 }
 function recruitTogglePos(id){var p=recruitPositions.find(x=>x.id===id);if(!p)return;p.is_active=p.is_active?0:1;recruitSave();renderPositionsList();}
 function recruitDelPos(id){if(!confirm('Delete this position?'))return;recruitPositions=recruitPositions.filter(p=>p.id!==id);recruitSave();renderPositionsList();}
+
+// ==================== AI APPLICANT SCREENING ====================
+function populateScreeningFilters(){
+  var sel=document.getElementById('screen-filter-pos');if(!sel)return;
+  var cur=sel.value;
+  sel.innerHTML='<option value="">All Positions</option>'
+    +recruitPositions.map(p=>'<option value="'+p.title.replace(/"/g,'&quot;')+'"'+(p.title===cur?' selected':'')+'>'+p.title+'</option>').join('');
+}
+function screenRecBadgeClass(rec){
+  if(rec==='Strong Fit')return'badge-green';
+  if(rec==='Possible Fit')return'badge-yellow';
+  if(rec==='Not a Fit')return'badge-red';
+  return'badge-gray';
+}
+function screenScoreColor(score){
+  if(score>=75)return'var(--green)';
+  if(score>=50)return'var(--orange)';
+  return'var(--red)';
+}
+function renderScreeningKpis(){
+  var w=document.getElementById('screening-kpi');if(!w)return;
+  var total=recruitApplicants.length;
+  var results=Object.values(recruitScreenings);
+  var screened=results.length;
+  var strong=results.filter(r=>r.recommendation==='Strong Fit').length;
+  var avgScore=screened?Math.round(results.reduce((s,r)=>s+(r.score||0),0)/screened):0;
+  w.innerHTML=[
+    {l:'Total Applicants',v:total,c:'blue',icon:'👥'},
+    {l:'Screened',v:screened,c:'accent',icon:'🔍'},
+    {l:'Strong Fit',v:strong,c:'green',icon:'✅'},
+    {l:'Avg Score',v:screened?avgScore+'%':'—',c:'orange',icon:'📊'}
+  ].map(function(m){
+    return'<div class="mc '+m.c+'" style="display:flex;flex-direction:column;gap:4px">'
+      +'<div class="ml" style="display:flex;align-items:center;gap:5px"><span>'+m.icon+'</span>'+m.l+'</div>'
+      +'<div class="mv">'+m.v+'</div></div>';
+  }).join('');
+}
+function renderScreeningList(){
+  renderScreeningKpis();
+  var w=document.getElementById('screening-list-wrap');if(!w)return;
+  var posFilter=v('screen-filter-pos'),recFilter=v('screen-filter-rec');
+  var list=recruitApplicants.filter(function(a){
+    if(posFilter&&a.position_applied!==posFilter)return false;
+    var result=recruitScreenings[a.id];
+    if(recFilter==='unscreened')return!result;
+    if(recFilter&&(!result||result.recommendation!==recFilter))return false;
+    return true;
+  });
+  if(!list.length){w.innerHTML='<div class="empty">No applicants match this filter.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Applicant</th><th>Position</th><th>Status</th><th>Score</th><th>Recommendation</th><th>Screened</th><th></th></tr></thead><tbody>'
+  +list.map(function(a){
+    var r=recruitScreenings[a.id];
+    var scoreCell=r?'<span style="font-weight:700;font-family:\'IBM Plex Mono\',monospace;color:'+screenScoreColor(r.score)+'">'+r.score+'%</span>':'<span style="color:var(--muted)">—</span>';
+    var recCell=r?'<span class="badge '+screenRecBadgeClass(r.recommendation)+'">'+r.recommendation+'</span>':'<span class="badge badge-gray">Not Screened</span>';
+    var dateCell=r?fmtDate(r.screenedAt):'—';
+    var actionBtns='<button class="btn bs bp" id="screen-btn-'+a.id+'" onclick="runApplicantScreening('+a.id+')">'+(r?'🔁 Re-screen':'🔍 Screen')+'</button>'
+      +(r?' <button class="btn bs" style="background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openScreenModal('+a.id+')">👁 View</button>':'');
+    return'<tr><td><strong>'+(a.full_name||'—')+'</strong><br><span style="font-size:11px;color:var(--muted)">'+(a.email_address||'')+'</span></td>'
+      +'<td>'+(a.position_applied||'—')+'</td>'
+      +'<td><span class="badge badge-blue" style="font-size:10px">'+(a.status||'New Applicant')+'</span></td>'
+      +'<td>'+scoreCell+'</td>'
+      +'<td>'+recCell+'</td>'
+      +'<td style="font-size:11px;color:var(--muted)">'+dateCell+'</td>'
+      +'<td style="white-space:nowrap">'+actionBtns+'</td></tr>';
+  }).join('')
+  +'</tbody></table></div>';
+}
+async function runApplicantScreening(id){
+  var a=recruitApplicants.find(x=>x.id===id);if(!a)return;
+  var pos=recruitPositions.find(p=>p.title===a.position_applied)||null;
+  var btn=document.getElementById('screen-btn-'+id);
+  var origLabel=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Screening…';}
+  try{
+    var resp=await fetch('/api/recruitment/screen',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({applicant:a,position:pos})
+    });
+    if(!resp.ok){
+      var txt='';try{txt=await resp.text();}catch(e){}
+      throw new Error('Server returned '+resp.status+(txt?': '+txt.slice(0,200):''));
+    }
+    var result=await resp.json();
+    result.screenedAt=new Date().toISOString();
+    recruitScreenings[id]=result;
+    recruitSave();
+    renderScreeningList();
+    openScreenModal(id);
+  }catch(e){
+    alert('Screening failed: '+e.message+'\n\nThis requires a server endpoint at POST /api/recruitment/screen that calls the Anthropic API. If that endpoint isn\'t set up yet on your server, ask your developer to add it.');
+    if(btn){btn.disabled=false;btn.textContent=origLabel;}
+  }
+}
+function openScreenModal(id){
+  var a=recruitApplicants.find(x=>x.id===id);if(!a)return;
+  var r=recruitScreenings[id];
+  if(!r){alert('This applicant has not been screened yet.');return;}
+  document.getElementById('screen-modal-name').textContent=a.full_name||'—';
+  document.getElementById('screen-modal-pos').textContent=(a.position_applied||'—')+' · Screened '+fmtDT(r.screenedAt);
+  document.getElementById('screen-modal-avatar').textContent=(a.full_name||'?').trim().charAt(0).toUpperCase();
+  var criteriaHtml=(r.criteria||[]).map(function(c){
+    return'<div style="margin-bottom:10px">'
+      +'<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><strong>'+c.name+'</strong><span style="font-family:\'IBM Plex Mono\',monospace;color:'+screenScoreColor(c.score)+'">'+c.score+'%</span></div>'
+      +'<div style="background:#eef4fc;border-radius:6px;height:8px;overflow:hidden"><div style="width:'+c.score+'%;height:100%;background:'+screenScoreColor(c.score)+'"></div></div>'
+      +(c.note?'<div style="font-size:11px;color:var(--muted);margin-top:3px">'+c.note+'</div>':'')
+      +'</div>';
+  }).join('')||'<div class="empty">No criteria breakdown returned.</div>';
+  var strengthsHtml=(r.strengths||[]).map(s=>'<li>'+s+'</li>').join('')||'<li style="color:var(--muted)">None listed</li>';
+  var concernsHtml=(r.concerns||[]).map(s=>'<li>'+s+'</li>').join('')||'<li style="color:var(--muted)">None listed</li>';
+  var stepsHtml=(r.steps&&r.steps.length)?('<div class="pd-section-title" style="margin-top:14px">Screening Pipeline</div>'
+    +'<div style="font-size:12px;line-height:1.8">'+r.steps.map(function(s,i){return'<div><strong>'+(i+1)+'. '+s.step+':</strong> '+s.result+'</div>';}).join('')+'</div>'):'';
+  document.getElementById('screen-modal-body').innerHTML=
+    '<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding:14px;background:var(--surface-2,#f0f4f8);border-radius:10px">'
+    +'<div style="font-size:32px;font-weight:800;color:'+screenScoreColor(r.score)+'">'+r.score+'%</div>'
+    +'<div><span class="badge '+screenRecBadgeClass(r.recommendation)+'" style="font-size:13px">'+r.recommendation+'</span>'
+    +(r.summary?'<div style="font-size:12px;color:var(--muted);margin-top:6px">'+r.summary+'</div>':'')+'</div>'
+    +'</div>'
+    +'<div class="pd-section-title">Criteria Breakdown</div>'+criteriaHtml
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">'
+    +'<div><div class="pd-section-title">✅ Strengths</div><ul style="font-size:12px;padding-left:18px;margin:0">'+strengthsHtml+'</ul></div>'
+    +'<div><div class="pd-section-title">⚠️ Concerns</div><ul style="font-size:12px;padding-left:18px;margin:0">'+concernsHtml+'</ul></div>'
+    +'</div>'
+    +stepsHtml;
+  document.getElementById('screen-modal-overlay').classList.add('open');
+}
+function closeScreenModal(){
+  document.getElementById('screen-modal-overlay').classList.remove('open');
+}
 
 function recruitGenSecret(){
   var chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
