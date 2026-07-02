@@ -3136,6 +3136,28 @@ function fmtLate(mins){
   var label=(h?h+'h ':'')+(m?m+'m':'');
   return'<span style="color:var(--red);font-weight:700;font-family:\'IBM Plex Mono\',monospace">+'+label+'</span>';
 }
+function isApprovedLeaveOn(empId,dateStr){
+  return leaveRecords.some(l=>l.empId==empId&&l.status==='Approved'&&dateStr>=l.from&&dateStr<=l.to);
+}
+// Builds one entry per employee per weekday in [from,to], marking each as
+// 'present' (has a punch), 'leave' (covered by an approved leave record), or 'absent'.
+function buildTimeLogRowsWithStatus(empScope,from,to,actualRows){
+  var byKey={};
+  actualRows.forEach(r=>{byKey[(r.employee_id||r.emp_id)+'_'+r.log_date]=r;});
+  var result=[];
+  var start=new Date(from+'T00:00:00'),end=new Date(to+'T00:00:00');
+  if(isNaN(start)||isNaN(end))return actualRows.map(r=>({r,status:'present'}));
+  empScope.forEach(e=>{
+    for(var d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+      var dateStr=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      var hit=byKey[e.id+'_'+dateStr];
+      if(hit){result.push({r:hit,status:'present'});}
+      else if(isApprovedLeaveOn(e.id,dateStr)){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'leave'});}
+      else{result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'absent'});}
+    }
+  });
+  return result;
+}
 async function loadTimeLogs(){
   var empId=v('tl-emp-filter'),from=v('tl-from'),to=v('tl-to');
   var overrideShiftId=v('tl-shift-override');
@@ -3145,28 +3167,50 @@ async function loadTimeLogs(){
   if(to)params.append('to',to);
   var rows=await api('GET','/api/timelogs?'+params.toString());
   allTimeLogs=rows||[];
-  if(!empId){
-    allTimeLogs=allTimeLogs.slice().sort((a,b)=>{
-      var n=(a.emp_name||'').localeCompare(b.emp_name||'');
-      return n!==0?n:(a.log_date||'').localeCompare(b.log_date||'');
-    });
-  }
-  rows=allTimeLogs;
+  var empScope=empId?employees.filter(e=>e.id==empId):employees.slice();
+  var combined=(from&&to&&empScope.length)
+    ?buildTimeLogRowsWithStatus(empScope,from,to,allTimeLogs)
+    :allTimeLogs.map(r=>({r,status:'present'}));
+  combined.sort((a,b)=>{
+    var n=empId?0:(a.r.emp_name||'').localeCompare(b.r.emp_name||'');
+    return n!==0?n:(a.r.log_date||'').localeCompare(b.r.log_date||'');
+  });
+  window._tlCombined=combined;
   var w=document.getElementById('tl-wrap');
-  if(!rows.length){w.innerHTML='<div class="empty">No time log records found.</div>';return;}
-  // Compute per-row shift and late
+  if(!combined.length){w.innerHTML='<div class="empty">No time log records found.</div>';return;}
+  // Compute per-row shift and late (only meaningful for present rows)
   var overrideShift=overrideShiftId?shifts.find(x=>x.id==parseInt(overrideShiftId)):null;
-  var tableRows=rows.map(r=>{
+  var tableRows=combined.map(item=>{
+    var r=item.r;
+    if(item.status!=='present')return{r,shift:null,lateMin:null,status:item.status};
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
-    return{r,shift,lateMin};
+    return{r,shift,lateMin,status:'present'};
   });
   w.innerHTML='<div style="overflow-x:auto"><table style="min-width:800px"><thead><tr>'
     +'<th>Employee</th><th>Date</th><th>Shift</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th>'
     +'<th style="color:var(--red)">Late / Undertime</th>'
     +'<th>Route</th>'
     +'</tr></thead><tbody>'
-  +tableRows.map(function({r,shift,lateMin},rowIdx){
+  +tableRows.map(function({r,shift,lateMin,status},rowIdx){
+    if(status==='leave'){
+      window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
+      return'<tr style="background:#fffbe6">'
+      +'<td><strong>'+r.emp_name+'</strong></td>'
+      +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
+      +'<td colspan="7" style="text-align:center"><span class="badge badge-yellow">🌴 On Leave</span></td>'
+      +'<td style="text-align:center;color:#dce3ec">—</td>'
+      +'</tr>';
+    }
+    if(status==='absent'){
+      window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
+      return'<tr style="background:#fff2f2">'
+      +'<td><strong>'+r.emp_name+'</strong></td>'
+      +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
+      +'<td colspan="7" style="text-align:center"><span class="badge badge-red">❌ Absent</span></td>'
+      +'<td style="text-align:center;color:#dce3ec">—</td>'
+      +'</tr>';
+    }
     var hasGps=!!(r.lat||r.lunch_out_lat||r.merienda_out_lat||r.timeout_lat);
     window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
     var mapBtn=hasGps
@@ -3191,14 +3235,20 @@ function tlCell(val,color){
   return '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:'+(val?color:'#dce3ec')+';font-weight:'+(val?'700':'400')+'">'+(val||'—')+'</td>';
 }
 function exportTimeLogsCSV(){
-  if(!allTimeLogs.length){alert('Load time logs first.');return;}
+  if(!allTimeLogs.length&&!(window._tlCombined&&window._tlCombined.length)){alert('Load time logs first.');return;}
   var overrideShiftId=v('tl-shift-override');
   var overrideShift=overrideShiftId?shifts.find(x=>x.id==parseInt(overrideShiftId)):null;
-  var rows=[['Employee','Date','Shift','Shift Start','Time In','Lunch Out','Lunch In','Merienda Out','Merienda In','Time Out','Late (mins)']];
-  allTimeLogs.forEach(r=>{
+  var rows=[['Employee','Date','Status','Shift','Shift Start','Time In','Lunch Out','Lunch In','Merienda Out','Merienda In','Time Out','Late (mins)']];
+  var source=window._tlCombined&&window._tlCombined.length?window._tlCombined:allTimeLogs.map(r=>({r,status:'present'}));
+  source.forEach(item=>{
+    var r=item.r,status=item.status||'present';
+    if(status!=='present'){
+      rows.push([r.emp_name,r.log_date,status==='leave'?'On Leave':'Absent','','','','','','','','','']);
+      return;
+    }
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
-    rows.push([r.emp_name,r.log_date,shift.name,shift.start,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin]);
+    rows.push([r.emp_name,r.log_date,'Present',shift.name,shift.start,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin]);
   });
   downloadCSV('HMB_TimeLogs_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
