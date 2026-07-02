@@ -3151,8 +3151,10 @@ function buildTimeLogRowsWithStatus(empScope,from,to,actualRows){
     for(var d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
       var dateStr=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       var hit=byKey[e.id+'_'+dateStr];
+      var dow=d.getDay(),isWeekend=(dow===0||dow===6);
       if(hit){result.push({r:hit,status:'present'});}
       else if(isApprovedLeaveOn(e.id,dateStr)){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'leave'});}
+      else if(isWeekend){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'restday'});}
       else{result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'absent'});}
     }
   });
@@ -3202,6 +3204,15 @@ async function loadTimeLogs(){
       +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
+    if(status==='restday'){
+      window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
+      return'<tr style="background:#f5f5f5">'
+      +'<td><strong>'+r.emp_name+'</strong></td>'
+      +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
+      +'<td colspan="7" style="text-align:center"><span class="badge" style="background:#eceff1;color:#607d8b">🛌 Rest Day</span></td>'
+      +'<td style="text-align:center;color:#dce3ec">—</td>'
+      +'</tr>';
+    }
     if(status==='absent'){
       window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
       return'<tr style="background:#fff2f2">'
@@ -3243,7 +3254,8 @@ function exportTimeLogsCSV(){
   source.forEach(item=>{
     var r=item.r,status=item.status||'present';
     if(status!=='present'){
-      rows.push([r.emp_name,r.log_date,status==='leave'?'On Leave':'Absent','','','','','','','','','']);
+      var label=status==='leave'?'On Leave':(status==='restday'?'Rest Day':'Absent');
+      rows.push([r.emp_name,r.log_date,label,'','','','','','','','','']);
       return;
     }
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
