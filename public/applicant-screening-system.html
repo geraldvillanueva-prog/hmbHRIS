@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Recruitment Screening Dashboard</title>
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   Light theme, blue & white — matches HMB brand tokens
+   ============================================================ */
+:root{
+  --sky:#8FCBF4;
+  --blue:#2F6FE0;
+  --blue-deep:#1B4FB8;
+  --blue-ink:#0F2E63;
+  --bg:#F5F8FD;
+  --surface:#FFFFFF;
+  --surface-2:#EEF4FC;
+  --border:#DCE6F5;
+  --text:#16233D;
+  --text-mut:#5B6B85;
+  --text-faint:#8CA0BE;
+  --green:#1FA971;
+  --green-bg:#E4F7EE;
+  --orange:#E08A2C;
+  --orange-bg:#FCF0DF;
+  --red:#D6455A;
+  --red-bg:#FBE7EA;
+  --shadow:0 4px 16px rgba(23,55,120,.07);
+  --shadow-lg:0 12px 32px rgba(23,55,120,.14);
+  --radius:14px;
+  --radius-sm:8px;
+  --font-display:'Fraunces',Georgia,serif;
+  --font-body:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --font-mono:'JetBrains Mono',"SFMono-Regular",Consolas,monospace;
+  --sidebar-w:238px;
+  --header-h:68px;
+}
+html.dark{
+  --bg:#0B1730;
+  --surface:#101F3D;
+  --surface-2:#132548;
+  --border:#213A66;
+  --text:#EAF1FD;
+  --text-mut:#9DB2D6;
+  --text-faint:#6C82A8;
+  --green-bg:#123329;
+  --orange-bg:#3A2A12;
+  --red-bg:#3A1620;
+  --shadow:0 4px 20px rgba(0,0,0,.35);
+  --shadow-lg:0 16px 40px rgba(0,0,0,.5);
+}
+@font-face{font-family:'Fraunces';src:local('Georgia');}
+*,*::before,*::after{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  transition:background .3s ease,color .3s ease;
+}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px;}
+::selection{background:var(--sky);color:var(--blue-ink);}
+
+/* ============================================================
+   LOADING SCREEN
+   ============================================================ */
+#loading-screen{
+  position:fixed;inset:0;background:var(--blue-deep);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:9999;transition:opacity .5s ease, visibility .5s ease;
+}
+#loading-screen.hide{opacity:0;visibility:hidden;pointer-events:none;}
+.load-ring{width:64px;height:64px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin 0.9s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.load-text{color:#fff;margin-top:20px;font-size:14px;letter-spacing:.14em;text-transform:uppercase;opacity:.85;}
+
+/* ============================================================
+   LAYOUT SHELL
+   ============================================================ */
+.app{display:flex;min-height:100vh;}
+
+/* ---------- Sidebar ---------- */
+.sidebar{
+  width:var(--sidebar-w);flex-shrink:0;background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;
+  transition:width .25s ease;
+  z-index:40;
+}
+.sidebar.collapsed{width:76px;}
+.sidebar-brand{
+  height:var(--header-h);display:flex;align-items:center;gap:10px;
+  padding:0 18px;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.brand-mark{
+  width:34px;height:34px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--sky),var(--blue));
+  display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;
+  font-family:var(--font-display);
+}
+.brand-name{font-weight:700;font-size:14.5px;line-height:1.2;white-space:nowrap;overflow:hidden;}
+.brand-sub{font-size:10.5px;color:var(--text-mut);white-space:nowrap;}
+.sidebar.collapsed .brand-text{display:none;}
+
+.nav{flex:1;overflow-y:auto;padding:14px 10px;}
+.nav-item{
+  display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;
+  color:var(--text-mut);font-size:13.5px;font-weight:600;margin-bottom:2px;
+  transition:background .15s ease,color .15s ease;white-space:nowrap;overflow:hidden;
+}
+.nav-item svg{flex-shrink:0;width:18px;height:18px;}
+.nav-item:hover{background:var(--surface-2);color:var(--blue-deep);}
+.nav-item.active{background:linear-gradient(90deg,var(--blue),var(--blue-deep));color:#fff;}
+.sidebar.collapsed .nav-label{display:none;}
+.sidebar-foot{padding:12px;border-top:1px solid var(--border);}
+.collapse-btn{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--surface-2);border:1px solid var(--border);border-radius:9px;
+  padding:9px;color:var(--text-mut);font-size:12px;font-weight:600;
+}
+.collapse-btn:hover{color:var(--blue-deep);}
+
+/* ---------- Main column ---------- */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+
+/* ---------- Header ---------- */
+.topbar{
+  height:var(--header-h);display:flex;align-items:center;gap:16px;
+  padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:30;backdrop-filter:blur(6px);
+}
+.topbar h1{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0;white-space:nowrap;}
+.datetime{font-size:12px;color:var(--text-mut);white-space:nowrap;}
+.search-box{
+  flex:1;max-width:420px;display:flex;align-items:center;gap:8px;
+  background:var(--surface-2);border:1px solid var(--border);border-radius:10px;
+  padding:8px 12px;color:var(--text-mut);
+}
+.search-box input{
+  border:none;background:transparent;outline:none;color:var(--text);font-size:13.5px;width:100%;
+}
+.topbar-spacer{flex:1;}
+.icon-btn{
+  width:38px;height:38px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+  display:flex;align-items:center;justify-content:center;color:var(--text-mut);position:relative;flex-shrink:0;
+  transition:background .15s ease,color .15s ease;
+}
+.icon-btn:hover{background:var(--surface-2);color:var(--blue-deep);}
+.icon-btn .dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--red);border:2px solid var(--surface);}
+
+/* ============================================================
+   CONTENT
+   ============================================================ */
+.content{padding:24px;max-width:1440px;width:100%;margin:0 auto;}
+.section-title{font-family:var(--font-display);font-size:20px;font-weight:600;margin:0 0 4px;}
+.section-sub{color:var(--text-mut);font-size:13px;margin:0 0 18px;}
+
+/* ---------- Stat cards ---------- */
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:26px;}
+@media (max-width:1100px){.stats-grid{grid-template-columns:repeat(2,1fr);}}
+@media (max-width:560px){.stats-grid{grid-template-columns:1fr;}}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;box-shadow:var(--shadow);position:relative;overflow:hidden;
+  animation:rise .5s ease backwards;
+}
+.stat-card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,var(--blue));}
+@keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.stat-label{font-size:11.5px;color:var(--text-mut);text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
+.stat-value{font-family:var(--font-display);font-size:30px;font-weight:600;margin-top:6px;}
+.stat-delta{font-size:11.5px;color:var(--green);margin-top:4px;}
+
+/* ---------- Panels ---------- */
+.panel{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden;
+}
+.panel-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap;
+}
+.panel-head h2{font-size:15px;margin:0;font-weight:700;}
+.panel-head p{margin:2px 0 0;font-size:12px;color:var(--text-mut);}
+.panel-body{padding:20px;}
+.btn{
+  border:1px solid var(--border);background:var(--surface);border-radius:9px;
+  padding:9px 14px;font-size:12.5px;font-weight:600;color:var(--text);display:inline-flex;align-items:center;gap:6px;
+  transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.btn:hover{background:var(--surface-2);}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:linear-gradient(90deg,var(--blue),var(--blue-deep));border-color:transparent;color:#fff;}
+.btn-primary:hover{box-shadow:var(--shadow-lg);}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--text-mut);}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* ---------- Job requirements form ---------- */
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+@media (max-width:900px){.form-grid{grid-template-columns:repeat(2,1fr);}}
+@media (max-width:600px){.form-grid{grid-template-columns:1fr;}}
+.field label{display:block;font-size:11.5px;font-weight:700;color:var(--text-mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
+.field input[type=text],.field input[type=number],.field select{
+  width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface-2);color:var(--text);font-size:13.5px;outline:none;transition:border .15s ease;
+}
+.field input:focus,.field select:focus{border-color:var(--blue);}
+.field-full{grid-column:1/-1;}
+.radio-row{display:flex;gap:14px;flex-wrap:wrap;padding-top:4px;}
+.radio-row label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--text);text-transform:none;letter-spacing:0;}
+.tag-input{
+  display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);
+}
+.tag-input input{border:none;background:transparent;outline:none;flex:1;min-width:110px;color:var(--text);font-size:13px;}
+.tag{
+  display:flex;align-items:center;gap:6px;background:var(--blue);color:#fff;padding:4px 8px 4px 10px;
+  border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;
+}
+.tag button{background:none;border:none;color:#fff;opacity:.8;font-size:13px;line-height:1;}
+.tag button:hover{opacity:1;}
+
+/* ---------- Filters ---------- */
+.filters-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.filters-bar .field{min-width:150px;flex:1;}
+
+/* ---------- Table ---------- */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;min-width:1080px;}
+thead th{
+  position:sticky;top:0;background:var(--surface-2);z-index:2;
+  text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-mut);
+  padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none;
+}
+thead th:hover{color:var(--blue-deep);}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
+tbody tr{transition:background .12s ease;cursor:pointer;}
+tbody tr:hover{background:var(--surface-2);}
+.applicant-name{font-weight:700;}
+.applicant-email{font-size:11.5px;color:var(--text-mut);}
+.badge{
+  display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;
+  font-size:11px;font-weight:700;white-space:nowrap;
+}
+.badge-green{background:var(--green-bg);color:var(--green);}
+.badge-blue{background:var(--surface-2);color:var(--blue-deep);}
+.badge-orange{background:var(--orange-bg);color:var(--orange);}
+.badge-red{background:var(--red-bg);color:var(--red);}
+.score-ring{width:40px;height:40px;position:relative;flex-shrink:0;}
+.score-ring svg{transform:rotate(-90deg);}
+.score-ring span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;}
+.score-cell{display:flex;align-items:center;gap:10px;}
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--border);flex-wrap:wrap;gap:10px;}
+.pagination .btn{padding:7px 11px;}
+.page-info{font-size:12.5px;color:var(--text-mut);}
+
+/* ---------- Charts grid ---------- */
+.charts-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+@media (max-width:900px){.charts-grid{grid-template-columns:1fr;}}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;}
+.chart-card h3{margin:0 0 12px;font-size:13.5px;font-weight:700;}
+canvas{max-width:100%;}
+
+/* ---------- Toast ---------- */
+.toast-stack{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:200;}
+.toast{
+  background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-lg);
+  border-radius:10px;padding:12px 16px;font-size:13px;display:flex;align-items:center;gap:10px;min-width:230px;
+  animation:toast-in .3s ease;border-left:4px solid var(--blue);
+}
+.toast.success{border-left-color:var(--green);}
+.toast.error{border-left-color:var(--red);}
+@keyframes toast-in{from{opacity:0;transform:translateX(30px);}to{opacity:1;transform:translateX(0);}}
+
+/* ---------- Modal ---------- */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(10,20,40,.5);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;z-index:150;opacity:0;pointer-events:none;transition:opacity .2s ease;padding:20px;
+}
+.modal-overlay.show{opacity:1;pointer-events:auto;}
+.modal{
+  background:var(--surface);border-radius:16px;max-width:920px;width:100%;max-height:88vh;overflow-y:auto;
+  box-shadow:var(--shadow-lg);transform:translateY(16px) scale(.98);transition:transform .25s ease;
+}
+.modal-overlay.show .modal{transform:translateY(0) scale(1);}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--surface);z-index:5;
+}
+.modal-head h2{margin:0;font-family:var(--font-display);font-size:19px;}
+.modal-close{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-mut);font-size:16px;}
+.modal-body{padding:24px;display:grid;grid-template-columns:1.2fr 1fr;gap:24px;}
+@media (max-width:760px){.modal-body{grid-template-columns:1fr;}}
+.modal-block{margin-bottom:20px;}
+.modal-block h4{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-mut);margin:0 0 10px;font-weight:700;}
+.timeline{border-left:2px solid var(--border);padding-left:16px;margin-left:4px;}
+.timeline-item{position:relative;padding-bottom:14px;}
+.timeline-item::before{content:'';position:absolute;left:-21px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--blue);}
+.timeline-item b{font-size:13px;}
+.timeline-item span{display:block;font-size:12px;color:var(--text-mut);}
+.pill-row{display:flex;flex-wrap:wrap;gap:6px;}
+.pill{background:var(--surface-2);border:1px solid var(--border);padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:600;}
+.sw-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.sw-box{padding:12px;border-radius:10px;font-size:12.5px;line-height:1.5;}
+.sw-strength{background:var(--green-bg);color:var(--green);}
+.sw-weak{background:var(--red-bg);color:var(--red);}
+.breakdown-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12.5px;}
+.breakdown-row .label{width:110px;flex-shrink:0;color:var(--text-mut);font-weight:600;}
+.bar-track{flex:1;height:8px;border-radius:6px;background:var(--surface-2);overflow:hidden;}
+.bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--sky),var(--blue));width:0;transition:width 1s cubic-bezier(.2,.7,.3,1);}
+.breakdown-row .val{width:56px;text-align:right;font-weight:700;flex-shrink:0;}
+.ai-analysis{
+  background:var(--surface-2);border-left:3px solid var(--blue);border-radius:8px;padding:14px 16px;font-size:13px;line-height:1.6;color:var(--text);
+}
+.empty-state{padding:60px 20px;text-align:center;color:var(--text-mut);}
+.empty-state svg{margin-bottom:14px;opacity:.5;}
+
+/* view visibility */
+.view{display:none;animation:fade .3s ease;}
+.view.active{display:block;}
+@keyframes fade{from{opacity:0;}to{opacity:1;}}
+
+@media (max-width:820px){
+  .sidebar{position:fixed;left:-260px;transition:left .25s ease;box-shadow:var(--shadow-lg);}
+  .sidebar.mobile-open{left:0;}
+  .topbar h1{display:none;}
+}
+</style>
+</head>
+<body>
+
+<div id="loading-screen"><div class="load-ring"></div><div class="load-text">Loading dashboard…</div></div>
+
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">HR</div>
+      <div class="brand-text">
+        <div class="brand-name">HMB Screening AI</div>
+        <div class="brand-sub">Recruitment Intelligence</div>
+      </div>
+    </div>
+    <nav class="nav" id="navList">
+      <div class="nav-item active" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="nav-label">Dashboard</span></div>
+      <div class="nav-item" data-view="jobs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span class="nav-label">Job Openings</span></div>
+      <div class="nav-item" data-view="applicants"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="nav-label">Applicants</span></div>
+      <div class="nav-item" data-view="screening"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6M8 11h6"/></svg><span class="nav-label">AI Screening</span></div>
+      <div class="nav-item" data-view="interviews"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span class="nav-label">Interviews</span></div>
+      <div class="nav-item" data-view="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 13l3-3 3 3 5-6"/></svg><span class="nav-label">Reports</span></div>
+      <div class="nav-item" data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.5 1z"/></svg><span class="nav-label">Settings</span></div>
+    </nav>
+    <div class="sidebar-foot">
+      <button class="collapse-btn" id="collapseBtn">‹ <span class="nav-label">Collapse</span></button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn" id="mobileMenuBtn" style="display:none;">☰</button>
+      <h1>AI Recruitment Screening Dashboard</h1>
+      <div class="datetime" id="datetimeDisplay">—</div>
+      <div class="topbar-spacer"></div>
+      <div class="search-box">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="globalSearch" placeholder="Search name, skills, location, email…">
+      </div>
+      <button class="icon-btn" id="notifBtn" title="Notifications">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="dot"></span>
+      </button>
+      <button class="icon-btn" id="darkToggle" title="Toggle dark mode">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      </button>
+    </header>
+
+    <div class="content">
+
+      <!-- ================= DASHBOARD VIEW ================= -->
+      <section class="view active" id="view-dashboard">
+        <h2 class="section-title">Overview</h2>
+        <p class="section-sub">Live snapshot of your current recruitment pipeline.</p>
+
+        <div class="stats-grid" id="statsGrid"></div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>Score Distribution & Trends</h2><p>Pure-canvas charts, no external libraries.</p></div>
+          </div>
+          <div class="panel-body">
+            <div class="charts-grid">
+              <div class="chart-card"><h3>Applicants by Recommendation</h3><canvas id="chartRecommendation" width="420" height="240"></canvas></div>
+              <div class="chart-card"><h3>Applicants by Location</h3><canvas id="chartLocation" width="420" height="240"></canvas></div>
+              <div class="chart-card"><h3>Top Skills Distribution</h3><canvas id="chartSkills" width="420" height="240"></canvas></div>
+              <div class="chart-card"><h3>Education Distribution</h3><canvas id="chartEducation" width="420" height="240"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= JOB OPENINGS / REQUIREMENTS VIEW ================= -->
+      <section class="view" id="view-jobs">
+        <h2 class="section-title">Job Requirements</h2>
+        <p class="section-sub">Edit the criteria the AI screening engine scores every applicant against.</p>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>Current Opening</h2><p>Changes apply instantly and re-score all applicants.</p></div>
+            <div class="btn-row"><button class="btn btn-primary" id="applyJobBtn">Apply & Re-score</button></div>
+          </div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="field"><label>Job Title</label><input type="text" id="jobTitle" value="IT Automation & Systems Support Specialist"></div>
+              <div class="field"><label>Minimum Years of Experience</label><input type="number" id="jobMinExp" value="3" min="0"></div>
+              <div class="field"><label>Education</label>
+                <select id="jobEducation">
+                  <option>Bachelor's Degree</option>
+                  <option>Computer Science</option>
+                  <option>Information Technology</option>
+                  <option>Engineering</option>
+                  <option>Business Administration</option>
+                  <option>Human Resources</option>
+                </select>
+              </div>
+              <div class="field field-full"><label>Required Skills</label>
+                <div class="tag-input" id="skillsTagInput">
+                  <input type="text" id="skillsTagField" placeholder="Type a skill and press Enter…">
+                </div>
+              </div>
+              <div class="field"><label>Preferred Location</label>
+                <select id="jobLocation">
+                  <option>San Pedro, Laguna</option>
+                  <option>Biñan, Laguna</option>
+                  <option>Sta. Rosa, Laguna</option>
+                  <option>Cabuyao, Laguna</option>
+                  <option>Calamba, Laguna</option>
+                </select>
+              </div>
+              <div class="field"><label>Salary Range (Monthly, ₱)</label>
+                <div style="display:flex;gap:8px;">
+                  <input type="number" id="jobSalaryMin" value="25000">
+                  <input type="number" id="jobSalaryMax" value="45000">
+                </div>
+              </div>
+              <div class="field"><label>Employment Type</label>
+                <select id="jobEmpType"><option>Full-time</option><option>Part-time</option><option>Contractual</option><option>Project-based</option></select>
+              </div>
+              <div class="field field-full"><label>Work Setup</label>
+                <div class="radio-row">
+                  <label><input type="radio" name="worksetup" value="Onsite" checked> Onsite</label>
+                  <label><input type="radio" name="worksetup" value="Hybrid"> Hybrid</label>
+                  <label><input type="radio" name="worksetup" value="Remote"> Remote</label>
+                </div>
+              </div>
+              <div class="field field-full"><label>Required Certifications</label>
+                <div class="tag-input" id="certsTagInput">
+                  <input type="text" id="certsTagField" placeholder="Type a certification and press Enter…">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= APPLICANTS VIEW ================= -->
+      <section class="view" id="view-applicants">
+        <h2 class="section-title">Applicants</h2>
+        <p class="section-sub">Full applicant pool with AI-generated match scores. Click a row for the full profile.</p>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>Filters</h2></div>
+            <div class="btn-row">
+              <button class="btn" id="exportCsvBtn">⬇ Export CSV</button>
+              <button class="btn" id="exportJsonBtn">⬇ Export JSON</button>
+              <button class="btn" id="printBtn">🖨 Print Report</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="filters-bar">
+              <div class="field"><label>Location</label><select id="filterLocation"><option value="">All locations</option></select></div>
+              <div class="field"><label>Min. Experience (yrs)</label><input type="number" id="filterExp" min="0" value="0"></div>
+              <div class="field"><label>Education</label><select id="filterEducation"><option value="">All</option></select></div>
+              <div class="field"><label>Recommendation</label>
+                <select id="filterRecommendation">
+                  <option value="">All</option>
+                  <option>Highly Recommended</option>
+                  <option>Recommended</option>
+                  <option>Needs Review</option>
+                  <option>Not Recommended</option>
+                </select>
+              </div>
+              <div class="field"><label>Minimum Score</label><input type="number" id="filterMinScore" min="0" max="100" value="0"></div>
+              <div class="field"><label>Skill contains</label><input type="text" id="filterSkill" placeholder="e.g. SQL"></div>
+              <div class="field"><label>Sort by</label>
+                <select id="sortBy">
+                  <option value="score">Highest Score</option>
+                  <option value="experience">Experience</option>
+                  <option value="education">Education</option>
+                  <option value="location">Nearest Location</option>
+                  <option value="name">Applicant Name</option>
+                </select>
+              </div>
+              <button class="btn btn-ghost" id="resetFiltersBtn" style="align-self:flex-end;">✕ Reset</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-sort="id">ID</th>
+                  <th data-sort="name">Applicant</th>
+                  <th data-sort="location">Location</th>
+                  <th data-sort="experience">Experience</th>
+                  <th data-sort="education">Education</th>
+                  <th>Expected Salary</th>
+                  <th data-sort="score">Match Score</th>
+                  <th>Recommendation</th>
+                </tr>
+              </thead>
+              <tbody id="applicantsTbody"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <div class="page-info" id="pageInfo">—</div>
+            <div class="btn-row">
+              <button class="btn" id="prevPageBtn">‹ Prev</button>
+              <button class="btn" id="nextPageBtn">Next ›</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= AI SCREENING VIEW ================= -->
+      <section class="view" id="view-screening">
+        <h2 class="section-title">AI Screening Engine</h2>
+        <p class="section-sub">How every applicant is scored, in plain terms.</p>
+        <div class="panel"><div class="panel-body" id="screeningExplainer"></div></div>
+      </section>
+
+      <!-- ================= INTERVIEWS VIEW ================= -->
+      <section class="view" id="view-interviews">
+        <h2 class="section-title">Interview Recommendations</h2>
+        <p class="section-sub">Applicants scored 80 and above — ready to move forward.</p>
+        <div class="panel"><div class="panel-body table-wrap">
+          <table><thead><tr><th>Applicant</th><th>Location</th><th>Score</th><th>Recommendation</th><th>Contact</th></tr></thead>
+          <tbody id="interviewsTbody"></tbody></table>
+        </div></div>
+      </section>
+
+      <!-- ================= REPORTS VIEW ================= -->
+      <section class="view" id="view-reports">
+        <h2 class="section-title">Reports</h2>
+        <p class="section-sub">Summary metrics across the current applicant pool.</p>
+        <div class="panel"><div class="panel-body"><div class="charts-grid">
+          <div class="chart-card"><h3>Average Match Score Over ID Order</h3><canvas id="chartAvgScore" width="420" height="240"></canvas></div>
+          <div class="chart-card"><h3>Applicants by Recommendation</h3><canvas id="chartRecommendation2" width="420" height="240"></canvas></div>
+        </div></div></div>
+      </section>
+
+      <!-- ================= SETTINGS VIEW ================= -->
+      <section class="view" id="view-settings">
+        <h2 class="section-title">Settings</h2>
+        <p class="section-sub">Display preferences for this dashboard.</p>
+        <div class="panel"><div class="panel-body">
+          <div class="field" style="max-width:280px;">
+            <label>Theme</label>
+            <button class="btn" id="settingsDarkToggle">Toggle Dark / Light Mode</button>
+          </div>
+        </div></div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL ============ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalName">Applicant Name</h2>
+      <button class="modal-close" id="modalCloseBtn">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   0. SEEDED RANDOM — deterministic "fake data" generation
+   ============================================================ */
+function makeRng(seed){
+  let s = seed % 2147483647; if (s<=0) s += 2147483646;
+  return function(){ s = s*16807 % 2147483647; return (s-1)/2147483646; };
+}
+const rng = makeRng(20260702);
+const pick = (arr)=>arr[Math.floor(rng()*arr.length)];
+const pickN = (arr,n)=>{ const c=[...arr]; const out=[]; while(out.length<n && c.length){ out.push(c.splice(Math.floor(rng()*c.length),1)[0]); } return out; };
+const randInt = (min,max)=> Math.floor(rng()*(max-min+1))+min;
+
+/* ============================================================
+   1. REFERENCE DATA
+   ============================================================ */
+const LOCATIONS = {
+  "San Pedro, Laguna":100, "Biñan, Laguna":95, "Sta. Rosa, Laguna":90, "Cabuyao, Laguna":85,
+  "Muntinlupa":80, "Calamba, Laguna":75, "Las Piñas":70, "Cavite":70, "Parañaque":65,
+  "Taguig":60, "Pasig":55, "Makati":50, "Quezon City":40, "Batangas":30
+};
+const LOCATION_NAMES = Object.keys(LOCATIONS);
+
+const EDUCATION_LEVELS = ["Bachelor's Degree","Computer Science","Information Technology","Engineering","Business Administration","Human Resources"];
+
+const SKILL_POOL = ["JavaScript","HTML","CSS","SQL","Node.js","Python","API Integration","Automation","React",
+  "Excel/Spreadsheets","Google Apps Script","Power Automate","Zoho Books","Data Entry","Customer Service",
+  "Project Management","Bookkeeping","Tax Compliance","QuickBooks","Communication","Problem Solving","Networking",
+  "Cloud Computing (AWS)","UI/UX Design","Technical Writing"];
+
+const CERT_POOL = ["AWS Cloud Practitioner","CPA","Google IT Support Certificate","Scrum Master Certified","Microsoft Office Specialist","TESDA NC II","CISCO CCNA"];
+
+const FIRST_NAMES = ["Maria","Jose","Angelo","Kristine","Mark","Andrea","Paolo","Jasmine","Carlo","Bianca",
+  "Ronald","Grace","Miguel","Camille","Daniel","Erika","John Paul","Nicole","Christian","Anna",
+  "Rafael","Michelle","Vincent","Patricia","Julius","Kimberly","Adrian","Louise","Gerald","Trisha"];
+const LAST_NAMES = ["Santos","Reyes","Cruz","Bautista","Villanueva","Garcia","Mendoza","Torres","Flores","Ramos",
+  "Aquino","Del Rosario","Castillo","Navarro","Domingo","Salazar","Fernandez","Gonzales","Pascual","Marasigan"];
+
+const SUMMARY_TEMPLATES = [
+  "Detail-oriented professional with hands-on experience supporting {yrs} years of operational and technical projects.",
+  "Motivated {edu} graduate who has spent {yrs} years building practical, results-driven solutions.",
+  "Resourceful team player with a track record of streamlining processes over {yrs} years in the field.",
+  "Adaptable specialist who thrives on cross-functional collaboration, backed by {yrs} years of relevant work."
+];
+
+/* ============================================================
+   2. STATE
+   ============================================================ */
+const state = {
+  job:{
+    title:"IT Automation & Systems Support Specialist",
+    minExp:3,
+    education:"Bachelor's Degree",
+    location:"San Pedro, Laguna",
+    salaryMin:25000, salaryMax:45000,
+    empType:"Full-time", worksetup:"Onsite",
+    skills:["JavaScript","Automation","SQL","API Integration","Node.js"],
+    certs:["Google IT Support Certificate"]
+  },
+  applicants: [],
+  filters:{ location:"", minExp:0, education:"", recommendation:"", minScore:0, skill:"", search:"" },
+  sortBy:"score",
+  page:1,
+  perPage:8,
+  darkMode:false,
+  sidebarCollapsed:false
+};
+
+/* ============================================================
+   3. DATA GENERATION
+   ============================================================ */
+function generateApplicants(n){
+  const list = [];
+  for(let i=1;i<=n;i++){
+    const name = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+    const location = pick(LOCATION_NAMES);
+    const experience = randInt(0,10);
+    const education = pick(EDUCATION_LEVELS);
+    const skills = pickN(SKILL_POOL, randInt(4,8));
+    const certs = rng() > 0.55 ? pickN(CERT_POOL, randInt(1,2)) : [];
+    const salaryExpected = randInt(18,55) * 1000;
+    const emailHandle = name.toLowerCase().replace(/[^a-z ]/g,"").split(" ").join(".");
+    list.push({
+      id: "APP-" + String(1000+i),
+      name,
+      email: emailHandle + "@gmail.com",
+      phone: "09" + randInt(10,49) + randInt(1000000,9999999),
+      location,
+      experience,
+      education,
+      skills,
+      certifications: certs,
+      expectedSalary: salaryExpected,
+      summary: pick(SUMMARY_TEMPLATES).replace("{yrs}", experience).replace("{edu}", education)
+    });
+  }
+  return list;
+}
+
+/* ============================================================
+   4. AI SCORING ENGINE
+   Weights: Experience 25, Skills 30, Education 15, Location 15, Salary 10, Certifications 5
+   ============================================================ */
+function scoreApplicant(app, job){
+  // Experience (25)
+  let expScore;
+  if(app.experience >= job.minExp) expScore = 25;
+  else if(job.minExp === 0) expScore = 25;
+  else expScore = Math.max(0, Math.round((app.experience / job.minExp) * 25));
+
+  // Skills (30)
+  const required = job.skills.length ? job.skills : [];
+  let skillScore = 30;
+  let matched = [], missing = [];
+  if(required.length){
+    matched = required.filter(s => app.skills.includes(s));
+    missing = required.filter(s => !app.skills.includes(s));
+    skillScore = Math.round((matched.length / required.length) * 30);
+  }
+
+  // Education (15)
+  const eduScore = app.education === job.education ? 15 : (EDUCATION_LEVELS.includes(app.education) ? 8 : 4);
+
+  // Location (15) — scaled from the 0-100 proximity table
+  const proximity = LOCATIONS[app.location] ?? 10;
+  const locScore = Math.round((proximity/100) * 15);
+
+  // Salary (10)
+  let salScore;
+  if(app.expectedSalary >= job.salaryMin && app.expectedSalary <= job.salaryMax) salScore = 10;
+  else{
+    const nearestBound = app.expectedSalary < job.salaryMin ? job.salaryMin : job.salaryMax;
+    const diffRatio = Math.abs(app.expectedSalary - nearestBound) / nearestBound;
+    salScore = Math.max(0, Math.round(10 - diffRatio*20));
+  }
+
+  // Certifications (5)
+  const reqCerts = job.certs.length ? job.certs : [];
+  let certScore = 5;
+  let matchedCerts = [];
+  if(reqCerts.length){
+    matchedCerts = reqCerts.filter(c => app.certifications.includes(c));
+    certScore = Math.round((matchedCerts.length / reqCerts.length) * 5);
+  }
+
+  const total = expScore + skillScore + eduScore + locScore + salScore + certScore;
+
+  let recommendation, badgeClass;
+  if(total >= 90){ recommendation="Highly Recommended"; badgeClass="badge-green"; }
+  else if(total >= 80){ recommendation="Recommended"; badgeClass="badge-blue"; }
+  else if(total >= 70){ recommendation="Needs Review"; badgeClass="badge-orange"; }
+  else { recommendation="Not Recommended"; badgeClass="badge-red"; }
+
+  return {
+    total, recommendation, badgeClass,
+    breakdown:{
+      experience:{score:expScore, max:25},
+      skills:{score:skillScore, max:30},
+      education:{score:eduScore, max:15},
+      location:{score:locScore, max:15},
+      salary:{score:salScore, max:10},
+      certifications:{score:certScore, max:5}
+    },
+    matchedSkills:matched, missingSkills:missing, matchedCerts
+  };
+}
+
+function buildExplanation(app, result, job){
+  const parts = [];
+  parts.push(`${app.name} brings ${app.experience} year${app.experience===1?'':'s'} of experience`);
+  if(result.missingSkills.length === 0 && job.skills.length){
+    parts.push("and covers every required technical skill");
+  } else if(result.matchedSkills.length > 0){
+    parts.push(`and matches ${result.matchedSkills.length} of ${job.skills.length} required skills`);
+  } else if(job.skills.length){
+    parts.push("but does not yet match the required skill set");
+  }
+  const proximity = LOCATIONS[app.location] ?? 10;
+  if(proximity >= 85) parts.push(`, lives close to ${job.location}`);
+  else if(proximity >= 50) parts.push(`, commutes from ${app.location}, a moderate distance from ${job.location}`);
+  else parts.push(`, is based far from ${job.location} in ${app.location}`);
+
+  if(app.expectedSalary >= job.salaryMin && app.expectedSalary <= job.salaryMax) parts.push(", and falls within the salary budget");
+  else parts.push(", though the expected salary sits outside the target budget");
+
+  let closer = "Overall, this candidate is ";
+  if(result.recommendation === "Highly Recommended") closer += "highly recommended for an interview.";
+  else if(result.recommendation === "Recommended") closer += "a solid candidate worth moving forward.";
+  else if(result.recommendation === "Needs Review") closer += "worth a closer manual review before deciding.";
+  else closer += "not a strong fit for this specific opening.";
+
+  return parts.join(" ") + ". " + closer;
+}
+
+function rescoreAll(){
+  state.applicants.forEach(app=>{
+    app.result = scoreApplicant(app, state.job);
+    app.explanation = buildExplanation(app, app.result, state.job);
+  });
+}
+
+/* ============================================================
+   5. RENDER HELPERS
+   ============================================================ */
+function scoreColor(score){
+  if(score>=90) return getCss('--green');
+  if(score>=80) return getCss('--blue');
+  if(score>=70) return getCss('--orange');
+  return getCss('--red');
+}
+function getCss(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
+
+function ringSVG(score){
+  const r = 16, c = 2*Math.PI*r;
+  const offset = c - (score/100)*c;
+  const color = scoreColor(score);
+  return `<svg width="40" height="40" viewBox="0 0 40 40">
+    <circle cx="20" cy="20" r="${r}" fill="none" stroke="${getCss('--border')}" stroke-width="4"/>
+    <circle cx="20" cy="20" r="${r}" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"
+      stroke-dasharray="${c}" stroke-dashoffset="${offset}"/>
+  </svg>`;
+}
+
+function currency(n){ return "₱" + n.toLocaleString(); }
+
+/* ---------- Stat cards ---------- */
+function renderStats(){
+  const all = state.applicants;
+  const screened = all.length;
+  const qualified = all.filter(a=>a.result.total>=80).length;
+  const interviews = all.filter(a=>a.result.total>=80).length;
+  const rejected = all.filter(a=>a.result.total<70).length;
+  const cards = [
+    {label:"Total Applicants", value: all.length, accent:"var(--blue)"},
+    {label:"Screened Applicants", value: screened, accent:"var(--sky)"},
+    {label:"Qualified Candidates", value: qualified, accent:"var(--green)"},
+    {label:"Interview Recommendations", value: interviews, accent:"var(--blue-deep)"},
+    {label:"Rejected Applicants", value: rejected, accent:"var(--red)"}
+  ];
+  document.getElementById('statsGrid').innerHTML = cards.map((c,i)=>`
+    <div class="stat-card" style="--accent:${c.accent};animation-delay:${i*0.05}s">
+      <div class="stat-label">${c.label}</div>
+      <div class="stat-value">${c.value}</div>
+      <div class="stat-delta">Live · updates with scoring</div>
+    </div>`).join('');
+}
+
+/* ---------- Filtering / sorting / pagination ---------- */
+function getFilteredApplicants(){
+  const f = state.filters;
+  let list = state.applicants.filter(a=>{
+    if(f.location && a.location !== f.location) return false;
+    if(f.minExp && a.experience < f.minExp) return false;
+    if(f.education && a.education !== f.education) return false;
+    if(f.recommendation && a.result.recommendation !== f.recommendation) return false;
+    if(f.minScore && a.result.total < f.minScore) return false;
+    if(f.skill && !a.skills.some(s=>s.toLowerCase().includes(f.skill.toLowerCase()))) return false;
+    if(f.search){
+      const q = f.search.toLowerCase();
+      const hay = [a.name,a.email,a.location,a.education,...a.skills].join(" ").toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  list.sort((a,b)=>{
+    switch(state.sortBy){
+      case "experience": return b.experience - a.experience;
+      case "education": return a.education.localeCompare(b.education);
+      case "location": return (LOCATIONS[b.location]??0) - (LOCATIONS[a.location]??0);
+      case "name": return a.name.localeCompare(b.name);
+      default: return b.result.total - a.result.total;
+    }
+  });
+  return list;
+}
+
+function renderApplicantsTable(){
+  const filtered = getFilteredApplicants();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / state.perPage));
+  state.page = Math.min(state.page, totalPages);
+  const startIdx = (state.page-1) * state.perPage;
+  const pageItems = filtered.slice(startIdx, startIdx+state.perPage);
+
+  const tbody = document.getElementById('applicantsTbody');
+  if(pageItems.length === 0){
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">No applicants match these filters.<br>Try widening the criteria.</div></td></tr>`;
+  } else {
+    tbody.innerHTML = pageItems.map(a=>`
+      <tr data-id="${a.id}">
+        <td>${a.id}</td>
+        <td>
+          <div class="applicant-name">${a.name}</div>
+          <div class="applicant-email">${a.email}</div>
+        </td>
+        <td>${a.location}</td>
+        <td>${a.experience} yrs</td>
+        <td>${a.education}</td>
+        <td>${currency(a.expectedSalary)}</td>
+        <td>
+          <div class="score-cell">
+            <div class="score-ring">${ringSVG(a.result.total)}<span>${a.result.total}</span></div>
+          </div>
+        </td>
+        <td><span class="badge ${a.result.badgeClass}">${a.result.recommendation}</span></td>
+      </tr>
+    `).join('');
+    tbody.querySelectorAll('tr').forEach(tr=>{
+      tr.addEventListener('click', ()=> openModal(tr.dataset.id));
+    });
+  }
+  document.getElementById('pageInfo').textContent =
+    filtered.length ? `Showing ${startIdx+1}–${Math.min(startIdx+state.perPage, filtered.length)} of ${filtered.length} applicants` : "0 applicants";
+}
+
+/* ---------- Interviews view ---------- */
+function renderInterviews(){
+  const list = state.applicants.filter(a=>a.result.total>=80).sort((a,b)=>b.result.total-a.result.total);
+  const tbody = document.getElementById('interviewsTbody');
+  tbody.innerHTML = list.length ? list.map(a=>`
+    <tr data-id="${a.id}" style="cursor:pointer;">
+      <td><div class="applicant-name">${a.name}</div></td>
+      <td>${a.location}</td>
+      <td>${a.result.total}%</td>
+      <td><span class="badge ${a.result.badgeClass}">${a.result.recommendation}</span></td>
+      <td class="applicant-email">${a.email}<br>${a.phone}</td>
+    </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state">No candidates have reached interview stage yet.</div></td></tr>`;
+  tbody.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',()=>openModal(tr.dataset.id)));
+}
+
+/* ---------- Screening explainer ---------- */
+function renderScreeningExplainer(){
+  const job = state.job;
+  document.getElementById('screeningExplainer').innerHTML = `
+    <div class="ai-analysis">
+      Every applicant is scored out of 100 against <b>${job.title}</b>: 25 points for meeting
+      ${job.minExp} year${job.minExp===1?'':'s'} of experience, 30 points for matching the required
+      skills (${job.skills.join(", ") || "none set"}), 15 points for education alignment with
+      ${job.education}, 15 points for proximity to ${job.location}, 10 points for landing within
+      the ₱${job.salaryMin.toLocaleString()}–₱${job.salaryMax.toLocaleString()} salary band, and 5
+      points for holding the required certifications (${job.certs.join(", ") || "none set"}).
+      Scores of 90+ are Highly Recommended, 80–89 Recommended, 70–79 Needs Review, and below 70
+      Not Recommended. Location alone never disqualifies a candidate — it only contributes part of
+      the total score.
+    </div>`;
+}
+
+/* ============================================================
+   6. MODAL
+   ============================================================ */
+function openModal(id){
+  const a = state.applicants.find(x=>x.id===id);
+  if(!a) return;
+  document.getElementById('modalName').textContent = a.name;
+  const b = a.result.breakdown;
+  const rows = [
+    ["Experience", b.experience], ["Skills", b.skills], ["Education", b.education],
+    ["Location", b.location], ["Salary", b.salary], ["Certifications", b.certifications]
+  ];
+  document.getElementById('modalBody').innerHTML = `
+    <div>
+      <div class="modal-block">
+        <h4>Profile</h4>
+        <div class="pill-row">
+          <span class="pill">${a.email}</span><span class="pill">${a.phone}</span>
+          <span class="pill">${a.location}</span><span class="pill">${a.experience} yrs experience</span>
+        </div>
+      </div>
+      <div class="modal-block">
+        <h4>Experience Timeline</h4>
+        <div class="timeline">
+          <div class="timeline-item"><b>Most recent role</b><span>${a.experience > 0 ? a.experience + " years total professional experience" : "Entry-level, no prior formal experience"}</span></div>
+          <div class="timeline-item"><b>Education completed</b><span>${a.education}</span></div>
+        </div>
+      </div>
+      <div class="modal-block">
+        <h4>Skills</h4>
+        <div class="pill-row">${a.skills.map(s=>`<span class="pill">${s}</span>`).join('')}</div>
+      </div>
+      <div class="modal-block">
+        <h4>Certifications</h4>
+        <div class="pill-row">${a.certifications.length ? a.certifications.map(c=>`<span class="pill">${c}</span>`).join('') : '<span class="pill">None on file</span>'}</div>
+      </div>
+      <div class="modal-block">
+        <h4>Resume Summary</h4>
+        <p style="font-size:13px;line-height:1.6;margin:0;">${a.summary}</p>
+      </div>
+      <div class="modal-block">
+        <h4>Strengths & Weaknesses</h4>
+        <div class="sw-grid">
+          <div class="sw-box sw-strength"><b>Strengths</b><br>${a.result.matchedSkills.length ? a.result.matchedSkills.join(", ") : "Broad general skill base"}${a.certifications.length ? ", holds relevant certifications" : ""}</div>
+          <div class="sw-box sw-weak"><b>Watch-outs</b><br>${a.result.missingSkills.length ? "Missing: " + a.result.missingSkills.join(", ") : "No major skill gaps identified"}</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="modal-block">
+        <h4>AI Analysis</h4>
+        <div class="ai-analysis">${a.explanation}</div>
+      </div>
+      <div class="modal-block">
+        <h4>Recommendation</h4>
+        <span class="badge ${a.result.badgeClass}" style="font-size:13px;padding:8px 16px;">${a.result.recommendation} · ${a.result.total}%</span>
+      </div>
+      <div class="modal-block">
+        <h4>Match Breakdown</h4>
+        ${rows.map(([label,d])=>`
+          <div class="breakdown-row">
+            <div class="label">${label}</div>
+            <div class="bar-track"><div class="bar-fill" data-target="${(d.score/d.max)*100}"></div></div>
+            <div class="val">${d.score}/${d.max}</div>
+          </div>`).join('')}
+      </div>
+      <div class="modal-block">
+        <h4>Score Radar</h4>
+        <canvas id="radarCanvas" width="320" height="260"></canvas>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+  setTimeout(()=>{
+    document.querySelectorAll('.bar-fill').forEach(el=>{ el.style.width = el.dataset.target + "%"; });
+    drawRadarChart('radarCanvas', b);
+  }, 30);
+}
+document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+document.getElementById('modalOverlay').addEventListener('click', e=>{ if(e.target.id==='modalOverlay') closeModal(); });
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('show'); }
+
+/* ============================================================
+   7. CANVAS CHARTS (pure Canvas API, no libraries)
+   ============================================================ */
+function clearCanvas(ctx,canvas){ ctx.clearRect(0,0,canvas.width,canvas.height); }
+
+function drawBarChart(canvasId, dataObj, colorVar){
+  const canvas = document.getElementById(canvasId); if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  clearCanvas(ctx,canvas);
+  const entries = Object.entries(dataObj);
+  if(!entries.length) return;
+  const max = Math.max(...entries.map(e=>e[1]), 1);
+  const padding = 30, w = canvas.width, h = canvas.height;
+  const barW = (w - padding*2) / entries.length * 0.6;
+  const gap = (w - padding*2) / entries.length;
+  const color = getCss(colorVar || '--blue');
+  ctx.font = "10px sans-serif";
+  ctx.fillStyle = getCss('--text-mut');
+  entries.forEach((([label,val],i)=>{
+    const barH = (val/max) * (h - padding*2);
+    const x = padding + i*gap + (gap-barW)/2;
+    const y = h - padding - barH;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x,y,barW,barH,4) : ctx.rect(x,y,barW,barH);
+    ctx.fill();
+    ctx.fillStyle = getCss('--text');
+    ctx.textAlign = "center";
+    ctx.fillText(val, x+barW/2, y-6);
+    ctx.fillStyle = getCss('--text-mut');
+    const shortLabel = label.length > 10 ? label.slice(0,9)+"…" : label;
+    ctx.save();
+    ctx.translate(x+barW/2, h-padding+12);
+    ctx.rotate(entries.length>6 ? -0.5 : 0);
+    ctx.textAlign = entries.length>6 ? "right" : "center";
+    ctx.fillText(shortLabel, 0, 0);
+    ctx.restore();
+  }));
+}
+
+function drawPieChart(canvasId, dataObj){
+  const canvas = document.getElementById(canvasId); if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  clearCanvas(ctx,canvas);
+  const entries = Object.entries(dataObj).filter(e=>e[1]>0);
+  const total = entries.reduce((s,e)=>s+e[1],0) || 1;
+  const cx = canvas.width*0.32, cy = canvas.height/2, r = Math.min(cx,cy)-20;
+  const colors = [getCss('--blue'),getCss('--sky'),getCss('--green'),getCss('--orange'),getCss('--red'),getCss('--blue-deep'),getCss('--text-faint')];
+  let start = -Math.PI/2;
+  entries.forEach(([label,val],i)=>{
+    const angle = (val/total)*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,start,start+angle);
+    ctx.closePath();
+    ctx.fillStyle = colors[i%colors.length];
+    ctx.fill();
+    start += angle;
+  });
+  // legend
+  ctx.font = "11px sans-serif";
+  ctx.textAlign = "left";
+  entries.forEach(([label,val],i)=>{
+    const ly = 22 + i*18;
+    ctx.fillStyle = colors[i%colors.length];
+    ctx.fillRect(cx+r+16, ly-9, 10, 10);
+    ctx.fillStyle = getCss('--text');
+    ctx.fillText(`${label} (${val})`, cx+r+32, ly);
+  });
+}
+
+function drawLineChart(canvasId, points){
+  const canvas = document.getElementById(canvasId); if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  clearCanvas(ctx,canvas);
+  if(!points.length) return;
+  const padding = 30, w = canvas.width, h = canvas.height;
+  const max = 100, min = 0;
+  const stepX = (w-padding*2) / Math.max(points.length-1,1);
+  ctx.strokeStyle = getCss('--border');
+  ctx.beginPath(); ctx.moveTo(padding, h-padding); ctx.lineTo(w-padding, h-padding); ctx.stroke();
+
+  ctx.beginPath();
+  ctx.strokeStyle = getCss('--blue');
+  ctx.lineWidth = 2;
+  points.forEach((p,i)=>{
+    const x = padding + i*stepX;
+    const y = h - padding - ((p-min)/(max-min))*(h-padding*2);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  ctx.fillStyle = getCss('--sky');
+  points.forEach((p,i)=>{
+    const x = padding + i*stepX;
+    const y = h - padding - ((p-min)/(max-min))*(h-padding*2);
+    ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2); ctx.fill();
+  });
+}
+
+function drawRadarChart(canvasId, breakdown){
+  const canvas = document.getElementById(canvasId); if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  clearCanvas(ctx,canvas);
+  const labels = Object.keys(breakdown);
+  const vals = labels.map(k=> breakdown[k].score / breakdown[k].max);
+  const cx = canvas.width/2, cy = canvas.height/2 - 6, r = Math.min(cx,cy)-36;
+  const n = labels.length;
+  const angleStep = (Math.PI*2)/n;
+
+  // grid rings
+  ctx.strokeStyle = getCss('--border');
+  for(let ring=1;ring<=4;ring++){
+    ctx.beginPath();
+    for(let i=0;i<=n;i++){
+      const a = -Math.PI/2 + i*angleStep;
+      const rr = r*(ring/4);
+      const x = cx + rr*Math.cos(a), y = cy + rr*Math.sin(a);
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+  // axis lines + labels
+  ctx.fillStyle = getCss('--text-mut');
+  ctx.font = "10px sans-serif";
+  labels.forEach((label,i)=>{
+    const a = -Math.PI/2 + i*angleStep;
+    const x = cx + r*Math.cos(a), y = cy + r*Math.sin(a);
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y); ctx.strokeStyle=getCss('--border'); ctx.stroke();
+    const lx = cx + (r+14)*Math.cos(a), ly = cy + (r+14)*Math.sin(a);
+    ctx.textAlign = Math.cos(a) > 0.3 ? "left" : Math.cos(a) < -0.3 ? "right" : "center";
+    ctx.fillText(label.charAt(0).toUpperCase()+label.slice(1), lx, ly);
+  });
+  // data polygon
+  ctx.beginPath();
+  vals.forEach((v,i)=>{
+    const a = -Math.PI/2 + i*angleStep;
+    const x = cx + r*v*Math.cos(a), y = cy + r*v*Math.sin(a);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = "rgba(47,111,224,0.28)";
+  ctx.fill();
+  ctx.strokeStyle = getCss('--blue');
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+function renderAllCharts(){
+  const list = state.applicants;
+  const recCounts = {"Highly Recommended":0,"Recommended":0,"Needs Review":0,"Not Recommended":0};
+  list.forEach(a=>recCounts[a.result.recommendation]++);
+  drawPieChart('chartRecommendation', recCounts);
+  drawPieChart('chartRecommendation2', recCounts);
+
+  const locCounts = {};
+  list.forEach(a=>{ locCounts[a.location] = (locCounts[a.location]||0)+1; });
+  drawBarChart('chartLocation', locCounts, '--sky');
+
+  const skillCounts = {};
+  list.forEach(a=>a.skills.forEach(s=>{ skillCounts[s] = (skillCounts[s]||0)+1; }));
+  const topSkills = Object.fromEntries(Object.entries(skillCounts).sort((a,b)=>b[1]-a[1]).slice(0,7));
+  drawBarChart('chartSkills', topSkills, '--blue');
+
+  const eduCounts = {};
+  list.forEach(a=>{ eduCounts[a.education] = (eduCounts[a.education]||0)+1; });
+  drawBarChart('chartEducation', eduCounts, '--blue-deep');
+
+  drawLineChart('chartAvgScore', list.map(a=>a.result.total));
+}
+
+/* ============================================================
+   8. EXPORTS
+   ============================================================ */
+function downloadFile(filename, content, mime){
+  const blob = new Blob([content], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = filename;
+  document.body.appendChild(link); link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function exportCSV(){
+  const rows = getFilteredApplicants();
+  const headers = ["ID","Name","Email","Phone","Location","Experience","Education","Skills","Certifications","ExpectedSalary","MatchScore","Recommendation"];
+  const lines = [headers.join(",")];
+  rows.forEach(a=>{
+    lines.push([a.id,`"${a.name}"`,a.email,a.phone,`"${a.location}"`,a.experience,`"${a.education}"`,
+      `"${a.skills.join('; ')}"`,`"${a.certifications.join('; ')}"`,a.expectedSalary,a.result.total,a.result.recommendation].join(","));
+  });
+  downloadFile("applicants_export.csv", lines.join("\n"), "text/csv");
+  showToast("CSV exported", "success");
+}
+function exportJSON(){
+  const rows = getFilteredApplicants().map(a=>({...a, result:undefined, score:a.result.total, recommendation:a.result.recommendation}));
+  downloadFile("applicants_export.json", JSON.stringify(rows,null,2), "application/json");
+  showToast("JSON exported", "success");
+}
+
+/* ============================================================
+   9. TOASTS
+   ============================================================ */
+function showToast(msg, type){
+  const el = document.createElement('div');
+  el.className = "toast" + (type ? " "+type : "");
+  el.textContent = msg;
+  document.getElementById('toastStack').appendChild(el);
+  setTimeout(()=>{ el.style.opacity="0"; el.style.transition="opacity .3s"; setTimeout(()=>el.remove(),300); }, 3000);
+}
+
+/* ============================================================
+   10. NAVIGATION / VIEWS
+   ============================================================ */
+function switchView(viewName){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+viewName).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.view===viewName));
+  if(viewName==='dashboard') renderAllCharts();
+  if(viewName==='applicants') renderApplicantsTable();
+  if(viewName==='interviews') renderInterviews();
+  if(viewName==='screening') renderScreeningExplainer();
+  if(viewName==='reports') renderAllCharts();
+}
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click', ()=> switchView(item.dataset.view));
+});
+
+/* ============================================================
+   11. TAG INPUTS (skills / certifications)
+   ============================================================ */
+function setupTagInput(containerId, fieldId, listRef){
+  const container = document.getElementById(containerId);
+  const field = document.getElementById(fieldId);
+  function render(){
+    container.querySelectorAll('.tag').forEach(t=>t.remove());
+    listRef.forEach((val,idx)=>{
+      const tag = document.createElement('span');
+      tag.className = "tag";
+      tag.innerHTML = `${val} <button type="button" data-idx="${idx}">✕</button>`;
+      container.insertBefore(tag, field);
+    });
+  }
+  container.addEventListener('click', e=>{
+    if(e.target.tagName==='BUTTON'){
+      listRef.splice(+e.target.dataset.idx,1);
+      render();
+    }
+  });
+  field.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && field.value.trim()){
+      e.preventDefault();
+      listRef.push(field.value.trim());
+      field.value = '';
+      render();
+    }
+  });
+  render();
+}
+
+/* ============================================================
+   12. FILTER DROPDOWNS POPULATION
+   ============================================================ */
+function populateFilterOptions(){
+  const locSel = document.getElementById('filterLocation');
+  locSel.innerHTML = '<option value="">All locations</option>' + LOCATION_NAMES.map(l=>`<option>${l}</option>`).join('');
+  const eduSel = document.getElementById('filterEducation');
+  eduSel.innerHTML = '<option value="">All</option>' + EDUCATION_LEVELS.map(e=>`<option>${e}</option>`).join('');
+}
+
+/* ============================================================
+   13. WIRE UP CONTROLS
+   ============================================================ */
+function applyJobFromForm(){
+  state.job.title = document.getElementById('jobTitle').value || state.job.title;
+  state.job.minExp = +document.getElementById('jobMinExp').value || 0;
+  state.job.education = document.getElementById('jobEducation').value;
+  state.job.location = document.getElementById('jobLocation').value;
+  state.job.salaryMin = +document.getElementById('jobSalaryMin').value || 0;
+  state.job.salaryMax = +document.getElementById('jobSalaryMax').value || 999999;
+  state.job.empType = document.getElementById('jobEmpType').value;
+  state.job.worksetup = document.querySelector('input[name=worksetup]:checked').value;
+  rescoreAll();
+  renderStats();
+  renderApplicantsTable();
+  renderAllCharts();
+  renderScreeningExplainer();
+  showToast("Job requirements applied — applicants re-scored", "success");
+}
+document.getElementById('applyJobBtn').addEventListener('click', applyJobFromForm);
+
+document.getElementById('globalSearch').addEventListener('input', e=>{
+  state.filters.search = e.target.value;
+  state.page = 1;
+  renderApplicantsTable();
+  if(e.target.value) switchView('applicants');
+});
+
+['filterLocation','filterEducation','filterRecommendation'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', e=>{
+    const map = {filterLocation:'location', filterEducation:'education', filterRecommendation:'recommendation'};
+    state.filters[map[id]] = e.target.value;
+    state.page = 1; renderApplicantsTable();
+  });
+});
+document.getElementById('filterExp').addEventListener('input', e=>{ state.filters.minExp = +e.target.value||0; state.page=1; renderApplicantsTable(); });
+document.getElementById('filterMinScore').addEventListener('input', e=>{ state.filters.minScore = +e.target.value||0; state.page=1; renderApplicantsTable(); });
+document.getElementById('filterSkill').addEventListener('input', e=>{ state.filters.skill = e.target.value; state.page=1; renderApplicantsTable(); });
+document.getElementById('sortBy').addEventListener('change', e=>{ state.sortBy = e.target.value; renderApplicantsTable(); });
+document.getElementById('resetFiltersBtn').addEventListener('click', ()=>{
+  state.filters = { location:"", minExp:0, education:"", recommendation:"", minScore:0, skill:"", search:"" };
+  document.querySelectorAll('.filters-bar select').forEach(s=>s.value="");
+  document.querySelectorAll('.filters-bar input[type=number]').forEach(i=>i.value=0);
+  document.getElementById('filterSkill').value="";
+  document.getElementById('globalSearch').value="";
+  state.page = 1;
+  renderApplicantsTable();
+  showToast("Filters reset");
+});
+
+document.getElementById('prevPageBtn').addEventListener('click', ()=>{ if(state.page>1){ state.page--; renderApplicantsTable(); }});
+document.getElementById('nextPageBtn').addEventListener('click', ()=>{ state.page++; renderApplicantsTable(); });
+
+document.querySelectorAll('thead th[data-sort]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.sort;
+    const map = {id:'name', name:'name', location:'location', experience:'experience', education:'education', score:'score'};
+    state.sortBy = map[key] || 'score';
+    document.getElementById('sortBy').value = state.sortBy;
+    renderApplicantsTable();
+  });
+});
+
+document.getElementById('exportCsvBtn').addEventListener('click', exportCSV);
+document.getElementById('exportJsonBtn').addEventListener('click', exportJSON);
+document.getElementById('printBtn').addEventListener('click', ()=> window.print());
+
+document.getElementById('collapseBtn').addEventListener('click', ()=>{
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  document.getElementById('sidebar').classList.toggle('collapsed', state.sidebarCollapsed);
+  document.getElementById('collapseBtn').innerHTML = state.sidebarCollapsed ? '›' : '‹ <span class="nav-label">Collapse</span>';
+});
+
+function toggleDark(){
+  state.darkMode = !state.darkMode;
+  document.documentElement.classList.toggle('dark', state.darkMode);
+  setTimeout(renderAllCharts, 50);
+}
+document.getElementById('darkToggle').addEventListener('click', toggleDark);
+document.getElementById('settingsDarkToggle').addEventListener('click', toggleDark);
+
+document.getElementById('notifBtn').addEventListener('click', ()=>{
+  showToast(`${state.applicants.filter(a=>a.result.total>=90).length} applicants scored Highly Recommended today`);
+});
+
+/* datetime clock */
+function tickClock(){
+  const now = new Date();
+  document.getElementById('datetimeDisplay').textContent = now.toLocaleString('en-PH', {
+    weekday:'short', year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'
+  });
+}
+setInterval(tickClock, 1000*30);
+
+/* ============================================================
+   14. INIT
+   ============================================================ */
+function init(){
+  state.applicants = generateApplicants(26);
+  rescoreAll();
+  populateFilterOptions();
+  setupTagInput('skillsTagInput','skillsTagField', state.job.skills);
+  setupTagInput('certsTagInput','certsTagField', state.job.certs);
+  tickClock();
+  renderStats();
+  renderApplicantsTable();
+  renderInterviews();
+  renderScreeningExplainer();
+  renderAllCharts();
+
+  setTimeout(()=>{
+    document.getElementById('loading-screen').classList.add('hide');
+    showToast("Dashboard loaded — " + state.applicants.length + " applicants screened", "success");
+  }, 650);
+}
+init();
+
+})();
+</script>
+</body>
+</html>
