@@ -2366,7 +2366,10 @@ function autoComputeLeavePay(empId, per, dr){
     var overlapStart=lFrom<range.start?range.start:lFrom;
     var overlapEnd=lTo>range.end?range.end:lTo;
     if(overlapStart<=overlapEnd){
-      var days=Math.round((overlapEnd-overlapStart)/(1000*60*60*24))+1;
+      var fullDaysInRange=Math.round((overlapEnd-overlapStart)/(1000*60*60*24))+1;
+      // Half-day leaves are always filed as a single date (from===to), so if this
+      // leave is half-day, count it as 0.5 instead of a whole overlap day.
+      var days=l.halfDay?0.5:fullDaysInRange;
       totalDays+=days;
       breakdown.push({type:l.type,days:days,from:l.from,to:l.to});
     }
