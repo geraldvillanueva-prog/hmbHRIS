@@ -680,7 +680,9 @@ tr:hover td{background:#fafcff}
             <select id="lv-pay"><option>With Pay</option><option>Without Pay</option></select>
           </div>
         </div>
-        <button class="btn bp" onclick="addLeave()">Submit Leave</button>
+        <input id="lv-edit-id" type="hidden" value="">
+        <button class="btn bp" id="lv-save-btn" onclick="saveLeaveForm()">Submit Leave</button>
+        <button class="btn bs" id="lv-cancel-btn" style="display:none" onclick="cancelLeaveEdit()">Cancel</button>
         <span class="ok-msg" id="lv-ok">Leave filed!</span>
       </div>
     </div>
@@ -1031,10 +1033,12 @@ tr:hover td{background:#fafcff}
     <div class="card" style="margin-top:16px">
       <div class="card-title">🎉 Holidays</div>
       <div class="page-sub">Dates marked here will show as Holiday instead of Absent in the time logs above.</div>
+      <input id="hol-edit-id" type="hidden" value="">
       <div class="row">
         <div class="f" style="max-width:170px"><label>Date</label><input id="hol-date" type="date"></div>
         <div class="f" style="max-width:220px"><label>Name (optional)</label><input id="hol-name" type="text" placeholder="e.g. Independence Day"></div>
-        <button class="btn bp" style="align-self:flex-end" onclick="addHoliday()">+ Add Holiday</button>
+        <button class="btn bp" style="align-self:flex-end" id="hol-save-btn" onclick="saveHolidayForm()">+ Add Holiday</button>
+        <button class="btn bs" style="align-self:flex-end;display:none" id="hol-cancel-btn" onclick="cancelHolidayEdit()">Cancel</button>
       </div>
       <div id="holidays-list-wrap" style="margin-top:10px"><div class="empty">No holidays added yet.</div></div>
     </div>
@@ -2161,7 +2165,7 @@ function exportAttCSV(){
 }
 
 // ==================== LEAVE ====================
-async function addLeave(){
+async function saveLeaveForm(){
   var empId=parseInt(v('lv-emp'));
   if(!empId){alert('Select an employee.');return;}
   var from=v('lv-from'),to=v('lv-to');
@@ -2169,7 +2173,16 @@ async function addLeave(){
   if(halfDay)to=from;
   if(!from||!to){alert('Please set date from and to.');return;}
   var days=halfDay?0.5:daysBetween(from,to);
+  var editId=v('lv-edit-id');
   var rec={empId,type:v('lv-type'),from,to,days,halfDay,reason:v('lv-reason'),status:v('lv-status'),pay:v('lv-pay')};
+  if(editId){
+    await api('PUT','/api/leave/'+editId,rec);
+    var existing=leaveRecords.find(l=>String(l.id)===editId);
+    if(existing)Object.assign(existing,rec);
+    cancelLeaveEdit();
+    flash('lv-ok');renderLeaveTracker();renderDashboard();showSaveIndicator();
+    return;
+  }
   var r=await api('POST','/api/leave',rec);
   if(r.success){
     rec.id=r.id;rec.filedAt=new Date().toISOString();
@@ -2182,6 +2195,40 @@ async function addLeave(){
     document.getElementById('lv-to').disabled=false;
     flash('lv-ok');renderLeaveTracker();renderDashboard();showSaveIndicator();
   }
+}
+function editLeave(id){
+  var l=leaveRecords.find(x=>x.id===id);if(!l)return;
+  // Switch to the "File Leave" tab
+  var sec=document.getElementById('sec-leave');
+  sec.querySelectorAll('.itab').forEach(t=>t.classList.remove('on'));
+  sec.querySelectorAll('.itab-sec').forEach(s=>s.classList.remove('on'));
+  sec.querySelector('.itab').classList.add('on');
+  document.getElementById('leave-itab-file').classList.add('on');
+  document.getElementById('lv-edit-id').value=l.id;
+  document.getElementById('lv-emp').value=l.empId;
+  document.getElementById('lv-type').value=l.type;
+  document.getElementById('lv-from').value=l.from;
+  document.getElementById('lv-to').value=l.to;
+  document.getElementById('lv-to').disabled=!!l.halfDay;
+  document.getElementById('lv-halfday').checked=!!l.halfDay;
+  document.getElementById('lv-reason').value=l.reason||'';
+  document.getElementById('lv-status').value=l.status;
+  document.getElementById('lv-pay').value=l.pay;
+  document.getElementById('lv-save-btn').textContent='💾 Save Changes';
+  document.getElementById('lv-cancel-btn').style.display='';
+}
+function cancelLeaveEdit(){
+  document.getElementById('lv-edit-id').value='';
+  document.getElementById('lv-emp').value='';
+  document.getElementById('lv-from').value='';
+  document.getElementById('lv-to').value='';
+  document.getElementById('lv-to').disabled=false;
+  document.getElementById('lv-halfday').checked=false;
+  document.getElementById('lv-reason').value='';
+  document.getElementById('lv-status').value='Pending';
+  document.getElementById('lv-pay').value='With Pay';
+  document.getElementById('lv-save-btn').textContent='Submit Leave';
+  document.getElementById('lv-cancel-btn').style.display='none';
 }
 async function updateLeaveStatus(id,status){
   await api('PUT','/api/leave/'+id,{status});
@@ -2196,7 +2243,7 @@ function renderLeaveTracker(){
   if(!list.length){w.innerHTML='<div class="empty">No leave records found.</div>';return;}
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Pay</th><th>Status</th><th>Filed</th><th></th></tr></thead><tbody>'
   +list.map(l=>'<tr><td><strong>'+empName(l.empId)+'</strong></td><td>'+l.type+(l.halfDay?' <span class="badge badge-orange" style="font-size:9px">½ day</span>':'')+'</td><td>'+fmtDate(l.from)+'</td><td>'+fmtDate(l.to)+'</td><td>'+l.days+'</td><td>'+l.pay+'</td><td><span class="badge '+(l.status==='Approved'?'badge-green':l.status==='Denied'?'badge-red':'badge-yellow')+'">'+l.status+'</span></td><td style="font-size:11px">'+fmtDT(l.filedAt)+'</td>'
-  +'<td style="display:flex;gap:4px"><button class="btn bs bg" onclick="updateLeaveStatus('+l.id+',\'Approved\')">✓</button><button class="btn bs br" onclick="updateLeaveStatus('+l.id+',\'Denied\')">✗</button><button class="btn bs" onclick="deleteLeave('+l.id+')" style="color:var(--red)">🗑</button></td></tr>').join('')
+  +'<td style="display:flex;gap:4px"><button class="btn bs bg" onclick="updateLeaveStatus('+l.id+',\'Approved\')">✓</button><button class="btn bs br" onclick="updateLeaveStatus('+l.id+',\'Denied\')">✗</button><button class="btn bs" style="background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="editLeave('+l.id+')">✏️</button><button class="btn bs" onclick="deleteLeave('+l.id+')" style="color:var(--red)">🗑</button></td></tr>').join('')
   +'</tbody></table></div>';
 }
 function renderLeaveBalances(){
@@ -3312,17 +3359,37 @@ function exportTimeLogsCSV(){
 async function saveHolidays(){
   await api('POST','/api/settings',{holidays_json:JSON.stringify(holidays)});
 }
-async function addHoliday(){
+async function saveHolidayForm(){
   var date=v('hol-date'),name=v('hol-name').trim();
+  var editId=v('hol-edit-id');
   if(!date){alert('Select a date.');return;}
-  if(holidays.some(h=>h.date===date)){alert('That date is already in the holiday list.');return;}
-  holidays.push({id:Date.now(),date,name:name||'Holiday'});
+  if(holidays.some(h=>h.date===date&&String(h.id)!==editId)){alert('That date is already in the holiday list.');return;}
+  if(editId){
+    var h=holidays.find(x=>String(x.id)===editId);
+    if(h){h.date=date;h.name=name||'Holiday';}
+  }else{
+    holidays.push({id:Date.now(),date,name:name||'Holiday'});
+  }
   holidays.sort((a,b)=>a.date.localeCompare(b.date));
   await saveHolidays();
-  document.getElementById('hol-date').value='';
-  document.getElementById('hol-name').value='';
+  cancelHolidayEdit();
   renderHolidaysList();
   showSaveIndicator();
+}
+function editHoliday(id){
+  var h=holidays.find(x=>x.id===id);if(!h)return;
+  document.getElementById('hol-edit-id').value=h.id;
+  document.getElementById('hol-date').value=h.date;
+  document.getElementById('hol-name').value=h.name||'';
+  document.getElementById('hol-save-btn').textContent='💾 Save Changes';
+  document.getElementById('hol-cancel-btn').style.display='';
+}
+function cancelHolidayEdit(){
+  document.getElementById('hol-edit-id').value='';
+  document.getElementById('hol-date').value='';
+  document.getElementById('hol-name').value='';
+  document.getElementById('hol-save-btn').textContent='+ Add Holiday';
+  document.getElementById('hol-cancel-btn').style.display='none';
 }
 async function deleteHoliday(id){
   if(!confirm('Remove this holiday?'))return;
@@ -3335,7 +3402,7 @@ function renderHolidaysList(){
   var w=document.getElementById('holidays-list-wrap');if(!w)return;
   if(!holidays.length){w.innerHTML='<div class="empty">No holidays added yet.</div>';return;}
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Name</th><th></th></tr></thead><tbody>'
-  +holidays.map(h=>'<tr><td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(h.date)+'</td><td><strong>'+(h.name||'Holiday')+'</strong></td><td><button class="btn bs br" onclick="deleteHoliday('+h.id+')">🗑 Delete</button></td></tr>').join('')
+  +holidays.map(h=>'<tr><td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(h.date)+'</td><td><strong>'+(h.name||'Holiday')+'</strong></td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="editHoliday('+h.id+')">✏️ Edit</button><button class="btn bs br" onclick="deleteHoliday('+h.id+')">🗑 Delete</button></td></tr>').join('')
   +'</tbody></table></div>';
 }
 function isHoliday(dateStr){return holidays.some(h=>h.date===dateStr);}
