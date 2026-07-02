@@ -664,6 +664,10 @@ tr:hover td{background:#fafcff}
           </div>
           <div class="f"><label>Date from</label><input id="lv-from" type="date"></div>
           <div class="f"><label>Date to</label><input id="lv-to" type="date"></div>
+          <div class="f" style="max-width:150px;justify-content:flex-end;display:flex;flex-direction:row;align-items:center;gap:6px;padding-bottom:8px">
+            <input id="lv-halfday" type="checkbox" style="width:auto" onchange="if(this.checked){document.getElementById('lv-to').value=document.getElementById('lv-from').value;document.getElementById('lv-to').disabled=true;}else{document.getElementById('lv-to').disabled=false;}">
+            <label style="margin:0" for="lv-halfday">Half day</label>
+          </div>
         </div>
         <div class="row">
           <div class="f"><label>Reason / Remarks</label><textarea id="lv-reason" placeholder=""></textarea></div>
@@ -1023,6 +1027,17 @@ tr:hover td{background:#fafcff}
       </div>
     </div>
     <div id="tl-wrap"><div class="empty">Select filters and click View.</div></div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">🎉 Holidays</div>
+      <div class="page-sub">Dates marked here will show as Holiday instead of Absent in the time logs above.</div>
+      <div class="row">
+        <div class="f" style="max-width:170px"><label>Date</label><input id="hol-date" type="date"></div>
+        <div class="f" style="max-width:220px"><label>Name (optional)</label><input id="hol-name" type="text" placeholder="e.g. Independence Day"></div>
+        <button class="btn bp" style="align-self:flex-end" onclick="addHoliday()">+ Add Holiday</button>
+      </div>
+      <div id="holidays-list-wrap" style="margin-top:10px"><div class="empty">No holidays added yet.</div></div>
+    </div>
   </div>
 
   <!-- SHIFT MANAGEMENT -->
@@ -1491,6 +1506,7 @@ await fetch('/api/recruitment/webhook', {
 // ==================== STATE ====================
 var employees=[],attendance={},payslipHistory=[],nextId=1;
 var leaveRecords=[],perfRecords=[],discRecords=[];
+var holidays=[];
 var payslipApprovals={};  // { [period_key]: true } — set by management
 var setup={name:'HMB Management Consultant',tin:'126-757-146-000',addr1:'21 B1 L5 Sta. Ana St',addr2:'Pacita 1B, San Pedro, Laguna',prep:'KMD. GRASPARIL',appr:'KKM. BUÑAG',prepSig:'',apprSig:''};
 var emailCfg={svc:'service_egeu3v1',tpl:'template_7jtdhwe',key:'N1iAC7sZ5RVfPhug5'};
@@ -1755,6 +1771,7 @@ async function loadFromStorage(){
     if(cfg){
       setup={name:cfg.co_name||'',tin:cfg.co_tin||'',addr1:cfg.co_addr1||'',addr2:cfg.co_addr2||'',prep:cfg.co_prep||'',appr:cfg.co_appr||'',prepSig:cfg.co_prep_sig||'',apprSig:cfg.co_appr_sig||''};
       emailCfg={svc:cfg.ejs_svc||'',tpl:cfg.ejs_tpl||'',key:cfg.ejs_key||''};
+      try{holidays=cfg.holidays_json?JSON.parse(cfg.holidays_json):[];}catch(e){holidays=[];}
       var setVal=(id,v)=>{var el=document.getElementById(id);if(el)el.value=v;};
       setVal('co-name',setup.name);setVal('co-tin',setup.tin);setVal('co-addr1',setup.addr1);setVal('co-addr2',setup.addr2);setVal('co-prep',setup.prep);setVal('co-appr',setup.appr);
       // Restore signature previews
@@ -1822,7 +1839,7 @@ function goSec(name,el){
   if(name==='attendance')renderAttRecords();
   if(name==='reports'){}
   if(name==='recruitment'){renderRecruitDashboard();renderApplicantList();renderPositionsList();recruitRenderWebhookLogs();}
-  if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();}
+  if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();}
   if(name==='users'){populateTlEmpFilter();loadUsers();}
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();}
   if(name==='location'){renderLocationTable();}
@@ -2148,9 +2165,11 @@ async function addLeave(){
   var empId=parseInt(v('lv-emp'));
   if(!empId){alert('Select an employee.');return;}
   var from=v('lv-from'),to=v('lv-to');
+  var halfDay=!!document.getElementById('lv-halfday').checked;
+  if(halfDay)to=from;
   if(!from||!to){alert('Please set date from and to.');return;}
-  var days=daysBetween(from,to);
-  var rec={empId,type:v('lv-type'),from,to,days,reason:v('lv-reason'),status:v('lv-status'),pay:v('lv-pay')};
+  var days=halfDay?0.5:daysBetween(from,to);
+  var rec={empId,type:v('lv-type'),from,to,days,halfDay,reason:v('lv-reason'),status:v('lv-status'),pay:v('lv-pay')};
   var r=await api('POST','/api/leave',rec);
   if(r.success){
     rec.id=r.id;rec.filedAt=new Date().toISOString();
@@ -2160,6 +2179,7 @@ async function addLeave(){
       var e=employees.find(x=>x.id===empId);
       if(e){if(rec.type.includes('VL')||rec.type.includes('Vacation'))e.vlBal=Math.max(0,(e.vlBal||0)-days);else if(rec.type.includes('SL')||rec.type.includes('Sick'))e.slBal=Math.max(0,(e.slBal||0)-days);}
     }
+    document.getElementById('lv-to').disabled=false;
     flash('lv-ok');renderLeaveTracker();renderDashboard();showSaveIndicator();
   }
 }
@@ -2175,7 +2195,7 @@ function renderLeaveTracker(){
   var list=leaveRecords.filter(l=>{if(empId&&l.empId!=empId)return false;if(status&&l.status!==status)return false;return true;});
   if(!list.length){w.innerHTML='<div class="empty">No leave records found.</div>';return;}
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Pay</th><th>Status</th><th>Filed</th><th></th></tr></thead><tbody>'
-  +list.map(l=>'<tr><td><strong>'+empName(l.empId)+'</strong></td><td>'+l.type+'</td><td>'+fmtDate(l.from)+'</td><td>'+fmtDate(l.to)+'</td><td>'+l.days+'</td><td>'+l.pay+'</td><td><span class="badge '+(l.status==='Approved'?'badge-green':l.status==='Denied'?'badge-red':'badge-yellow')+'">'+l.status+'</span></td><td style="font-size:11px">'+fmtDT(l.filedAt)+'</td>'
+  +list.map(l=>'<tr><td><strong>'+empName(l.empId)+'</strong></td><td>'+l.type+(l.halfDay?' <span class="badge badge-orange" style="font-size:9px">½ day</span>':'')+'</td><td>'+fmtDate(l.from)+'</td><td>'+fmtDate(l.to)+'</td><td>'+l.days+'</td><td>'+l.pay+'</td><td><span class="badge '+(l.status==='Approved'?'badge-green':l.status==='Denied'?'badge-red':'badge-yellow')+'">'+l.status+'</span></td><td style="font-size:11px">'+fmtDT(l.filedAt)+'</td>'
   +'<td style="display:flex;gap:4px"><button class="btn bs bg" onclick="updateLeaveStatus('+l.id+',\'Approved\')">✓</button><button class="btn bs br" onclick="updateLeaveStatus('+l.id+',\'Denied\')">✗</button><button class="btn bs" onclick="deleteLeave('+l.id+')" style="color:var(--red)">🗑</button></td></tr>').join('')
   +'</tbody></table></div>';
 }
@@ -3136,8 +3156,8 @@ function fmtLate(mins){
   var label=(h?h+'h ':'')+(m?m+'m':'');
   return'<span style="color:var(--red);font-weight:700;font-family:\'IBM Plex Mono\',monospace">+'+label+'</span>';
 }
-function isApprovedLeaveOn(empId,dateStr){
-  return leaveRecords.some(l=>l.empId==empId&&l.status==='Approved'&&dateStr>=l.from&&dateStr<=l.to);
+function getApprovedLeaveOn(empId,dateStr){
+  return leaveRecords.find(l=>l.empId==empId&&l.status==='Approved'&&dateStr>=l.from&&dateStr<=l.to)||null;
 }
 // Builds one entry per employee per weekday in [from,to], marking each as
 // 'present' (has a punch), 'leave' (covered by an approved leave record), or 'absent'.
@@ -3152,8 +3172,13 @@ function buildTimeLogRowsWithStatus(empScope,from,to,actualRows){
       var dateStr=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       var hit=byKey[e.id+'_'+dateStr];
       var dow=d.getDay(),isWeekend=(dow===0||dow===6);
-      if(hit){result.push({r:hit,status:'present'});}
-      else if(isApprovedLeaveOn(e.id,dateStr)){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'leave'});}
+      var leaveRec=getApprovedLeaveOn(e.id,dateStr);
+      if(hit){
+        if(leaveRec&&leaveRec.halfDay)hit._halfDayLeave=true;
+        result.push({r:hit,status:'present'});
+      }
+      else if(leaveRec){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:leaveRec.halfDay?'halfday-leave':'leave'});}
+      else if(isHoliday(dateStr)){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'holiday'});}
       else if(isWeekend){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'restday'});}
       else{result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'absent'});}
     }
@@ -3195,12 +3220,30 @@ async function loadTimeLogs(){
     +'<th>Route</th>'
     +'</tr></thead><tbody>'
   +tableRows.map(function({r,shift,lateMin,status},rowIdx){
+    if(status==='halfday-leave'){
+      window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
+      return'<tr style="background:#fff8e1">'
+      +'<td><strong>'+r.emp_name+'</strong></td>'
+      +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
+      +'<td colspan="7" style="text-align:center"><span class="badge badge-orange">🌓 Half Day Leave</span></td>'
+      +'<td style="text-align:center;color:#dce3ec">—</td>'
+      +'</tr>';
+    }
     if(status==='leave'){
       window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
       return'<tr style="background:#fffbe6">'
       +'<td><strong>'+r.emp_name+'</strong></td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
       +'<td colspan="7" style="text-align:center"><span class="badge badge-yellow">🌴 On Leave</span></td>'
+      +'<td style="text-align:center;color:#dce3ec">—</td>'
+      +'</tr>';
+    }
+    if(status==='holiday'){
+      window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
+      return'<tr style="background:#f9f0ff">'
+      +'<td><strong>'+r.emp_name+'</strong></td>'
+      +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
+      +'<td colspan="7" style="text-align:center"><span class="badge badge-purple">🎉 Holiday</span></td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
@@ -3228,7 +3271,7 @@ async function loadTimeLogs(){
       ?'<td style="text-align:center"><button class="btn bs ba" title="View route on map" onclick="event.stopPropagation();openRouteMap(window._tlRows['+rowIdx+'])">📍 Map</button></td>'
       :'<td style="text-align:center"><span style="font-size:10px;color:#dce3ec">no GPS</span></td>';
     return'<tr style="cursor:'+(hasGps?'pointer':'default')+'" '+(hasGps?'onclick="openRouteMap(window._tlRows['+rowIdx+'])" title="Click to view route map"':'')+'>'
-    +'<td><strong>'+r.emp_name+'</strong></td>'
+    +'<td><strong>'+r.emp_name+'</strong>'+(r._halfDayLeave?'<br><span class="badge badge-orange" style="font-size:9px">🌓 Half Day Leave</span>':'')+'</td>'
     +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
     +'<td><span class="badge badge-blue" style="font-size:10px">'+shift.name+'<br><span style="font-weight:400;font-size:9px">'+shift.start+' – '+shift.end+'</span></span></td>'
     +tlCell(r.time_in,'var(--green)')
@@ -3254,18 +3297,50 @@ function exportTimeLogsCSV(){
   source.forEach(item=>{
     var r=item.r,status=item.status||'present';
     if(status!=='present'){
-      var label=status==='leave'?'On Leave':(status==='restday'?'Rest Day':'Absent');
+      var label=status==='leave'?'On Leave':(status==='halfday-leave'?'Half Day Leave':(status==='restday'?'Rest Day':(status==='holiday'?'Holiday':'Absent')));
       rows.push([r.emp_name,r.log_date,label,'','','','','','','','','']);
       return;
     }
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
-    rows.push([r.emp_name,r.log_date,'Present',shift.name,shift.start,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin]);
+    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave)':''),r.log_date,'Present',shift.name,shift.start,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin]);
   });
   downloadCSV('HMB_TimeLogs_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
 
-// ==================== SHIFT MANAGEMENT ====================
+// ==================== HOLIDAYS ====================
+async function saveHolidays(){
+  await api('POST','/api/settings',{holidays_json:JSON.stringify(holidays)});
+}
+async function addHoliday(){
+  var date=v('hol-date'),name=v('hol-name').trim();
+  if(!date){alert('Select a date.');return;}
+  if(holidays.some(h=>h.date===date)){alert('That date is already in the holiday list.');return;}
+  holidays.push({id:Date.now(),date,name:name||'Holiday'});
+  holidays.sort((a,b)=>a.date.localeCompare(b.date));
+  await saveHolidays();
+  document.getElementById('hol-date').value='';
+  document.getElementById('hol-name').value='';
+  renderHolidaysList();
+  showSaveIndicator();
+}
+async function deleteHoliday(id){
+  if(!confirm('Remove this holiday?'))return;
+  holidays=holidays.filter(h=>h.id!==id);
+  await saveHolidays();
+  renderHolidaysList();
+  showSaveIndicator();
+}
+function renderHolidaysList(){
+  var w=document.getElementById('holidays-list-wrap');if(!w)return;
+  if(!holidays.length){w.innerHTML='<div class="empty">No holidays added yet.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Name</th><th></th></tr></thead><tbody>'
+  +holidays.map(h=>'<tr><td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(h.date)+'</td><td><strong>'+(h.name||'Holiday')+'</strong></td><td><button class="btn bs br" onclick="deleteHoliday('+h.id+')">🗑 Delete</button></td></tr>').join('')
+  +'</tbody></table></div>';
+}
+function isHoliday(dateStr){return holidays.some(h=>h.date===dateStr);}
+
+
 function renderShiftsList(){
   var w=document.getElementById('shifts-list-wrap');if(!w)return;
   if(!shifts.length){w.innerHTML='<div class="empty">No shifts defined.</div>';return;}
