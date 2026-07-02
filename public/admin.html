@@ -3197,11 +3197,31 @@ function calcLateMinutes(timeIn, shiftStart){
   var diff=toMins(ti)-toMins(shiftStart);
   return diff>0?diff:0;
 }
+function calcUndertimeMinutes(timeOut, shiftEnd){
+  // timeOut: 'HH:MM:SS' or 'HH:MM', shiftEnd: 'HH:MM'
+  if(!timeOut||!shiftEnd)return 0;
+  var to=timeOut.slice(0,5); // 'HH:MM'
+  var toMins=t=>parseInt(t.split(':')[0])*60+parseInt(t.split(':')[1]);
+  var diff=toMins(shiftEnd)-toMins(to);
+  return diff>0?diff:0;
+}
 function fmtLate(mins){
   if(!mins||mins<=0)return'<span style="color:var(--green);font-weight:700;font-family:\'IBM Plex Mono\',monospace">On time</span>';
   var h=Math.floor(mins/60),m=mins%60;
   var label=(h?h+'h ':'')+(m?m+'m':'');
   return'<span style="color:var(--red);font-weight:700;font-family:\'IBM Plex Mono\',monospace">+'+label+'</span>';
+}
+function fmtDuration(mins){
+  var h=Math.floor(mins/60),m=mins%60;
+  return(h?h+'h ':'')+(m?m+'m':'');
+}
+function fmtLateUndertime(lateMin,underMin){
+  var hasLate=lateMin>0,hasUnder=underMin>0;
+  if(!hasLate&&!hasUnder)return'<span style="color:var(--green);font-weight:700;font-family:\'IBM Plex Mono\',monospace">On time</span>';
+  var parts=[];
+  if(hasLate)parts.push('<span style="color:var(--red);font-weight:700;font-family:\'IBM Plex Mono\',monospace">Late +'+fmtDuration(lateMin)+'</span>');
+  if(hasUnder)parts.push('<span style="color:var(--orange);font-weight:700;font-family:\'IBM Plex Mono\',monospace">UT -'+fmtDuration(underMin)+'</span>');
+  return parts.join('<br>');
 }
 function getApprovedLeaveOn(empId,dateStr){
   return leaveRecords.find(l=>l.empId==empId&&l.status==='Approved'&&dateStr>=l.from&&dateStr<=l.to)||null;
@@ -3252,21 +3272,22 @@ async function loadTimeLogs(){
   window._tlCombined=combined;
   var w=document.getElementById('tl-wrap');
   if(!combined.length){w.innerHTML='<div class="empty">No time log records found.</div>';return;}
-  // Compute per-row shift and late (only meaningful for present rows)
+  // Compute per-row shift, late, and undertime (only meaningful for present rows)
   var overrideShift=overrideShiftId?shifts.find(x=>x.id==parseInt(overrideShiftId)):null;
   var tableRows=combined.map(item=>{
     var r=item.r;
-    if(item.status!=='present')return{r,shift:null,lateMin:null,status:item.status};
+    if(item.status!=='present')return{r,shift:null,lateMin:null,underMin:null,status:item.status};
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
-    return{r,shift,lateMin,status:'present'};
+    var underMin=calcUndertimeMinutes(r.time_out,shift.end);
+    return{r,shift,lateMin,underMin,status:'present'};
   });
   w.innerHTML='<div style="overflow-x:auto"><table style="min-width:800px"><thead><tr>'
     +'<th>Employee</th><th>Date</th><th>Shift</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th>'
     +'<th style="color:var(--red)">Late / Undertime</th>'
     +'<th>Route</th>'
     +'</tr></thead><tbody>'
-  +tableRows.map(function({r,shift,lateMin,status},rowIdx){
+  +tableRows.map(function({r,shift,lateMin,underMin,status},rowIdx){
     if(status==='halfday-leave'){
       window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
       return'<tr style="background:#fff8e1">'
@@ -3327,7 +3348,7 @@ async function loadTimeLogs(){
     +tlCell(r.merienda_out,'var(--orange)')
     +tlCell(r.merienda_in,'#0277bd')
     +tlCell(r.time_out,'var(--muted)')
-    +'<td style="text-align:center">'+fmtLate(lateMin)+'</td>'
+    +'<td style="text-align:center">'+fmtLateUndertime(lateMin,underMin)+'</td>'
     +mapBtn
     +'</tr>';}).join('')
   +'</tbody></table></div>';
@@ -3339,18 +3360,19 @@ function exportTimeLogsCSV(){
   if(!allTimeLogs.length&&!(window._tlCombined&&window._tlCombined.length)){alert('Load time logs first.');return;}
   var overrideShiftId=v('tl-shift-override');
   var overrideShift=overrideShiftId?shifts.find(x=>x.id==parseInt(overrideShiftId)):null;
-  var rows=[['Employee','Date','Status','Shift','Shift Start','Time In','Lunch Out','Lunch In','Merienda Out','Merienda In','Time Out','Late (mins)']];
+  var rows=[['Employee','Date','Status','Shift','Shift Start','Shift End','Time In','Lunch Out','Lunch In','Merienda Out','Merienda In','Time Out','Late (mins)','Undertime (mins)']];
   var source=window._tlCombined&&window._tlCombined.length?window._tlCombined:allTimeLogs.map(r=>({r,status:'present'}));
   source.forEach(item=>{
     var r=item.r,status=item.status||'present';
     if(status!=='present'){
       var label=status==='leave'?'On Leave':(status==='halfday-leave'?'Half Day Leave':(status==='restday'?'Rest Day':(status==='holiday'?'Holiday':'Absent')));
-      rows.push([r.emp_name,r.log_date,label,'','','','','','','','','']);
+      rows.push([r.emp_name,r.log_date,label,'','','','','','','','','','','']);
       return;
     }
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
-    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave)':''),r.log_date,'Present',shift.name,shift.start,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin]);
+    var underMin=calcUndertimeMinutes(r.time_out,shift.end);
+    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave)':''),r.log_date,'Present',shift.name,shift.start,shift.end,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin,underMin]);
   });
   downloadCSV('HMB_TimeLogs_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
