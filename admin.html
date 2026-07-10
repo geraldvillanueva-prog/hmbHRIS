@@ -2386,8 +2386,8 @@ function calcPay(e,a){
   var otHrs=(a.ot||0),otPay=r2((dr/8)*1.25*otHrs);
   var otNdHrs=roundOT(a.otNd||0),otNdPay=r2((dr/8)*1.25*1.10*otNdHrs);
   var restDayPay=r2(a.restDay||0);
-  var totalEarnings=r2(basicPay+(e.dm||0)+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
   var commissionOnly=!!(a.commissionOnly);
+  var totalEarnings=commissionOnly?r2(a.commission||0):r2(basicPay+(e.dm||0)+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
   var totalContrib=commissionOnly?0:r2((e.sss||0)+(e.phic||0)+(e.hdmf||0));
   var totalDeductions=commissionOnly?0:r2(totalContrib+(a.otherDed||0)+(e.wht||0)+(a.late||0));
   return{dr,periodDays,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayPay,totalEarnings,totalContrib,totalDeductions,netPay:r2(totalEarnings-totalDeductions),commissionOnly};
