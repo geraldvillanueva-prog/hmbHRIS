@@ -2104,6 +2104,8 @@ async function saveEditEmp(){
   var id=parseInt(document.getElementById('edit-emp-id').value);
   var name=document.getElementById('edit-en').value.trim();
   if(!name){document.getElementById('edit-emp-err').textContent='Full name is required.';document.getElementById('edit-emp-err').style.display='block';return;}
+  var _existing=employees.find(function(x){return x.id===id;});
+  var _wfhDays=_existing?(_existing.loc_wfh_days!=null?_existing.loc_wfh_days:(_existing.locWfhDays!=null?_existing.locWfhDays:null)):null;
   var emp={
     name,
     pos:document.getElementById('edit-epos').value,
@@ -2130,10 +2132,12 @@ async function saveEditEmp(){
     loc_lat:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lat').value)||null):null,
     loc_lng:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lng').value)||null):null,
     loc_radius:parseInt(document.getElementById('edit-eloc_radius').value)||300,
+    loc_wfh_days:_wfhDays,
     locPolicy:document.getElementById('edit-eloc_policy').value||'office',
     locLat:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lat').value)||null):null,
     locLng:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lng').value)||null):null,
     locRadius:parseInt(document.getElementById('edit-eloc_radius').value)||300,
+    locWfhDays:_wfhDays,
     payslipNote:document.getElementById('edit-epayslipNote').value||''
   };
   var btn=document.getElementById('edit-emp-save-btn');
