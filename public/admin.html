@@ -781,6 +781,12 @@ tr:hover td{background:#fafcff}
     </div>
     <div class="card no-print">
       <div class="card-title">💵 Enter Commission Amounts</div>
+      <div class="row" style="margin-bottom:10px;align-items:center">
+        <button class="btn ba" onclick="document.getElementById('comm-xlsx-file').click()">📥 Import from Excel</button>
+        <input type="file" id="comm-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importCommissionExcel(event)">
+        <span style="font-size:11.5px;color:var(--muted)">Expects a header row with an Employee/Name column and a Commission/Amount column. Select the week above first — imported amounts apply to that week.</span>
+      </div>
+      <div id="comm-import-msg" style="display:none;margin-bottom:10px;padding:9px 13px;border-radius:5px;font-size:12.5px;border-left:3px solid"></div>
       <div id="comm-entry-wrap"><div class="empty">Pick a date above to select a week.</div></div>
     </div>
     <div id="comm-send-msg" style="display:none;margin-bottom:1rem;padding:9px 13px;border-radius:5px;font-size:13px;border-left:3px solid"></div>
@@ -3056,6 +3062,76 @@ async function saveCommissionWeek(){
   await saveCommissions();
   flash('comm-save-ok');
   renderCommissionSendList(startStr,endStr);
+}
+function showCommImportMsg(msg,ok){
+  var el=document.getElementById('comm-import-msg');
+  if(!el)return;
+  el.style.display='block';
+  el.style.background=ok?'#e8f5e9':'#fff8e1';
+  el.style.color=ok?'var(--green)':'#7b5800';
+  el.style.borderLeftColor=ok?'var(--green)':'var(--yellow)';
+  el.innerHTML=msg;
+}
+function findCommColKey(rowObj,patterns){
+  var keys=Object.keys(rowObj);
+  for(var i=0;i<patterns.length;i++){
+    var k=keys.find(function(kk){return patterns[i].test(kk);});
+    if(k)return k;
+  }
+  return null;
+}
+// Imports weekly commission amounts from an Excel file (.xlsx/.xls). Expects a
+// header row with an Employee/Name column and a Commission/Amount column.
+// Employees are fuzzy-matched by name (reusing fuzzyMatchEmployee, same as the
+// payroll register import above). Amounts are applied to whichever week is
+// currently selected in the Weekly Commission screen.
+async function importCommissionExcel(evt){
+  var file=evt.target.files[0];
+  evt.target.value='';
+  if(!file)return;
+  if(typeof XLSX==='undefined'){showCommImportMsg('⚠️ Excel library not loaded yet. Please wait and try again.',false);return;}
+  var startStr=window._commWeekStart,endStr=window._commWeekEnd;
+  if(!startStr||!endStr){showCommImportMsg('⚠️ Select a week above first, then import.',false);return;}
+  showCommImportMsg('⏳ Reading Excel file…',true);
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=new Uint8Array(e.target.result);
+      var wb=XLSX.read(data,{type:'array',cellFormula:false,cellNF:false,cellText:false});
+      var sheet=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(sheet,{defval:''});
+      if(!rows.length){showCommImportMsg('⚠️ No rows found in the first sheet of the file.',false);return;}
+      var nameKey=findCommColKey(rows[0],[/^name$/i,/^employee$/i,/employee/i,/name/i]);
+      var amtKey=findCommColKey(rows[0],[/^commission$/i,/^amount$/i,/commission/i,/amount/i]);
+      if(!nameKey||!amtKey){
+        showCommImportMsg('⚠️ Could not find an Employee/Name column and a Commission/Amount column. Make sure the first row has headers like "Employee" and "Commission".',false);
+        return;
+      }
+      var matched=0,unmatched=[];
+      rows.forEach(function(row){
+        var rawName=String(row[nameKey]||'').trim();
+        if(!rawName)return;
+        var amt=parseFloat(String(row[amtKey]).replace(/[₱,\s]/g,''))||0;
+        if(amt<=0)return;
+        var emp=fuzzyMatchEmployee(rawName);
+        if(!emp){unmatched.push(rawName);return;}
+        var idx=commissionRecords.findIndex(function(r){return r.empId===emp.id&&r.weekStart===startStr&&r.weekEnd===endStr;});
+        if(idx>=0){commissionRecords[idx].amount=amt;commissionRecords[idx].empName=emp.name;}
+        else{commissionRecords.push({id:Date.now()+'_'+emp.id,empId:emp.id,empName:emp.name,weekStart:startStr,weekEnd:endStr,amount:amt,sentAt:null,sentTo:null});}
+        matched++;
+      });
+      saveCommissions().then(function(){
+        renderCommissionEntryGrid(startStr,endStr);
+        renderCommissionSendList(startStr,endStr);
+        var msg='✅ Imported '+matched+' commission amount(s) for the week of '+fmtDate(startStr)+' – '+fmtDate(endStr)+'.';
+        if(unmatched.length)msg+='<br>⚠️ Could not match: '+unmatched.join(', ');
+        showCommImportMsg(msg,unmatched.length===0);
+      });
+    }catch(err){
+      showCommImportMsg('⚠️ Failed to read file: '+(err.message||err),false);
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 function renderCommissionSendList(startStr,endStr){
   var w=document.getElementById('comm-send-wrap');if(!w)return;
