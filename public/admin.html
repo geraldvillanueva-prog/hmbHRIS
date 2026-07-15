@@ -533,6 +533,11 @@ tr:hover td{background:#fafcff}
       </div>
       <button class="btn bp" onclick="addEmp()">+ Add Employee</button>
     </div>
+    <div class="card" style="padding:10px 14px;margin-bottom:10px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin:0">
+        <input type="checkbox" id="emp-show-inactive" onchange="renderEmpTable()" style="width:auto"> Show deactivated / resigned employees
+      </label>
+    </div>
     <div id="emp-wrap"><div class="empty">No employees added yet.</div></div>
   </div>
 
@@ -1728,7 +1733,7 @@ async function saveOfficeLocation(){
 function renderLocationTable(){
   var filter = v('loc-filter');
   var w = document.getElementById('loc-emp-wrap');
-  var list = employees.filter(e => !filter || (e.loc_policy||'office') === filter);
+  var list = employees.filter(e => e.active!==0 && (!filter || (e.loc_policy||'office') === filter));
   if(!list.length){w.innerHTML='<div class="empty">No employees match this filter.</div>';return;}
   var policyBadge = function(p){
     if(p==='wfh') return '<span class="badge badge-green">🏠 WFH</span>';
@@ -1845,6 +1850,9 @@ function normalizeEmp(e){
   // shiftDayOverrides
   if(!e.shiftDayOverrides && e.shift_day_overrides) e.shiftDayOverrides = e.shift_day_overrides;
   if(!e.shift_day_overrides && e.shiftDayOverrides) e.shift_day_overrides = e.shiftDayOverrides;
+  // active status: default to active (1) unless explicitly set to 0/false
+  if(e.active===undefined||e.active===null)e.active=1;
+  else e.active=(e.active===0||e.active===false||e.active==='0')?0:1;
   return e;
 }
 
@@ -2066,9 +2074,10 @@ function populateAllSelects(){
     var cur=sel.value;
     var isFilter=id.includes('filter')||id==='hist-emp'||id==='att-emp-sel';
     sel.innerHTML=(isFilter?'<option value="">All</option>':'<option value="">-- Select --</option>');
-    employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name;if(e.id==cur)o.selected=true;sel.appendChild(o);});
+    var list=isFilter?employees:employees.filter(e=>e.active!==0);
+    list.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name+(e.active===0?' (Inactive)':'');if(e.id==cur)o.selected=true;sel.appendChild(o);});
   });
-  var sel201=document.getElementById('sel-201');if(sel201){var c=sel201.value;sel201.innerHTML='<option value="">-- Select employee --</option>';employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name;if(e.id==c)o.selected=true;sel201.appendChild(o);});}
+  var sel201=document.getElementById('sel-201');if(sel201){var c=sel201.value;sel201.innerHTML='<option value="">-- Select employee --</option>';employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name+(e.active===0?' (Inactive)':'');if(e.id==c)o.selected=true;sel201.appendChild(o);});}
   // history archived
   var hsel=document.getElementById('hist-emp');
   if(hsel){payslipHistory.forEach(h=>{if(!Array.from(hsel.options).some(o=>o.value==h.empId)){var o=document.createElement('option');o.value=h.empId;o.textContent=h.empName+' (archived)';hsel.appendChild(o);}});}
@@ -2233,9 +2242,38 @@ async function reloadEmployees(){
 function renderEmpTable(){
   var w=document.getElementById('emp-wrap');
   if(!employees.length){w.innerHTML='<div class="empty">No employees yet.</div>';return;}
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Dept</th><th>Type</th><th>Semi-monthly</th><th>VL</th><th>SL</th><th>Email</th><th></th></tr></thead><tbody>'
-  +employees.map((e,i)=>'<tr><td style="color:var(--muted);font-family:\'IBM Plex Mono\',monospace">'+(i+1)+'</td><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+(e.dept||'—')+'</td><td><span class="badge badge-blue">'+((e.type||'Regular'))+'</span></td><td style="font-family:\'IBM Plex Mono\',monospace">'+peso(e.smb)+'</td><td>'+((e.vlBal||0))+'</td><td>'+((e.slBal||0))+'</td><td style="color:var(--blue)">'+(e.email||'<span style="color:var(--red)">no email</span>')+'</td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openEditEmp('+e.id+')">✏️ Edit</button><button class="btn bs br" onclick="removeEmp('+e.id+')">Remove</button></td></tr>').join('')
+  var showInactive=!!(document.getElementById('emp-show-inactive')&&document.getElementById('emp-show-inactive').checked);
+  var list=showInactive?employees:employees.filter(e=>e.active!==0);
+  if(!list.length){w.innerHTML='<div class="empty">No active employees. Check "Show deactivated / resigned employees" to view them.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Dept</th><th>Type</th><th>Status</th><th>Semi-monthly</th><th>VL</th><th>SL</th><th>Email</th><th></th></tr></thead><tbody>'
+  +list.map((e,i)=>{
+    var inactive=e.active===0;
+    return'<tr'+(inactive?' style="opacity:.6"':'')+'><td style="color:var(--muted);font-family:\'IBM Plex Mono\',monospace">'+(i+1)+'</td><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+(e.dept||'—')+'</td><td><span class="badge badge-blue">'+((e.type||'Regular'))+'</span></td>'
+    +'<td>'+(inactive?'<span class="badge badge-red">Resigned/Inactive'+(e.deactivatedAt?' · '+fmtDate(e.deactivatedAt.slice(0,10)):'')+'</span>':'<span class="badge badge-green">Active</span>')+'</td>'
+    +'<td style="font-family:\'IBM Plex Mono\',monospace">'+peso(e.smb)+'</td><td>'+((e.vlBal||0))+'</td><td>'+((e.slBal||0))+'</td><td style="color:var(--blue)">'+(e.email||'<span style="color:var(--red)">no email</span>')+'</td>'
+    +'<td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openEditEmp('+e.id+')">✏️ Edit</button>'
+    +(inactive
+      ?'<button class="btn bs bg" style="margin-right:4px" onclick="reactivateEmp('+e.id+')">↩️ Reactivate</button>'
+      :'<button class="btn bs" style="margin-right:4px;background:#fff3e0;color:#e65100;border:1px solid #ffcc80" onclick="deactivateEmp('+e.id+')">🚪 Deactivate</button>')
+    +'<button class="btn bs br" onclick="removeEmp('+e.id+')">Remove</button></td></tr>';
+  }).join('')
   +'</tbody></table></div>';
+}
+async function deactivateEmp(id){
+  var e=employees.find(x=>x.id===id);if(!e)return;
+  if(!confirm('Deactivate '+e.name+'?\n\nThis marks them as resigned/inactive. Their records (201 file, payslip history, leave history) are kept, but they will no longer appear in new payroll runs, leave filing, shift assignment, or other active-employee selectors.\n\nYou can reactivate them later if needed.'))return;
+  e.active=0;
+  e.deactivatedAt=new Date().toISOString();
+  await api('PUT','/api/employees/'+id,{...e});
+  renderEmpTable();populateAllSelects();renderDashboard();showSaveIndicator();
+}
+async function reactivateEmp(id){
+  var e=employees.find(x=>x.id===id);if(!e)return;
+  if(!confirm('Reactivate '+e.name+'? They will reappear in active-employee lists and selectors.'))return;
+  e.active=1;
+  e.deactivatedAt=null;
+  await api('PUT','/api/employees/'+id,{...e});
+  renderEmpTable();populateAllSelects();renderDashboard();showSaveIndicator();
 }
 
 // ==================== 201 FILE ====================
@@ -2512,9 +2550,11 @@ function autoComputeLeavePay(empId, per, dr){
 function renderPayrollAttGrid(){
   var per=v('att-per'),g=document.getElementById('att-grid');
   if(!employees.length){g.innerHTML='<div class="empty">Add employees first.</div>';return;}
+  var activeEmps=employees.filter(e=>e.active!==0);
+  if(!activeEmps.length){g.innerHTML='<div class="empty">No active employees. Resigned/deactivated employees are excluded from new payroll encoding.</div>';return;}
 
   // Shared period days input (one value for all)
-  var firstAtt=getAtt(per,employees[0].id);
+  var firstAtt=getAtt(per,activeEmps[0].id);
   var sharedPeriodDays=firstAtt.periodDays||13;
 
   var headerHtml=
@@ -2559,7 +2599,7 @@ function renderPayrollAttGrid(){
     +'</tr></thead>'
     +'<tbody>';
 
-  employees.forEach(function(e,idx){
+  activeEmps.forEach(function(e,idx){
     var a=getAtt(per,e.id),periodDays=a.periodDays||sharedPeriodDays,dr=e.smb/periodDays;
     var lvComp=autoComputeLeavePay(e.id,per,dr);
     var lvVal=(a.leave&&a.leave>0)?a.leave:lvComp.amount;
@@ -2735,9 +2775,11 @@ function toggleCommissionOnly(empId){
 }
 async function savePayrollAtt(){
   var per=v('att-per'),k=attKey(per);
-  var records={};
-  employees.forEach(e=>{
-    function gv(f){return parseFloat(document.getElementById('att_'+e.id+'_'+f).value)||0;}
+  var records=Object.assign({},attendance[k]||{}); // preserve any existing entries (e.g. now-deactivated employees) not shown in the active-only grid
+  employees.filter(e=>e.active!==0).forEach(e=>{
+    var daysEl=document.getElementById('att_'+e.id+'_days');
+    if(!daysEl)return; // not rendered in the grid (safety guard)
+    function gv(f){var el=document.getElementById('att_'+e.id+'_'+f);return el?(parseFloat(el.value)||0):0;}
     records[e.id]={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:parseFloat(document.getElementById('att_'+e.id+'_periodDays').value)||13,commissionOnly:!!(document.getElementById('att_'+e.id+'_commissionOnly')&&document.getElementById('att_'+e.id+'_commissionOnly').checked)};
     if(!attendance[k])attendance[k]={};
     attendance[k][e.id]=records[e.id];
@@ -3035,9 +3077,10 @@ function loadCommissionWeek(){
 }
 function renderCommissionEntryGrid(startStr,endStr){
   var w=document.getElementById('comm-entry-wrap');if(!w)return;
-  if(!employees.length){w.innerHTML='<div class="empty">No employees found.</div>';return;}
+  var activeEmps=employees.filter(e=>e.active!==0);
+  if(!activeEmps.length){w.innerHTML='<div class="empty">No active employees found.</div>';return;}
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Commission Amount (₱)</th></tr></thead><tbody>'
-  +employees.map(function(e){
+  +activeEmps.map(function(e){
     var rec=commissionRecords.find(function(r){return r.empId===e.id&&r.weekStart===startStr&&r.weekEnd===endStr;});
     var amt=rec?rec.amount:'';
     return '<tr><td>'+e.name+'</td><td><input type="number" step="0.01" min="0" style="width:130px" id="commAmt_'+e.id+'" value="'+(amt||amt===0?amt:'')+'" placeholder="0.00"></td></tr>';
@@ -3047,7 +3090,7 @@ function renderCommissionEntryGrid(startStr,endStr){
 async function saveCommissionWeek(){
   var startStr=window._commWeekStart,endStr=window._commWeekEnd;
   if(!startStr||!endStr)return;
-  employees.forEach(function(e){
+  employees.filter(e=>e.active!==0).forEach(function(e){
     var el=document.getElementById('commAmt_'+e.id);
     if(!el)return;
     var amt=parseFloat(el.value)||0;
@@ -3972,13 +4015,13 @@ function populateShiftSelects(){
   var empSel=document.getElementById('sh-emp-sel');if(empSel){
     var cur=empSel.value;
     empSel.innerHTML='<option value="">-- Select employee --</option>';
-    employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name+(e.shiftId?' ✓':'');if(e.id==cur)o.selected=true;empSel.appendChild(o);});
+    employees.filter(e=>e.active!==0).forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name+(e.shiftId?' ✓':'');if(e.id==cur)o.selected=true;empSel.appendChild(o);});
   }
   // Populate sho-emp-sel / sho-shift-sel (Day-Specific Shift Override card)
   var shoEmpSel=document.getElementById('sho-emp-sel');if(shoEmpSel){
     var curE=shoEmpSel.value;
     shoEmpSel.innerHTML='<option value="">-- Select employee --</option>';
-    employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name;if(e.id==curE)o.selected=true;shoEmpSel.appendChild(o);});
+    employees.filter(e=>e.active!==0).forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name;if(e.id==curE)o.selected=true;shoEmpSel.appendChild(o);});
   }
   var shoShiftSel=document.getElementById('sho-shift-sel');if(shoShiftSel){
     var curS=shoShiftSel.value;
