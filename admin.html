@@ -278,6 +278,7 @@ tr:hover td{background:#fafcff}
   <div id="nav-payroll-att" class="nav-item" onclick="goSec('payroll-att',this)"><span class="nav-icon">📝</span>Payroll Encoding</div>
   <div id="nav-payroll" class="nav-item" onclick="goSec('payroll',this)"><span class="nav-icon">💰</span>Payroll Summary</div>
   <div id="nav-send" class="nav-item" onclick="goSec('send',this)"><span class="nav-icon">📧</span>Send Pay Slips</div>
+  <div id="nav-commission" class="nav-item" onclick="goSec('commission',this)"><span class="nav-icon">💵</span>Weekly Commission</div>
   <div id="nav-history" class="nav-item" onclick="goSec('history',this)"><span class="nav-icon">🗂</span>Slip History</div>
   <div class="sidebar-section">Communications</div>
   <div id="nav-announcements" class="nav-item" onclick="goSec('announcements',this)"><span class="nav-icon">📢</span>Announcements</div>
@@ -767,6 +768,28 @@ tr:hover td{background:#fafcff}
     <div id="send-wrap"><div class="empty">No payroll data for this period.</div></div>
   </div>
 
+  <!-- WEEKLY COMMISSION -->
+  <div id="sec-commission" class="sec">
+    <div class="page-title">Weekly Commission</div>
+    <div class="page-sub">Track and send weekly commission payouts — on their own weekly cadence, separate from the semi-monthly payroll cycle</div>
+    <div class="card no-print">
+      <div class="row" style="align-items:flex-end">
+        <div class="f" style="max-width:200px"><label>Any date in the week</label><input id="comm-week-pick" type="date" onchange="loadCommissionWeek()"></div>
+        <div class="f" style="max-width:170px"><label>Week starts (Mon)</label><input id="comm-week-start" type="text" disabled></div>
+        <div class="f" style="max-width:170px"><label>Week ends (Sun)</label><input id="comm-week-end" type="text" disabled></div>
+      </div>
+    </div>
+    <div class="card no-print">
+      <div class="card-title">💵 Enter Commission Amounts</div>
+      <div id="comm-entry-wrap"><div class="empty">Pick a date above to select a week.</div></div>
+    </div>
+    <div id="comm-send-msg" style="display:none;margin-bottom:1rem;padding:9px 13px;border-radius:5px;font-size:13px;border-left:3px solid"></div>
+    <div class="card">
+      <div class="card-title">📧 Send Commission Notices</div>
+      <div id="comm-send-wrap"><div class="empty">Select a week and save amounts first.</div></div>
+    </div>
+  </div>
+
   <!-- HISTORY -->
   <div id="sec-history" class="sec">
     <div class="page-title">Pay Slip History</div>
@@ -1094,6 +1117,32 @@ tr:hover td{background:#fafcff}
         <span class="ok-msg" id="sh-assign-ok">Assigned!</span>
       </div>
       <div id="sh-assign-list-wrap" style="margin-top:14px"><div class="empty">No assignments yet.</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🗓️ Day-Specific Shift Override</div>
+      <div class="page-sub" style="margin-top:-6px;margin-bottom:10px">For an employee who follows a different shift on one particular day of the week (e.g. Wednesday only) while using their regular assigned shift the rest of the week.</div>
+      <div class="row">
+        <div class="f" style="max-width:240px"><label>Employee</label>
+          <select id="sho-emp-sel"><option value="">-- Select employee --</option></select>
+        </div>
+        <div class="f" style="max-width:160px"><label>Day of week</label>
+          <select id="sho-day-sel">
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+            <option value="0">Sunday</option>
+          </select>
+        </div>
+        <div class="f" style="max-width:240px"><label>Override shift</label>
+          <select id="sho-shift-sel"><option value="">-- Select shift --</option></select>
+        </div>
+        <button class="btn bg" style="align-self:flex-end" onclick="assignShiftDayOverride()">Set Override</button>
+        <span class="ok-msg" id="sho-ok">Set!</span>
+      </div>
+      <div id="sho-list-wrap" style="margin-top:14px"><div class="empty">No day-specific overrides yet.</div></div>
     </div>
   </div>
 
@@ -1561,6 +1610,7 @@ var employees=[],attendance={},payslipHistory=[],nextId=1;
 var leaveRecords=[],perfRecords=[],discRecords=[];
 var holidays=[];
 var offsetRecords=[];
+var commissionRecords=[]; // weekly commission tracking, separate from semi-monthly payroll: {id, empId, weekStart, weekEnd, amount, sentAt, sentTo}
 var payslipApprovals={};  // { [period_key]: true } — set by management
 var setup={name:'HMB Management Consultant',tin:'126-757-146-000',addr1:'21 B1 L5 Sta. Ana St',addr2:'Pacita 1B, San Pedro, Laguna',prep:'KMD. GRASPARIL',appr:'KKM. BUÑAG',prepSig:'',apprSig:''};
 var emailCfg={svc:'service_egeu3v1',tpl:'template_7jtdhwe',key:'N1iAC7sZ5RVfPhug5'};
@@ -1786,6 +1836,9 @@ function normalizeEmp(e){
   // loc_wfh_days
   if(!e.loc_wfh_days && e.locWfhDays) e.loc_wfh_days = e.locWfhDays;
   if(!e.locWfhDays && e.loc_wfh_days) e.locWfhDays = e.loc_wfh_days;
+  // shiftDayOverrides
+  if(!e.shiftDayOverrides && e.shift_day_overrides) e.shiftDayOverrides = e.shift_day_overrides;
+  if(!e.shift_day_overrides && e.shiftDayOverrides) e.shift_day_overrides = e.shiftDayOverrides;
   return e;
 }
 
@@ -1827,6 +1880,7 @@ async function loadFromStorage(){
       emailCfg={svc:cfg.ejs_svc||'',tpl:cfg.ejs_tpl||'',key:cfg.ejs_key||''};
       try{holidays=cfg.holidays_json?JSON.parse(cfg.holidays_json):[];}catch(e){holidays=[];}
       try{offsetRecords=cfg.offsets_json?JSON.parse(cfg.offsets_json):[];}catch(e){offsetRecords=[];}
+      try{commissionRecords=cfg.commissions_json?JSON.parse(cfg.commissions_json):[];}catch(e){commissionRecords=[];}
       var setVal=(id,v)=>{var el=document.getElementById(id);if(el)el.value=v;};
       setVal('co-name',setup.name);setVal('co-tin',setup.tin);setVal('co-addr1',setup.addr1);setVal('co-addr2',setup.addr2);setVal('co-prep',setup.prep);setVal('co-appr',setup.appr);
       // Restore signature previews
@@ -1885,6 +1939,11 @@ function goSec(name,el){
   if(name==='announcements'){annPopulateEmpSelect();annTypeChanged();loadAnnouncements();}
   if(name==='payroll')renderPayroll();
   if(name==='send')renderSendList();
+  if(name==='commission'){
+    var wp=document.getElementById('comm-week-pick');
+    if(wp&&!wp.value){wp.value=fmtISODate(new Date());loadCommissionWeek();}
+    else if(window._commWeekStart&&window._commWeekEnd){renderCommissionEntryGrid(window._commWeekStart,window._commWeekEnd);renderCommissionSendList(window._commWeekStart,window._commWeekEnd);}
+  }
   if(name==='history'){populateHistFilters();renderHistory();}
   if(name==='payroll-att')renderPayrollAttGrid();
   if(name==='leave')renderLeaveTracker();
@@ -1896,7 +1955,7 @@ function goSec(name,el){
   if(name==='recruitment'){renderRecruitDashboard();renderApplicantList();renderPositionsList();recruitRenderWebhookLogs();populateScreeningFilters();renderScreeningKpis();}
   if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();}
   if(name==='users'){populateTlEmpFilter();loadUsers();}
-  if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();}
+  if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();renderShiftDayOverrideList();}
   if(name==='location'){renderLocationTable();}
   if(name==='management'){mgmtRenderMetrics();mgmtRenderPayroll();mgmtRenderSlips();mgmtRenderLeaves();}
 }
@@ -2106,6 +2165,8 @@ async function saveEditEmp(){
   if(!name){document.getElementById('edit-emp-err').textContent='Full name is required.';document.getElementById('edit-emp-err').style.display='block';return;}
   var _existing=employees.find(function(x){return x.id===id;});
   var _wfhDays=_existing?(_existing.loc_wfh_days!=null?_existing.loc_wfh_days:(_existing.locWfhDays!=null?_existing.locWfhDays:null)):null;
+  var _shiftId=_existing?_existing.shiftId:null;
+  var _shiftDayOv=_existing?(_existing.shiftDayOverrides!=null?_existing.shiftDayOverrides:(_existing.shift_day_overrides!=null?_existing.shift_day_overrides:null)):null;
   var emp={
     name,
     pos:document.getElementById('edit-epos').value,
@@ -2138,6 +2199,9 @@ async function saveEditEmp(){
     locLng:document.getElementById('edit-eloc_policy').value==='wfh'?(parseFloat(document.getElementById('edit-eloc_lng').value)||null):null,
     locRadius:parseInt(document.getElementById('edit-eloc_radius').value)||300,
     locWfhDays:_wfhDays,
+    shiftId:_shiftId,
+    shiftDayOverrides:_shiftDayOv,
+    shift_day_overrides:_shiftDayOv,
     payslipNote:document.getElementById('edit-epayslipNote').value||''
   };
   var btn=document.getElementById('edit-emp-save-btn');
@@ -2821,16 +2885,23 @@ function renderSendList(){
   w.innerHTML=recs.map(e=>{
     var a=attendance[k][e.id],p=calcPay(e,a);
     var sent=payslipHistory.some(h=>h.empId===e.id&&h.period===per);
-    var btnHtml='<button class="btn bs bp" onclick="sendOne('+e.id+',\''+per+'\',\''+pdate+'\')">Send</button>';
+    var histRec=payslipHistory.find(h=>h.empId===e.id&&h.period===per);
+    var commissionSent=!!(histRec&&histRec.commissionSentAt);
+    var hasCommission=!!(a.commission&&a.commission>0);
+    var btnHtml='<button class="btn bs bp" onclick="sendOne('+e.id+',\''+per+'\',\''+pdate+'\')">Send</button>'
+      +(hasCommission?'<button class="btn bs bg" style="margin-left:6px" onclick="sendCommission('+e.id+',\''+per+'\',\''+pdate+'\')">📧 Send Commission</button>':'');
     return'<div style="margin-bottom:1.5rem">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;gap:8px" class="no-print">'
     +'<div><strong style="font-size:14px">'+e.name+'</strong> <span style="color:var(--muted);font-size:12px">'+(e.pos||'')+'</span>'
     +' <span style="font-size:12px;margin-left:6px">Net: <strong style="color:var(--green)">'+peso(p.netPay)+'</strong></span>'
-    +' '+(sent?'<span class="badge badge-green">Sent</span>':'<span class="badge badge-yellow">Not yet sent</span>')+'</div>'
+    +' '+(sent?'<span class="badge badge-green">Sent</span>':'<span class="badge badge-yellow">Not yet sent</span>')
+    +(hasCommission?(' '+(commissionSent?'<span class="badge badge-green">Commission Sent</span>':'<span class="badge badge-yellow">Commission Not Sent</span>')):'')
+    +'</div>'
     +'<div style="display:flex;gap:8px;align-items:center">'
     +'<span style="font-size:12px;color:'+(e.email?'var(--blue)':'var(--red)')+'">'+(e.email||'no email')+'</span>'
     +btnHtml
     +'<span id="sent_'+e.id+'" style="font-size:11px;display:none;color:var(--green);font-weight:700">✓ Sent!</span>'
+    +'<span id="commSent_'+e.id+'" style="font-size:11px;display:none;color:var(--green);font-weight:700">✓ Commission Sent!</span>'
     +'</div></div>'+buildSlipHTML(e,a,per,pdate)
     +'</div><hr style="border:none;border-top:1px solid var(--border);margin:1rem 0">';
   }).join('');
@@ -2869,10 +2940,56 @@ async function sendOne(empId,per,pdate){
     catch(err){alert('Email failed: '+(err.text||err));return;}
   }
   var rec={empId:e.id,empName:e.name,empPos:e.pos||'',period:per,pdate,sentAt:new Date().toISOString(),emailSentTo:e.email,basicPay:p.basicPay,totalEarnings:p.totalEarnings,totalDeductions:p.totalDeductions,netPay:p.netPay,attendance:JSON.parse(JSON.stringify(a)),employeeSnapshot:JSON.parse(JSON.stringify(e))};
-  await api('POST','/api/payslips',rec);
   var idx=payslipHistory.findIndex(h=>h.empId===e.id&&h.period===per);
+  if(idx>=0)rec.commissionSentAt=payslipHistory[idx].commissionSentAt; // preserve if already sent separately
+  await api('POST','/api/payslips',rec);
   if(idx>=0)payslipHistory[idx]=rec;else payslipHistory.push(rec);
   var el2=document.getElementById('sent_'+empId);if(el2)el2.style.display='inline';
+  renderSendList();
+}
+// Sends the commission portion as its own separate email/notification. Uses the
+// exact same payslip design (buildSlipText/buildSlipHTML) as the regular pay
+// slip — this is not a distinct "commission payslip" template, just a second
+// notice referencing the same underlying payslip record (marked via
+// commissionSentAt on that same record rather than creating a new one).
+async function sendCommission(empId,per,pdate){
+  var e=employees.find(x=>x.id===empId);
+  if(!e||!e.email){alert('No email address for this employee.');return;}
+  var k=attKey(per),a=attendance[k]&&attendance[k][empId];
+  if(!a){alert('No attendance record found.');return;}
+  if(!a.commission||a.commission<=0){alert('No commission recorded for this period.');return;}
+  var text=buildSlipText(e,a,per,pdate),p=calcPay(e,a);
+  if(!emailCfg.svc||!emailCfg.tpl||!emailCfg.key){
+    window.open('mailto:'+e.email+'?subject='+encodeURIComponent('Commission Notice - '+per+' - '+e.name)+'&body='+encodeURIComponent(text));
+  } else {
+    try{await emailjs.send(emailCfg.svc,emailCfg.tpl,{
+  to_email:e.email,name:e.name,position:e.pos||'',bank_acc:e.bank||'',
+  cut_off:per,payroll_date:pdate?fmtDate(pdate):'',start_date:e.start?fmtDate(e.start):'',
+  semi_monthly_basic_pay:fp(e.smb),daily_rate:fp(p.dr),no_of_days_worked:a.days,
+  basic_pay:fp(p.basicPay),deminimis:e.dm?fp(e.dm):'-',other_additionals:a.otherAdd?fp(a.otherAdd):'-',
+  reg_overtime:p.otPay?fp(p.otPay):'-',holiday_pay:a.holiday?fp(a.holiday):'-',
+  leave_w_pay:a.leave?fp(a.leave):'-',commission:a.commission?fp(a.commission):'-',
+  total_earnings:fp(p.totalEarnings),sss:fp(e.sss),phic:fp(e.phic),hdmf:fp(e.hdmf),
+  total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
+  wht_tax:e.wht?fp(e.wht):'-',late_undertime:a.late?fp(a.late):'-',
+  total_deductions:fp(p.totalDeductions),net_pay:'₱'+fp(p.netPay),
+  notes:e.payslipNote||'',
+  prep_name:setup.prep,appr_name:setup.appr,
+  prep_sig:setup.prepSig||'',appr_sig:setup.apprSig||''
+});}
+    catch(err){alert('Email failed: '+(err.text||err));return;}
+  }
+  // Reference the SAME payslip record — update it in place rather than creating a
+  // separate commission-payslip record. If no payslip has been sent yet for this
+  // period, create the record now (with only sentAt/commissionSentAt to reflect
+  // that the main payslip has not been emailed independently).
+  var idx=payslipHistory.findIndex(h=>h.empId===e.id&&h.period===per);
+  var rec=idx>=0?Object.assign({},payslipHistory[idx]):{empId:e.id,empName:e.name,empPos:e.pos||'',period:per,pdate,basicPay:p.basicPay,totalEarnings:p.totalEarnings,totalDeductions:p.totalDeductions,netPay:p.netPay,attendance:JSON.parse(JSON.stringify(a)),employeeSnapshot:JSON.parse(JSON.stringify(e))};
+  rec.commissionSentAt=new Date().toISOString();
+  rec.commissionSentTo=e.email;
+  await api('POST','/api/payslips',rec);
+  if(idx>=0)payslipHistory[idx]=rec;else payslipHistory.push(rec);
+  var el3=document.getElementById('commSent_'+empId);if(el3)el3.style.display='inline';
   renderSendList();
 }
 async function sendAll(){
@@ -2881,6 +2998,124 @@ async function sendAll(){
   if(!recs.length){showSendMsg('No employees with email for this period.',false);return;}
   for(var i=0;i<recs.length;i++)await sendOne(recs[i].id,per,pdate);
   showSendMsg('Pay slips sent to '+recs.length+' employee(s).',true);
+}
+
+// ==================== WEEKLY COMMISSION ====================
+// Commission runs on its own weekly cadence (Mon-Sun), fully separate from the
+// semi-monthly payroll/payslip cycle above. Stored in settings as
+// commissions_json, same pattern as holidays/offsets.
+function fmtISODate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function getWeekMonday(dateStr){
+  var d=new Date(dateStr+'T00:00:00');
+  var day=d.getDay(); // 0=Sun..6=Sat
+  var diff=(day===0?-6:1-day);
+  d.setDate(d.getDate()+diff);
+  return d;
+}
+async function saveCommissions(){
+  await api('POST','/api/settings',{commissions_json:JSON.stringify(commissionRecords)});
+}
+function loadCommissionWeek(){
+  var raw=v('comm-week-pick');
+  if(!raw)return;
+  var mon=getWeekMonday(raw);
+  var sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  var startStr=fmtISODate(mon),endStr=fmtISODate(sun);
+  document.getElementById('comm-week-start').value=fmtDate(startStr);
+  document.getElementById('comm-week-end').value=fmtDate(endStr);
+  window._commWeekStart=startStr;window._commWeekEnd=endStr;
+  renderCommissionEntryGrid(startStr,endStr);
+  renderCommissionSendList(startStr,endStr);
+}
+function renderCommissionEntryGrid(startStr,endStr){
+  var w=document.getElementById('comm-entry-wrap');if(!w)return;
+  if(!employees.length){w.innerHTML='<div class="empty">No employees found.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Commission Amount (₱)</th></tr></thead><tbody>'
+  +employees.map(function(e){
+    var rec=commissionRecords.find(function(r){return r.empId===e.id&&r.weekStart===startStr&&r.weekEnd===endStr;});
+    var amt=rec?rec.amount:'';
+    return '<tr><td>'+e.name+'</td><td><input type="number" step="0.01" min="0" style="width:130px" id="commAmt_'+e.id+'" value="'+(amt||amt===0?amt:'')+'" placeholder="0.00"></td></tr>';
+  }).join('')+'</tbody></table></div>'
+  +'<div style="margin-top:10px"><button class="btn bp" onclick="saveCommissionWeek()">💾 Save Commission Amounts</button> <span class="ok-msg" id="comm-save-ok">Saved!</span></div>';
+}
+async function saveCommissionWeek(){
+  var startStr=window._commWeekStart,endStr=window._commWeekEnd;
+  if(!startStr||!endStr)return;
+  employees.forEach(function(e){
+    var el=document.getElementById('commAmt_'+e.id);
+    if(!el)return;
+    var amt=parseFloat(el.value)||0;
+    var idx=commissionRecords.findIndex(function(r){return r.empId===e.id&&r.weekStart===startStr&&r.weekEnd===endStr;});
+    if(idx>=0){
+      commissionRecords[idx].amount=amt;
+      commissionRecords[idx].empName=e.name;
+    } else if(amt>0){
+      commissionRecords.push({id:Date.now()+'_'+e.id,empId:e.id,empName:e.name,weekStart:startStr,weekEnd:endStr,amount:amt,sentAt:null,sentTo:null});
+    }
+  });
+  await saveCommissions();
+  flash('comm-save-ok');
+  renderCommissionSendList(startStr,endStr);
+}
+function renderCommissionSendList(startStr,endStr){
+  var w=document.getElementById('comm-send-wrap');if(!w)return;
+  var recs=commissionRecords.filter(function(r){return r.weekStart===startStr&&r.weekEnd===endStr&&r.amount>0;});
+  if(!recs.length){w.innerHTML='<div class="empty">No commission amounts saved for this week yet.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Email</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>'
+  +recs.map(function(r){
+    var e=employees.find(function(x){return x.id===r.empId;});
+    if(!e)return'';
+    var sent=!!r.sentAt;
+    return '<tr><td><strong>'+e.name+'</strong></td>'
+    +'<td style="font-size:11px;color:'+(e.email?'var(--blue)':'var(--red)')+'">'+(e.email||'⚠ no email')+'</td>'
+    +'<td style="font-family:\'IBM Plex Mono\',monospace;font-weight:700;color:var(--green)">₱'+fp(r.amount)+'</td>'
+    +'<td>'+(sent?'<span class="badge badge-green">✓ Sent '+fmtDate(r.sentAt.slice(0,10))+'</span>':'<span class="badge badge-yellow">Not sent</span>')+'</td>'
+    +'<td><button class="btn bs bg" onclick="sendWeeklyCommission(\''+r.id+'\')">📧 '+(sent?'Resend':'Send')+'</button>'
+    +' <span id="commSent_'+r.id+'" style="display:none;font-size:11px;color:var(--green);font-weight:700;margin-left:6px">✓ Sent!</span>'
+    +'</td></tr>';
+  }).join('')+'</tbody></table></div>';
+}
+async function sendWeeklyCommission(recId){
+  var r=commissionRecords.find(function(x){return String(x.id)===String(recId);});
+  if(!r)return;
+  var e=employees.find(function(x){return x.id===r.empId;});
+  if(!e||!e.email){alert('No email address for this employee.');return;}
+  var weekLabel=fmtDate(r.weekStart)+' – '+fmtDate(r.weekEnd);
+  var text='COMMISSION NOTICE\n'+(setup.name||'')+'\n\nEmployee: '+e.name+'\nPosition: '+(e.pos||'')+'\nWeek: '+weekLabel
+    +'\n\nCommission Amount: ₱'+fp(r.amount)
+    +'\n\nThis is a weekly commission notice, separate from your regular semi-monthly pay slip.'
+    +(e.payslipNote?'\n\nNote: '+e.payslipNote:'')
+    +'\n\nPrepared by: '+(setup.prep||'')+'     Approved by: '+(setup.appr||'');
+  if(!emailCfg.svc||!emailCfg.tpl||!emailCfg.key){
+    window.open('mailto:'+e.email+'?subject='+encodeURIComponent('Weekly Commission Notice - '+weekLabel+' - '+e.name)+'&body='+encodeURIComponent(text));
+  } else {
+    try{await emailjs.send(emailCfg.svc,emailCfg.tpl,{
+      to_email:e.email,name:e.name,position:e.pos||'',bank_acc:e.bank||'',
+      cut_off:weekLabel,payroll_date:'',start_date:e.start?fmtDate(e.start):'',
+      semi_monthly_basic_pay:'-',daily_rate:'-',no_of_days_worked:'-',
+      basic_pay:'-',deminimis:'-',other_additionals:'-',
+      reg_overtime:'-',holiday_pay:'-',leave_w_pay:'-',
+      commission:'₱'+fp(r.amount),
+      total_earnings:'₱'+fp(r.amount),sss:'-',phic:'-',hdmf:'-',
+      total_contribution:'-',other_deductions:'-',wht_tax:'-',late_undertime:'-',
+      total_deductions:'-',net_pay:'₱'+fp(r.amount),
+      notes:'Weekly Commission Notice ('+weekLabel+')'+(e.payslipNote?' | '+e.payslipNote:''),
+      prep_name:setup.prep,appr_name:setup.appr,
+      prep_sig:setup.prepSig||'',appr_sig:setup.apprSig||''
+    });}catch(err){alert('Email failed: '+(err.text||err));return;}
+  }
+  r.sentAt=new Date().toISOString();
+  r.sentTo=e.email;
+  await saveCommissions();
+  var indicator=document.getElementById('commSent_'+r.id);if(indicator)indicator.style.display='inline';
+  renderCommissionSendList(r.weekStart,r.weekEnd);
+  showCommMsg('Commission notice sent to '+e.name+' ('+e.email+')',true);
+}
+function showCommMsg(msg,ok){
+  var el=document.getElementById('comm-send-msg');if(!el)return;
+  el.style.display='block';el.style.background=ok?'#e8f5e9':'#ffebee';
+  el.style.color=ok?'var(--green)':'var(--red)';el.style.borderLeftColor=ok?'var(--green)':'var(--red)';
+  el.textContent=msg;setTimeout(()=>el.style.display='none',5000);
 }
 
 // ==================== HISTORY ====================
@@ -3248,9 +3483,27 @@ async function importData(evt){
 }
 
 // ==================== TIME LOGS ====================
-function getEmpShift(empId){
-  // Returns the shift object assigned to an employee, or default 08:00
+function parseShiftDayOverrides(str){
+  // Parses "day:shiftId,day:shiftId" strings into a {day: shiftId} map (day 0=Sun..6=Sat)
+  var map={};
+  if(!str)return map;
+  String(str).split(',').forEach(function(pair){
+    var parts=pair.split(':');
+    var d=parseInt(parts[0],10),sid=parseInt(parts[1],10);
+    if(!isNaN(d)&&!isNaN(sid))map[d]=sid;
+  });
+  return map;
+}
+function getEmpShift(empId, dateStr){
+  // Returns the shift object assigned to an employee for a given date (checks
+  // day-specific overrides first, e.g. a different shift every Wednesday),
+  // falling back to their default assigned shift, or default 08:00-17:00.
   var e=employees.find(x=>x.id==empId);
+  if(e&&dateStr){
+    var ovMap=parseShiftDayOverrides(e.shiftDayOverrides||e.shift_day_overrides);
+    var dow=new Date(dateStr+'T00:00:00').getDay();
+    if(ovMap[dow]!=null){var os=shifts.find(x=>x.id==ovMap[dow]);if(os)return os;}
+  }
   if(e&&e.shiftId){var s=shifts.find(x=>x.id==e.shiftId);if(s)return s;}
   return{name:'Default',start:'08:00',end:'17:00'};
 }
@@ -3305,6 +3558,14 @@ function fmtLateUndertime(lateMin,underMin){
 function getApprovedLeaveOn(empId,dateStr){
   return leaveRecords.find(l=>l.empId==empId&&l.status==='Approved'&&dateStr>=l.from&&dateStr<=l.to)||null;
 }
+// Extracts a short code like "VL" or "SL" from a full leave type string e.g.
+// "Vacation Leave (VL)" -> "VL". Falls back to the full type text when there's
+// no parenthetical abbreviation (e.g. "Emergency Leave", "Maternity Leave").
+function leaveTypeAbbr(type){
+  if(!type)return'';
+  var m=String(type).match(/\(([^)]+)\)/);
+  return m?m[1]:type;
+}
 // Builds one entry per employee per weekday in [from,to], marking each as
 // 'present' (has a punch), 'leave' (covered by an approved leave record), or 'absent'.
 function buildTimeLogRowsWithStatus(empScope,from,to,actualRows){
@@ -3320,11 +3581,11 @@ function buildTimeLogRowsWithStatus(empScope,from,to,actualRows){
       var dow=d.getDay(),isWeekend=(dow===0||dow===6);
       var leaveRec=getApprovedLeaveOn(e.id,dateStr);
       if(hit){
-        if(leaveRec&&leaveRec.halfDay)hit._halfDayLeave=true;
+        if(leaveRec&&leaveRec.halfDay){hit._halfDayLeave=true;hit._leaveType=leaveRec.type;}
         result.push({r:hit,status:'present'});
       }
-      else if(leaveRec){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:leaveRec.halfDay?'halfday-leave':'leave'});}
-      else if(isHoliday(dateStr)){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'holiday'});}
+      else if(leaveRec){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr,_leaveType:leaveRec.type},status:leaveRec.halfDay?'halfday-leave':'leave'});}
+      else if(isHoliday(dateStr)){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr,_holidayName:getHolidayName(dateStr)},status:'holiday'});}
       else if(isWeekend){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'restday'});}
       else{result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'absent'});}
     }
@@ -3356,7 +3617,7 @@ async function loadTimeLogs(){
   var tableRows=combined.map(item=>{
     var r=item.r;
     if(item.status!=='present')return{r,shift:null,lateMin:null,underMin:null,status:item.status};
-    var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
+    var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id,r.log_date);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
     var underMin=calcUndertimeMinutes(r.time_out,shift.end);
     var offsetMin=getOffsetMinutesFor(r.employee_id||r.emp_id,r.log_date);
@@ -3380,7 +3641,7 @@ async function loadTimeLogs(){
       return'<tr style="background:#fff8e1">'
       +'<td><strong>'+r.emp_name+'</strong></td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
-      +'<td colspan="7" style="text-align:center"><span class="badge badge-orange">🌓 Half Day Leave</span></td>'
+      +'<td colspan="7" style="text-align:center"><span class="badge badge-orange">🌓 Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span></td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
@@ -3389,16 +3650,16 @@ async function loadTimeLogs(){
       return'<tr style="background:#fffbe6">'
       +'<td><strong>'+r.emp_name+'</strong></td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
-      +'<td colspan="7" style="text-align:center"><span class="badge badge-yellow">🌴 On Leave</span></td>'
+      +'<td colspan="7" style="text-align:center"><span class="badge badge-yellow">🌴 On Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span></td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
     if(status==='holiday'){
       window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
-      return'<tr style="background:#f9f0ff">'
+      return'<tr style="background:#e8f5e9">'
       +'<td><strong>'+r.emp_name+'</strong></td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
-      +'<td colspan="7" style="text-align:center"><span class="badge badge-purple">🎉 Holiday</span></td>'
+      +'<td colspan="7" style="text-align:center"><span class="badge badge-green">🎉 Holiday'+(r._holidayName?' — '+r._holidayName:'')+'</span></td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
@@ -3426,7 +3687,7 @@ async function loadTimeLogs(){
       ?'<td style="text-align:center"><button class="btn bs ba" title="View route on map" onclick="event.stopPropagation();openRouteMap(window._tlRows['+rowIdx+'])">📍 Map</button></td>'
       :'<td style="text-align:center"><span style="font-size:10px;color:#dce3ec">no GPS</span></td>';
     return'<tr style="cursor:'+(hasGps?'pointer':'default')+'" '+(hasGps?'onclick="openRouteMap(window._tlRows['+rowIdx+'])" title="Click to view route map"':'')+'>'
-    +'<td><strong>'+r.emp_name+'</strong>'+(r._halfDayLeave?'<br><span class="badge badge-orange" style="font-size:9px">🌓 Half Day Leave</span>':'')+'</td>'
+    +'<td><strong>'+r.emp_name+'</strong>'+(r._halfDayLeave?'<br><span class="badge badge-orange" style="font-size:9px">🌓 Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span>':'')+'</td>'
     +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
     +'<td><span class="badge badge-blue" style="font-size:10px">'+shift.name+'<br><span style="font-weight:400;font-size:9px">'+shift.start+' – '+shift.end+'</span></span></td>'
     +tlCell(r.time_in,'var(--green)')
@@ -3452,11 +3713,11 @@ function exportTimeLogsCSV(){
   source.forEach(item=>{
     var r=item.r,status=item.status||'present';
     if(status!=='present'){
-      var label=status==='leave'?'On Leave':(status==='halfday-leave'?'Half Day Leave':(status==='restday'?'Rest Day':(status==='holiday'?'Holiday':'Absent')));
+      var label=status==='leave'?('On Leave'+(r._leaveType?' ('+leaveTypeAbbr(r._leaveType)+')':'')):(status==='halfday-leave'?('Half Day Leave'+(r._leaveType?' ('+leaveTypeAbbr(r._leaveType)+')':'')):(status==='restday'?'Rest Day':(status==='holiday'?('Holiday'+(r._holidayName?' ('+r._holidayName+')':'')):'Absent')));
       rows.push([r.emp_name,r.log_date,label,'','','','','','','','','','','','']);
       return;
     }
-    var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id);
+    var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id,r.log_date);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
     var underMin=calcUndertimeMinutes(r.time_out,shift.end);
     var offsetMin=getOffsetMinutesFor(r.employee_id||r.emp_id,r.log_date);
@@ -3467,7 +3728,7 @@ function exportTimeLogsCSV(){
       var fromUnder=Math.min(underMin,offsetMin);
       underMin-=fromUnder;offsetMin-=fromUnder;offsetApplied+=fromUnder;
     }
-    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave)':''),r.log_date,'Present',shift.name,shift.start,shift.end,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin,underMin,offsetApplied]);
+    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+')':''),r.log_date,'Present',shift.name,shift.start,shift.end,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin,underMin,offsetApplied]);
   });
   downloadCSV('HMB_TimeLogs_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
@@ -3523,6 +3784,10 @@ function renderHolidaysList(){
   +'</tbody></table></div>';
 }
 function isHoliday(dateStr){return holidays.some(h=>h.date===dateStr);}
+function getHolidayName(dateStr){
+  var h=holidays.find(x=>x.date===dateStr);
+  return h?(h.name||'Holiday'):'';
+}
 
 // ==================== TIME OFFSET / MAKE-UP TIME ====================
 async function saveOffsets(){
@@ -3633,6 +3898,17 @@ function populateShiftSelects(){
     empSel.innerHTML='<option value="">-- Select employee --</option>';
     employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name+(e.shiftId?' ✓':'');if(e.id==cur)o.selected=true;empSel.appendChild(o);});
   }
+  // Populate sho-emp-sel / sho-shift-sel (Day-Specific Shift Override card)
+  var shoEmpSel=document.getElementById('sho-emp-sel');if(shoEmpSel){
+    var curE=shoEmpSel.value;
+    shoEmpSel.innerHTML='<option value="">-- Select employee --</option>';
+    employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name;if(e.id==curE)o.selected=true;shoEmpSel.appendChild(o);});
+  }
+  var shoShiftSel=document.getElementById('sho-shift-sel');if(shoShiftSel){
+    var curS=shoShiftSel.value;
+    shoShiftSel.innerHTML='<option value="">-- Select shift --</option>';
+    shifts.forEach(s=>{var o=document.createElement('option');o.value=s.id;o.textContent=s.name+' ('+s.start+' – '+s.end+')';if(s.id==curS)o.selected=true;shoShiftSel.appendChild(o);});
+  }
 }
 async function addShift(){
   var name=v('sh-name').trim(),start=v('sh-start'),end=v('sh-end');
@@ -3660,7 +3936,19 @@ async function deleteShift(id){
   await api('DELETE','/api/shifts/'+id);
   shifts=shifts.filter(s=>s.id!==id);
   employees.forEach(e=>{if(e.shiftId===id)delete e.shiftId;});
-  renderShiftsList();renderShiftAssignList();populateShiftSelects();
+  // Also clear any day-specific overrides pointing at the deleted shift
+  employees.forEach(function(e){
+    var map=parseShiftDayOverrides(e.shiftDayOverrides||e.shift_day_overrides);
+    var changed=false;
+    Object.keys(map).forEach(function(d){if(map[d]===id){delete map[d];changed=true;}});
+    if(changed){
+      var keys=Object.keys(map);
+      var str=keys.length?keys.map(function(d){return d+':'+map[d];}).join(','):null;
+      e.shiftDayOverrides=str; e.shift_day_overrides=str;
+      api('PUT','/api/employees/'+e.id,{...e,shiftDayOverrides:str,shift_day_overrides:str});
+    }
+  });
+  renderShiftsList();renderShiftAssignList();populateShiftSelects();renderShiftDayOverrideList();
 }
 async function assignShift(){
   var empId=parseInt(v('sh-emp-sel')),shiftId=parseInt(v('sh-shift-sel'));
@@ -3678,6 +3966,49 @@ async function removeShiftAssign(empId){
   delete e.shiftId;
   await api('PUT','/api/employees/'+empId,{...e});
   renderShiftAssignList();populateShiftSelects();
+}
+async function assignShiftDayOverride(){
+  var empId=parseInt(v('sho-emp-sel')),day=v('sho-day-sel'),shiftId=parseInt(v('sho-shift-sel'));
+  if(!empId){alert('Select an employee.');return;}
+  if(!shiftId){alert('Select an override shift.');return;}
+  var e=employees.find(x=>x.id===empId);if(!e)return;
+  var map=parseShiftDayOverrides(e.shiftDayOverrides||e.shift_day_overrides);
+  map[day]=shiftId;
+  var str=Object.keys(map).map(function(d){return d+':'+map[d];}).join(',');
+  e.shiftDayOverrides=str; e.shift_day_overrides=str;
+  await api('PUT','/api/employees/'+empId,{...e,shiftDayOverrides:str,shift_day_overrides:str});
+  flash('sho-ok');
+  renderShiftDayOverrideList();
+}
+async function removeShiftDayOverride(empId,day){
+  var e=employees.find(x=>x.id===empId);if(!e)return;
+  var map=parseShiftDayOverrides(e.shiftDayOverrides||e.shift_day_overrides);
+  delete map[day];
+  var keys=Object.keys(map);
+  var str=keys.length?keys.map(function(d){return d+':'+map[d];}).join(','):null;
+  e.shiftDayOverrides=str; e.shift_day_overrides=str;
+  await api('PUT','/api/employees/'+empId,{...e,shiftDayOverrides:str,shift_day_overrides:str});
+  renderShiftDayOverrideList();
+}
+function renderShiftDayOverrideList(){
+  var w=document.getElementById('sho-list-wrap');if(!w)return;
+  var DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var rows=[];
+  employees.forEach(function(e){
+    var map=parseShiftDayOverrides(e.shiftDayOverrides||e.shift_day_overrides);
+    Object.keys(map).forEach(function(d){
+      var s=shifts.find(x=>x.id===map[d]);
+      rows.push({emp:e,day:parseInt(d,10),shift:s});
+    });
+  });
+  if(!rows.length){w.innerHTML='<div class="empty">No day-specific overrides yet.</div>';return;}
+  rows.sort(function(a,b){return a.emp.name.localeCompare(b.emp.name)||a.day-b.day;});
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Day</th><th>Override Shift</th><th></th></tr></thead><tbody>'
+  +rows.map(function(row){
+    return '<tr><td>'+row.emp.name+'</td><td>'+DAY_NAMES[row.day]+'</td>'
+    +'<td>'+(row.shift?row.shift.name+' <span style="color:var(--muted)">('+row.shift.start+' – '+row.shift.end+')</span>':'<span style="color:var(--muted)">Unknown shift</span>')+'</td>'
+    +'<td><button class="btn bs br" onclick="removeShiftDayOverride('+row.emp.id+','+row.day+')">🗑 Remove</button></td></tr>';
+  }).join('')+'</tbody></table></div>';
 }
 
 // ==================== USER MANAGEMENT ====================
@@ -3875,19 +4206,25 @@ function mgmtRenderSlips(){
   var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
   if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';return;}
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
-   +'<th>Employee</th><th>Position</th><th>Email</th><th>Net Pay</th><th>Sent Status</th><th>Action</th>'
+   +'<th>Employee</th><th>Position</th><th>Email</th><th>Net Pay</th><th>Sent Status</th><th>Commission Status</th><th>Action</th>'
    +'</tr></thead><tbody>'
    +recs.map(e=>{
      var a=attendance[k][e.id],p=calcPay(e,a);
      var sent=payslipHistory.some(h=>h.empId===e.id&&h.period===per);
+     var histRec=payslipHistory.find(h=>h.empId===e.id&&h.period===per);
+     var hasCommission=!!(a.commission&&a.commission>0);
+     var commissionSent=!!(histRec&&histRec.commissionSentAt);
      return'<tr>'
        +'<td><strong>'+e.name+'</strong></td>'
        +'<td>'+(e.pos||'—')+'</td>'
        +'<td style="font-size:11px;color:'+(e.email?'var(--blue)':'var(--red)')+'">'+(e.email||'⚠ no email')+'</td>'
        +'<td style="font-family:\'IBM Plex Mono\',monospace;font-weight:700;color:var(--green)">'+peso(p.netPay)+'</td>'
        +'<td>'+(sent?'<span class="badge badge-green">✓ Sent</span>':'<span class="badge badge-yellow">Pending</span>')+'</td>'
+       +'<td>'+(!hasCommission?'<span style="color:#dce3ec;font-size:11px">—</span>':(commissionSent?'<span class="badge badge-green">✓ Sent</span>':'<span class="badge badge-yellow">Pending</span>'))+'</td>'
        +'<td><button class="btn bs bp" onclick="mgmtSendOne('+e.id+',\''+per+'\',\''+pdate+'\')">'+(sent?'Resend':'📧 Send')+'</button>'
+       +(hasCommission?' <button class="btn bs bg" onclick="mgmtSendCommission('+e.id+',\''+per+'\',\''+pdate+'\')">📧 Send Commission</button>':'')
        +' <span id="mgmt-sent_'+e.id+'" style="display:none;font-size:11px;color:var(--green);font-weight:700">✓ Sent!</span>'
+       +' <span id="mgmt-commSent_'+e.id+'" style="display:none;font-size:11px;color:var(--green);font-weight:700">✓ Commission Sent!</span>'
        +'</td></tr>';
    }).join('')+'</tbody></table></div>';
 }
@@ -3940,12 +4277,51 @@ async function mgmtSendOne(empId,per,pdate){
     });}catch(err){alert('Email failed: '+(err.text||err));return;}
   }
   var rec={empId:e.id,empName:e.name,empPos:e.pos||'',period:per,pdate,sentAt:new Date().toISOString(),emailSentTo:e.email,basicPay:p.basicPay,totalEarnings:p.totalEarnings,totalDeductions:p.totalDeductions,netPay:p.netPay,attendance:JSON.parse(JSON.stringify(a)),employeeSnapshot:JSON.parse(JSON.stringify(e))};
-  await api('POST','/api/payslips',rec);
   var idx=payslipHistory.findIndex(h=>h.empId===e.id&&h.period===per);
+  if(idx>=0)rec.commissionSentAt=payslipHistory[idx].commissionSentAt; // preserve if already sent separately
+  await api('POST','/api/payslips',rec);
   if(idx>=0)payslipHistory[idx]=rec;else payslipHistory.push(rec);
   var indicator=document.getElementById('mgmt-sent_'+empId);if(indicator)indicator.style.display='inline';
   mgmtRenderSlips();
   mgmtShowSlipMsg('Payslip sent to '+e.name+' ('+e.email+')',true);
+}
+// Management-side equivalent of sendCommission(): same payslip design, sent as
+// its own notice, referencing (updating) the same payslip history record.
+async function mgmtSendCommission(empId,per,pdate){
+  var e=employees.find(x=>x.id===empId);
+  if(!e||!e.email){alert('No email address for this employee.');return;}
+  var k=attKey(per),a=attendance[k]&&attendance[k][empId];
+  if(!a){alert('No attendance record found.');return;}
+  if(!a.commission||a.commission<=0){alert('No commission recorded for this period.');return;}
+  var text=buildSlipText(e,a,per,pdate),p=calcPay(e,a);
+  if(!emailCfg.svc||!emailCfg.tpl||!emailCfg.key){
+    window.open('mailto:'+e.email+'?subject='+encodeURIComponent('Commission Notice - '+per+' - '+e.name)+'&body='+encodeURIComponent(text));
+  } else {
+    try{await emailjs.send(emailCfg.svc,emailCfg.tpl,{
+      to_email:e.email,name:e.name,position:e.pos||'',bank_acc:e.bank||'',
+      cut_off:per,payroll_date:pdate?fmtDate(pdate):'',start_date:e.start?fmtDate(e.start):'',
+      semi_monthly_basic_pay:fp(e.smb),daily_rate:fp(p.dr),no_of_days_worked:a.days,
+      basic_pay:fp(p.basicPay),deminimis:e.dm?fp(e.dm):'-',other_additionals:a.otherAdd?fp(a.otherAdd):'-',
+      reg_overtime:p.otPay?fp(p.otPay):'-',holiday_pay:a.holiday?fp(a.holiday):'-',
+      leave_w_pay:a.leave?fp(a.leave):'-',commission:a.commission?fp(a.commission):'-',
+      total_earnings:fp(p.totalEarnings),sss:fp(e.sss),phic:fp(e.phic),hdmf:fp(e.hdmf),
+      total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
+      wht_tax:e.wht?fp(e.wht):'-',late_undertime:a.late?fp(a.late):'-',
+      total_deductions:fp(p.totalDeductions),net_pay:'₱'+fp(p.netPay),
+      notes:e.payslipNote||'',
+      prep_name:setup.prep,appr_name:setup.appr,
+      prep_sig:setup.prepSig||'',appr_sig:setup.apprSig||''
+    });}catch(err){alert('Email failed: '+(err.text||err));return;}
+  }
+  var idx=payslipHistory.findIndex(h=>h.empId===e.id&&h.period===per);
+  var rec=idx>=0?Object.assign({},payslipHistory[idx]):{empId:e.id,empName:e.name,empPos:e.pos||'',period:per,pdate,basicPay:p.basicPay,totalEarnings:p.totalEarnings,totalDeductions:p.totalDeductions,netPay:p.netPay,attendance:JSON.parse(JSON.stringify(a)),employeeSnapshot:JSON.parse(JSON.stringify(e))};
+  rec.commissionSentAt=new Date().toISOString();
+  rec.commissionSentTo=e.email;
+  await api('POST','/api/payslips',rec);
+  if(idx>=0)payslipHistory[idx]=rec;else payslipHistory.push(rec);
+  var indicator2=document.getElementById('mgmt-commSent_'+empId);if(indicator2)indicator2.style.display='inline';
+  mgmtRenderSlips();
+  mgmtShowSlipMsg('Commission notice sent to '+e.name+' ('+e.email+')',true);
 }
 
 async function mgmtApproveAllSlips(){
