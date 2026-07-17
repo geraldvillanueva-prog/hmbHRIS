@@ -3124,10 +3124,29 @@ function findCommColKey(rowObj,patterns){
   return null;
 }
 // Imports weekly commission amounts from an Excel file (.xlsx/.xls). Expects a
-// header row with an Employee/Name column and a Commission/Amount column.
-// Employees are fuzzy-matched by name (reusing fuzzyMatchEmployee, same as the
-// payroll register import above). Amounts are applied to whichever week is
-// currently selected in the Weekly Commission screen.
+// header row with an Employee/Name column and a Commission/Amount column
+// (or "Net Pay", for a commission-only cutoff where net pay equals the
+// commission). The header row is located by scanning — it does not have to
+// be the very first row of the sheet — and every sheet is tried in order
+// until one yields a usable header. Employees are fuzzy-matched by name
+// (reusing fuzzyMatchEmployee, same as the payroll register import above).
+// Amounts are applied to whichever week is currently selected in the Weekly
+// Commission screen. This function only affects Weekly Commission data
+// (commissionRecords) — it never touches Payroll Encoding / attendance.
+function findCommHeaderRow(rows, namePatterns, amtPatterns){
+  for(var i=0;i<Math.min(rows.length,25);i++){
+    var row=rows[i]||[];
+    var nameCol=-1,amtCol=-1;
+    for(var c=0;c<row.length;c++){
+      var cell=String(row[c]==null?'':row[c]).trim();
+      if(!cell)continue;
+      if(nameCol<0&&namePatterns.some(function(p){return p.test(cell);}))nameCol=c;
+      if(amtCol<0&&amtPatterns.some(function(p){return p.test(cell);}))amtCol=c;
+    }
+    if(nameCol>=0&&amtCol>=0&&nameCol!==amtCol)return{rowIdx:i,nameCol:nameCol,amtCol:amtCol};
+  }
+  return null;
+}
 async function importCommissionExcel(evt){
   var file=evt.target.files[0];
   evt.target.value='';
@@ -3141,28 +3160,39 @@ async function importCommissionExcel(evt){
     try{
       var data=new Uint8Array(e.target.result);
       var wb=XLSX.read(data,{type:'array',cellFormula:false,cellNF:false,cellText:false});
-      var sheet=wb.Sheets[wb.SheetNames[0]];
-      var rows=XLSX.utils.sheet_to_json(sheet,{defval:''});
-      if(!rows.length){showCommImportMsg('⚠️ No rows found in the first sheet of the file.',false);return;}
-      var nameKey=findCommColKey(rows[0],[/^name$/i,/^employee$/i,/employee/i,/name/i]);
-      var amtKey=findCommColKey(rows[0],[/^commission$/i,/^amount$/i,/commission/i,/amount/i]);
-      if(!nameKey||!amtKey){
-        showCommImportMsg('⚠️ Could not find an Employee/Name column and a Commission/Amount column. Make sure the first row has headers like "Employee" and "Commission".',false);
+      var namePatterns=[/^employee\s*name$/i,/^name$/i,/^employee$/i,/employee/i,/name/i];
+      var amtPatterns=[/^commission$/i,/^amount$/i,/commission/i,/^amount/i,/net\s*pay/i];
+
+      var found=null,rows=null;
+      for(var s=0;s<wb.SheetNames.length&&!found;s++){
+        var sheetRows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[s]],{header:1,defval:''});
+        var hdr=findCommHeaderRow(sheetRows,namePatterns,amtPatterns);
+        if(hdr){found=hdr;rows=sheetRows;}
+      }
+      if(!found){
+        showCommImportMsg('⚠️ Could not find an Employee/Name column and a Commission/Amount (or Net Pay) column in any sheet of this file.',false);
         return;
       }
+
       var matched=0,unmatched=[];
-      rows.forEach(function(row){
-        var rawName=String(row[nameKey]||'').trim();
-        if(!rawName)return;
-        var amt=parseFloat(String(row[amtKey]).replace(/[₱,\s]/g,''))||0;
-        if(amt<=0)return;
+      for(var ri=found.rowIdx+1;ri<rows.length;ri++){
+        var row=rows[ri]||[];
+        var rawName=String(row[found.nameCol]==null?'':row[found.nameCol]).trim();
+        if(!rawName||/^total/i.test(rawName)||/^grand total/i.test(rawName))continue;
+        var amtRaw=row[found.amtCol];
+        var amt=parseFloat(String(amtRaw==null?'':amtRaw).replace(/[₱,\s]/g,''))||0;
+        if(amt<=0)continue;
         var emp=fuzzyMatchEmployee(rawName);
-        if(!emp){unmatched.push(rawName);return;}
+        if(!emp){unmatched.push(rawName);continue;}
         var idx=commissionRecords.findIndex(function(r){return r.empId===emp.id&&r.weekStart===startStr&&r.weekEnd===endStr;});
         if(idx>=0){commissionRecords[idx].amount=amt;commissionRecords[idx].empName=emp.name;}
         else{commissionRecords.push({id:Date.now()+'_'+emp.id,empId:emp.id,empName:emp.name,weekStart:startStr,weekEnd:endStr,amount:amt,sentAt:null,sentTo:null});}
         matched++;
-      });
+      }
+      if(matched===0&&unmatched.length===0){
+        showCommImportMsg('⚠️ Found headers but no employee rows with an amount greater than 0 underneath them.',false);
+        return;
+      }
       saveCommissions().then(function(){
         renderCommissionEntryGrid(startStr,endStr);
         renderCommissionSendList(startStr,endStr);
