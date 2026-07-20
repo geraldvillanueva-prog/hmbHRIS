@@ -502,6 +502,28 @@ input:focus,select:focus,textarea:focus{
   .ann-spotlight-photo{width:88px;height:88px}
 }
 
+/* skeleton loading state */
+.ann-skel{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+.ann-skel-icon{width:42px;height:42px;border-radius:50%;background:linear-gradient(90deg,#eef0f3 25%,#f7f8fa 37%,#eef0f3 63%);background-size:400% 100%;animation:annShimmer 1.4s ease-in-out infinite;flex-shrink:0}
+.ann-skel-lines{flex:1;display:flex;flex-direction:column;gap:8px;padding-top:4px}
+.ann-skel-line{height:11px;border-radius:6px;background:linear-gradient(90deg,#eef0f3 25%,#f7f8fa 37%,#eef0f3 63%);background-size:400% 100%;animation:annShimmer 1.4s ease-in-out infinite}
+.ann-skel-line.w60{width:60%}.ann-skel-line.w40{width:40%}.ann-skel-line.w70{width:70%}.ann-skel-line.w30{width:30%}
+@keyframes annShimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* read more / less */
+.ann-readmore{background:none;border:none;color:#6a4b9a;font-weight:700;font-size:12.5px;cursor:pointer;padding:2px 0;font-family:'IBM Plex Sans',sans-serif}
+.ann-readmore:hover{text-decoration:underline}
+.ann-post-body.clamped{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+/* lightbox */
+.ann-lightbox{display:none;position:fixed;inset:0;background:rgba(10,22,40,0.88);z-index:2000;align-items:center;justify-content:center;padding:30px;cursor:zoom-out;animation:annLightboxIn .18s ease}
+.ann-lightbox.show{display:flex}
+.ann-lightbox img{max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5);cursor:default;animation:annLightboxZoom .2s cubic-bezier(.2,.8,.2,1)}
+.ann-lightbox-close{position:absolute;top:18px;right:22px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.3);color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;transition:background .15s}
+.ann-lightbox-close:hover{background:rgba(255,255,255,0.22)}
+@keyframes annLightboxIn{from{opacity:0}to{opacity:1}}
+@keyframes annLightboxZoom{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
+
 </style>
 </head>
 <body>
@@ -552,7 +574,10 @@ input:focus,select:focus,textarea:focus{
       <button class="ann-filter-btn" data-type="best_employee" onclick="supAnnFilter(\'best_employee\',this)">⭐ Best Employee</button>
       <button class="ann-filter-btn" data-type="early_bird" onclick="supAnnFilter(\'early_bird\',this)">🐦 Early Bird</button>
     </div>
-    <div id="sup-ann-list"><div style="color:var(--muted);font-size:13px;padding:30px 0;text-align:center">Loading announcements…</div></div>
+    <div id="sup-ann-list">
+      <div class="ann-skel"><div class="ann-skel-icon"></div><div class="ann-skel-lines"><div class="ann-skel-line w60"></div><div class="ann-skel-line w40"></div></div></div>
+      <div class="ann-skel"><div class="ann-skel-icon"></div><div class="ann-skel-lines"><div class="ann-skel-line w70"></div><div class="ann-skel-line w30"></div></div></div>
+    </div>
   </div>
 </div>
 
@@ -2246,7 +2271,11 @@ function renderSupAnn(){
   var list=document.getElementById('sup-ann-list');
   if(!list)return;
   var filtered=supAnnRecords.filter(a=>!supAnnActiveType||a.type===supAnnActiveType);
-  if(!filtered.length){list.innerHTML='<div style="color:var(--muted);font-size:13px;padding:30px 0;text-align:center">No announcements yet.</div>';return;}
+  if(!filtered.length){list.innerHTML='<div style="color:var(--muted);font-size:13px;padding:30px 0;text-align:center">🗒️ No announcements yet.</div>';return;}
+  filtered=filtered.slice().sort((a,b)=>{
+    if(!!b.pinned!==!!a.pinned)return b.pinned?1:-1;
+    return new Date(b.created_at)-new Date(a.created_at);
+  });
   list.innerHTML=filtered.map((a,i)=>supAnnCard(a,i)).join('');
 }
 
@@ -2274,6 +2303,13 @@ function supAnnCard(a,idx){
   var docs=atts.filter(f=>!/\.(jpg|jpeg|png|gif|webp)$/i.test(f.original_name));
   var docHtml=docs.length?'<div class="ann-att-row">'+docs.map(f=>'<a class="ann-att-link" href="/uploads/'+f.filename+'" target="_blank">📎 '+supEscH(f.original_name)+'</a>').join('')+'</div>':'';
   var delayStyle='style="animation-delay:'+Math.min(idx*0.06,0.6)+'s"';
+  var timeHtml='<span title="'+supFmtDate(a.created_at)+'">'+fmtSupAnnRelative(a.created_at)+'</span>';
+  var bodyHtml='';
+  if(a.body){
+    var long=a.body.length>200;
+    bodyHtml='<div class="ann-post-body'+(long?' clamped':'')+'">'+supEscH(a.body)+'</div>'
+      +(long?'<button class="ann-readmore" onclick="toggleAnnBody(this)">Read more</button>':'');
+  }
 
   // Spotlight layout: a single-photo Best Employee / Award post gets a
   // proper feature treatment (photo + name side by side) instead of a lone
@@ -2286,35 +2322,66 @@ function supAnnCard(a,idx){
     return '<div class="ann-post '+typeAccentCls+(a.pinned?' pinned':'')+'" '+delayStyle+'>'
       +'<div class="ann-spotlight" style="--spot-color:'+spotColor+'">'
       +'<div class="ann-spotlight-photo-wrap">'
-      +'<a href="/uploads/'+imgs[0].filename+'" target="_blank"><img class="ann-spotlight-photo" src="/uploads/'+imgs[0].filename+'" alt="'+supEscH(imgs[0].original_name)+'" loading="lazy"></a>'
+      +'<img class="ann-spotlight-photo" src="/uploads/'+imgs[0].filename+'" alt="'+supEscH(imgs[0].original_name)+'" loading="lazy" onclick="openAnnLightbox(\'/uploads/'+imgs[0].filename+'\',\''+supEscH(imgs[0].original_name)+'\')">'
       +'<span class="ann-spotlight-medal">'+medal+'</span>'
       +'</div>'
       +'<div class="ann-spotlight-body">'
       +'<div class="ann-spotlight-rankline">'+SUP_ANN_LABELS[a.type||'general']+'</div>'
       +'<div class="ann-spotlight-name">'+supEscH(a.title)+'</div>'
-      +'<div class="ann-spotlight-meta">'+(a.employee_name?'👤 '+supEscH(a.employee_name)+' &nbsp;':'')+supFmtDate(a.created_at)+'</div>'
-      +(a.body?'<div class="ann-post-body">'+supEscH(a.body)+'</div>':'')
+      +'<div class="ann-spotlight-meta">'+(a.employee_name?'👤 '+supEscH(a.employee_name)+' &nbsp;':'')+timeHtml+'</div>'
+      +bodyHtml
       +'</div></div>'
       +docHtml
       +'</div>';
   }
 
-  var imgHtml=imgs.length?'<div class="ann-img-grid">'+imgs.map(f=>'<a href="/uploads/'+f.filename+'" target="_blank"><img class="ann-att-img" src="/uploads/'+f.filename+'" alt="'+supEscH(f.original_name)+'" loading="lazy"></a>').join('')+'</div>':'';
+  var imgHtml=imgs.length?'<div class="ann-img-grid">'+imgs.map(f=>'<img class="ann-att-img" src="/uploads/'+f.filename+'" alt="'+supEscH(f.original_name)+'" loading="lazy" onclick="openAnnLightbox(\'/uploads/'+f.filename+'\',\''+supEscH(f.original_name)+'\')">').join('')+'</div>':'';
   return '<div class="ann-post '+typeAccentCls+(a.pinned?' pinned':'')+'" '+delayStyle+'>'
     +'<div class="ann-post-header">'
     +'<div class="ann-post-icon '+iconCls+'">'+ic+'</div>'
     +'<div><div class="ann-post-title">'+(a.pinned?'📌 ':'')+supEscH(a.title)+'</div>'
     +'<div class="ann-post-meta"><span class="ann-type-pill '+typCls+'">'+SUP_ANN_LABELS[a.type||'general']+'</span>'
     +(a.employee_name?' &nbsp;👤 '+supEscH(a.employee_name):'')
-    +' &nbsp;'+supFmtDate(a.created_at)+'</div></div>'
+    +' &nbsp;'+timeHtml+'</div></div>'
     +'</div>'
-    +(a.body?'<div class="ann-post-body">'+supEscH(a.body)+'</div>':'')
+    +bodyHtml
     +imgHtml+docHtml
     +'</div>';
 }
 
 function supEscH(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function supFmtDate(d){try{return new Date(d).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});}catch(e){return d||'';}}
+
+function fmtSupAnnRelative(d){
+  try{
+    var then=new Date(d).getTime(), now=Date.now(), diff=Math.max(0,now-then);
+    var min=Math.floor(diff/60000), hr=Math.floor(diff/3600000), day=Math.floor(diff/86400000);
+    if(min<1)return'Just now';
+    if(min<60)return min+'m ago';
+    if(hr<24)return hr+'h ago';
+    if(day===1)return'Yesterday';
+    if(day<7)return day+'d ago';
+    return supFmtDate(d);
+  }catch(e){return supFmtDate(d);}
+}
+
+function openAnnLightbox(src,alt){
+  var lb=document.getElementById('ann-lightbox');
+  var img=document.getElementById('ann-lightbox-img');
+  img.src=src;img.alt=alt||'';
+  lb.classList.add('show');
+}
+function closeAnnLightbox(e){
+  if(e&&e.target.tagName==='IMG')return;
+  document.getElementById('ann-lightbox').classList.remove('show');
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAnnLightbox();});
+
+function toggleAnnBody(btn){
+  var body=btn.previousElementSibling;
+  var collapsed=body.classList.toggle('clamped');
+  btn.textContent=collapsed?'Read more':'Show less';
+}
 
 // Intercept goTab to load announcements when dashboard is opened
 (function(){
@@ -2329,5 +2396,9 @@ function supFmtDate(d){try{return new Date(d).toLocaleDateString('en-PH',{month:
   });
 })();
 </script>
+<div id="ann-lightbox" class="ann-lightbox" onclick="closeAnnLightbox(event)">
+  <button class="ann-lightbox-close" onclick="closeAnnLightbox(event)">✕</button>
+  <img id="ann-lightbox-img" src="" alt="">
+</div>
 </body>
 </html>
