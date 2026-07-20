@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HMB HRIS – Supervisor Portal</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -17,10 +17,27 @@
 }
 body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
 
+/* TYPOGRAPHY — signature display face for titles/numbers */
+.topbar-brand,.panel-title,.card-title{font-family:'Fraunces',serif;letter-spacing:0}
+
+/* ACCESSIBILITY & SCROLLBAR */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#c3ccd9;border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:0.001ms!important;animation-iteration-count:1!important;transition-duration:0.001ms!important}
+}
+@media (max-width:600px){
+  .topbar-right{gap:8px}
+  .sup-name{display:none}
+}
+
 /* TOPBAR */
-.topbar{background:var(--navy);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar{background:linear-gradient(135deg,var(--navy) 0%,#050c16 100%);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .topbar-left{display:flex;flex-direction:column}
-.topbar-brand{font-size:16px;font-weight:700;color:#fff;letter-spacing:1px}
+.topbar-brand{font-size:17px;font-weight:600;color:#fff;letter-spacing:.3px}
 .topbar-sub{font-size:10px;color:#ce93d8;letter-spacing:2px;font-family:'IBM Plex Mono',monospace}
 .topbar-right{display:flex;align-items:center;gap:12px}
 .sup-badge{display:flex;align-items:center;gap:8px}
@@ -73,7 +90,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);min-height:100v
 .punch-break:not(:disabled):not(.done) .punch-label{color:#0277bd}
 
 /* PANEL */
-.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;max-width:720px;width:100%;padding:1.5rem;margin-bottom:1rem}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;max-width:720px;width:100%;padding:1.5rem;margin-bottom:1rem;box-shadow:0 2px 10px rgba(10,22,40,0.05)}
 .panel.wide{max-width:900px}
 .panel-title{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:1rem;display:flex;align-items:center;gap:8px;justify-content:space-between}
 .panel-title-left{display:flex;align-items:center;gap:8px}
@@ -89,7 +106,8 @@ th{text-align:left;font-size:10px;font-weight:700;color:var(--muted);padding:8px
 td{padding:9px 10px;border-bottom:1px solid #f0f4f8;vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#fafcff}
-.empty{text-align:center;color:var(--muted);padding:2rem;font-size:13px}
+.empty{text-align:center;color:var(--muted);padding:2rem 1rem;font-size:13px;border:1px dashed var(--border);border-radius:10px}
+.empty::before{content:'—';display:block;font-size:20px;color:var(--border);margin-bottom:6px;font-family:'Fraunces',serif}
 
 /* BADGE */
 .badge{display:inline-block;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace}
@@ -426,9 +444,20 @@ input:focus,select:focus,textarea:focus{
 .gps-dot-liaison{background:#7b1fa2}
 /* ── ANNOUNCEMENTS FEED ── */
 .ann-filter-btn{padding:5px 13px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:all .15s}
-.ann-filter-btn.on,.ann-filter-btn:hover{background:#7b1fa2;color:#fff;border-color:#7b1fa2}
-.ann-post{background:#fff;border-radius:14px;border:1px solid var(--border);padding:16px 18px;margin-bottom:12px;box-shadow:0 2px 10px rgba(10,22,40,0.06);animation:fadeSlideUp .3s ease both}
-.ann-post.pinned{border-left:4px solid #ce93d8}
+.ann-filter-btn.on{background:#6a4b9a;color:#fff;border-color:#6a4b9a;box-shadow:0 3px 10px rgba(106,75,154,.3)}
+.ann-filter-btn:hover:not(.on){background:#F0E7EA;border-color:#6a4b9a;color:#6a4b9a}
+
+.ann-post{position:relative;background:#fff;border-radius:14px;border:1px solid var(--border);padding:16px 18px 16px 20px;margin-bottom:14px;box-shadow:0 2px 10px rgba(10,22,40,0.06);animation:fadeSlideUp .4s ease both;overflow:hidden;transition:box-shadow .2s,transform .2s}
+.ann-post:hover{box-shadow:0 8px 26px rgba(10,22,40,0.1);transform:translateY(-1px)}
+.ann-post::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--border)}
+.ann-post-birthday::before{background:linear-gradient(180deg,#f06292,#c2185b)}
+.ann-post-award::before{background:linear-gradient(180deg,#ffca28,#e65100)}
+.ann-post-best_employee::before{background:linear-gradient(180deg,#66bb6a,#2e7d32)}
+.ann-post-early_bird::before{background:linear-gradient(180deg,#4fc3f7,#0277bd)}
+.ann-post-general::before{background:linear-gradient(180deg,#B98FA0,#6a4b9a)}
+.ann-post-event::before{background:linear-gradient(180deg,#26a69a,#00695c)}
+.ann-post.pinned{box-shadow:0 4px 18px rgba(106,75,154,0.2)}
+.ann-post.pinned::after{content:'📌 PINNED';position:absolute;top:0;right:0;background:#6a4b9a;color:#fff;font-size:9px;font-weight:800;letter-spacing:.06em;padding:3px 10px 3px 12px;border-radius:0 0 0 10px}
 .ann-post-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .ann-post-icon{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
 .ann-post-icon-birthday{background:#fce4ec}
@@ -437,7 +466,7 @@ input:focus,select:focus,textarea:focus{
 .ann-post-icon-early_bird{background:#e3f2fd}
 .ann-post-icon-general{background:#f3e5f5}
 .ann-post-icon-event{background:#e0f2f1}
-.ann-post-title{font-size:14px;font-weight:700;color:#4a148c}
+.ann-post-title{font-size:14px;font-weight:700;color:#4a3568}
 .ann-post-meta{font-size:11px;color:var(--muted);margin-top:2px}
 .ann-post-body{font-size:13px;color:#333;line-height:1.6;margin-bottom:8px;white-space:pre-line}
 .ann-type-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700}
@@ -445,13 +474,33 @@ input:focus,select:focus,textarea:focus{
 .ann-type-pill-award{background:#fff8e1;color:#e65100}
 .ann-type-pill-best_employee{background:#e8f5e9;color:#2e7d32}
 .ann-type-pill-early_bird{background:#e3f2fd;color:#1565c0}
-.ann-type-pill-general{background:#f3e5f5;color:#6a1b9a}
+.ann-type-pill-general{background:#f3e5f5;color:#6a4b9a}
 .ann-type-pill-event{background:#e0f2f1;color:#00695c}
 .ann-att-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
-.ann-att-link{display:inline-flex;align-items:center;gap:5px;background:#f3e5f5;border:1px solid #ce93d8;border-radius:7px;padding:4px 11px;font-size:12px;color:#6a1b9a;text-decoration:none;font-weight:600}
-.ann-att-link:hover{background:#e1bee7}
-.ann-att-img{max-width:100%;max-height:280px;border-radius:10px;margin-top:10px;object-fit:cover;cursor:pointer;border:1px solid var(--border)}
-.ann-img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:10px}
+.ann-att-link{display:inline-flex;align-items:center;gap:5px;background:#f3e5f5;border:1px solid #B98FA0;border-radius:7px;padding:4px 11px;font-size:12px;color:#6a4b9a;text-decoration:none;font-weight:600}
+.ann-att-link:hover{background:#F0E7EA}
+
+/* image grid — flex-based so a single photo never stretches into dead
+   whitespace the way an auto-fill grid track would */
+.ann-img-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.ann-att-img{width:150px;height:150px;border-radius:12px;object-fit:cover;cursor:pointer;border:1px solid var(--border);transition:transform .2s,box-shadow .2s}
+.ann-att-img:hover{transform:scale(1.03);box-shadow:0 6px 16px rgba(10,22,40,.18)}
+
+/* ── SPOTLIGHT layout: single-photo Best Employee / Award posts get a
+   proper "feature" treatment instead of a lone photo in a wide empty card */
+.ann-spotlight{display:flex;gap:18px;align-items:center}
+.ann-spotlight-photo-wrap{position:relative;flex-shrink:0}
+.ann-spotlight-photo{width:104px;height:104px;border-radius:16px;object-fit:cover;cursor:pointer;box-shadow:0 6px 18px rgba(10,22,40,.18);border:3px solid #fff;outline:2px solid var(--spot-color,#2e7d32)}
+.ann-spotlight-medal{position:absolute;bottom:-6px;right:-6px;font-size:22px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.ann-spotlight-body{flex:1;min-width:0}
+.ann-spotlight-rankline{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--spot-color,#2e7d32);margin-bottom:2px}
+.ann-spotlight-name{font-size:17px;font-weight:700;color:#4a3568;font-family:'Fraunces',serif;line-height:1.25}
+.ann-spotlight-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.ann-spotlight-body .ann-post-body{margin-top:8px;margin-bottom:0}
+@media (max-width:480px){
+  .ann-spotlight{flex-direction:column;align-items:flex-start;text-align:left}
+  .ann-spotlight-photo{width:88px;height:88px}
+}
 
 </style>
 </head>
@@ -2198,19 +2247,60 @@ function renderSupAnn(){
   if(!list)return;
   var filtered=supAnnRecords.filter(a=>!supAnnActiveType||a.type===supAnnActiveType);
   if(!filtered.length){list.innerHTML='<div style="color:var(--muted);font-size:13px;padding:30px 0;text-align:center">No announcements yet.</div>';return;}
-  list.innerHTML=filtered.map(a=>supAnnCard(a)).join('');
+  list.innerHTML=filtered.map((a,i)=>supAnnCard(a,i)).join('');
 }
 
-function supAnnCard(a){
+// Rank detection for "Top N Employee of the Month"-style titles, so the
+// spotlight layout can show a medal + tinted ring instead of a generic star.
+var SUP_ANN_RANK_STYLE={
+  1:{medal:'🥇',color:'#d4a017'},
+  2:{medal:'🥈',color:'#8c9096'},
+  3:{medal:'🥉',color:'#b5651d'}
+};
+function detectSupAnnRank(title){
+  var m=(title||'').match(/top\s*(\d+)/i);
+  if(!m)return null;
+  var n=parseInt(m[1],10);
+  return SUP_ANN_RANK_STYLE[n]||{medal:'⭐',color:'#2e7d32'};
+}
+
+function supAnnCard(a,idx){
   var ic=SUP_ANN_ICONS[a.type]||'📣';
   var typCls='ann-type-pill-'+(a.type||'general');
   var iconCls='ann-post-icon-'+(a.type||'general');
+  var typeAccentCls='ann-post-'+(a.type||'general');
   var atts=a.attachments||[];
   var imgs=atts.filter(f=>/\.(jpg|jpeg|png|gif|webp)$/i.test(f.original_name));
   var docs=atts.filter(f=>!/\.(jpg|jpeg|png|gif|webp)$/i.test(f.original_name));
-  var imgHtml=imgs.length?'<div class="ann-img-grid">'+imgs.map(f=>'<a href="/uploads/'+f.filename+'" target="_blank"><img class="ann-att-img" src="/uploads/'+f.filename+'" alt="'+supEscH(f.original_name)+'" loading="lazy"></a>').join('')+'</div>':'';
   var docHtml=docs.length?'<div class="ann-att-row">'+docs.map(f=>'<a class="ann-att-link" href="/uploads/'+f.filename+'" target="_blank">📎 '+supEscH(f.original_name)+'</a>').join('')+'</div>':'';
-  return '<div class="ann-post'+(a.pinned?' pinned':'')+'">'
+  var delayStyle='style="animation-delay:'+Math.min(idx*0.06,0.6)+'s"';
+
+  // Spotlight layout: a single-photo Best Employee / Award post gets a
+  // proper feature treatment (photo + name side by side) instead of a lone
+  // thumbnail floating in an otherwise-empty wide card.
+  var isSpotlightable=(a.type==='best_employee'||a.type==='award')&&imgs.length===1;
+  if(isSpotlightable){
+    var rank=detectSupAnnRank(a.title);
+    var medal=rank?rank.medal:ic;
+    var spotColor=rank?rank.color:(a.type==='award'?'#e65100':'#2e7d32');
+    return '<div class="ann-post '+typeAccentCls+(a.pinned?' pinned':'')+'" '+delayStyle+'>'
+      +'<div class="ann-spotlight" style="--spot-color:'+spotColor+'">'
+      +'<div class="ann-spotlight-photo-wrap">'
+      +'<a href="/uploads/'+imgs[0].filename+'" target="_blank"><img class="ann-spotlight-photo" src="/uploads/'+imgs[0].filename+'" alt="'+supEscH(imgs[0].original_name)+'" loading="lazy"></a>'
+      +'<span class="ann-spotlight-medal">'+medal+'</span>'
+      +'</div>'
+      +'<div class="ann-spotlight-body">'
+      +'<div class="ann-spotlight-rankline">'+SUP_ANN_LABELS[a.type||'general']+'</div>'
+      +'<div class="ann-spotlight-name">'+supEscH(a.title)+'</div>'
+      +'<div class="ann-spotlight-meta">'+(a.employee_name?'👤 '+supEscH(a.employee_name)+' &nbsp;':'')+supFmtDate(a.created_at)+'</div>'
+      +(a.body?'<div class="ann-post-body">'+supEscH(a.body)+'</div>':'')
+      +'</div></div>'
+      +docHtml
+      +'</div>';
+  }
+
+  var imgHtml=imgs.length?'<div class="ann-img-grid">'+imgs.map(f=>'<a href="/uploads/'+f.filename+'" target="_blank"><img class="ann-att-img" src="/uploads/'+f.filename+'" alt="'+supEscH(f.original_name)+'" loading="lazy"></a>').join('')+'</div>':'';
+  return '<div class="ann-post '+typeAccentCls+(a.pinned?' pinned':'')+'" '+delayStyle+'>'
     +'<div class="ann-post-header">'
     +'<div class="ann-post-icon '+iconCls+'">'+ic+'</div>'
     +'<div><div class="ann-post-title">'+(a.pinned?'📌 ':'')+supEscH(a.title)+'</div>'
