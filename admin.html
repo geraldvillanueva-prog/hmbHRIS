@@ -3704,6 +3704,11 @@ function fmtLateUndertime(lateMin,underMin){
   if(hasUnder)parts.push('<span style="color:var(--orange);font-weight:700;font-family:\'IBM Plex Mono\',monospace">UT -'+fmtDuration(underMin)+'</span>');
   return parts.join('<br>');
 }
+function leavePayTag(pay){
+  if(!pay)return'';
+  var wp=pay==='With Pay';
+  return' <span class="badge '+(wp?'badge-green':'badge-red')+'" style="font-size:9px">'+(wp?'💰 With Pay':'🚫 Without Pay')+'</span>';
+}
 function getApprovedLeaveOn(empId,dateStr){
   return leaveRecords.find(l=>l.empId==empId&&l.status==='Approved'&&dateStr>=l.from&&dateStr<=l.to)||null;
 }
@@ -3730,10 +3735,10 @@ function buildTimeLogRowsWithStatus(empScope,from,to,actualRows){
       var dow=d.getDay(),isWeekend=(dow===0||dow===6);
       var leaveRec=getApprovedLeaveOn(e.id,dateStr);
       if(hit){
-        if(leaveRec&&leaveRec.halfDay){hit._halfDayLeave=true;hit._leaveType=leaveRec.type;}
+        if(leaveRec&&leaveRec.halfDay){hit._halfDayLeave=true;hit._leaveType=leaveRec.type;hit._leavePay=leaveRec.pay;}
         result.push({r:hit,status:'present'});
       }
-      else if(leaveRec){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr,_leaveType:leaveRec.type},status:leaveRec.halfDay?'halfday-leave':'leave'});}
+      else if(leaveRec){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr,_leaveType:leaveRec.type,_leavePay:leaveRec.pay},status:leaveRec.halfDay?'halfday-leave':'leave'});}
       else if(isHoliday(dateStr)){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr,_holidayName:getHolidayName(dateStr)},status:'holiday'});}
       else if(isWeekend){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'restday'});}
       else{result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'absent'});}
@@ -3790,7 +3795,7 @@ async function loadTimeLogs(){
       return'<tr style="background:#fff8e1">'
       +'<td><strong>'+r.emp_name+'</strong></td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
-      +'<td colspan="7" style="text-align:center"><span class="badge badge-orange">🌓 Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span></td>'
+      +'<td colspan="7" style="text-align:center"><span class="badge badge-orange">🌓 Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span>'+leavePayTag(r._leavePay)+'</td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
@@ -3799,7 +3804,7 @@ async function loadTimeLogs(){
       return'<tr style="background:#fffbe6">'
       +'<td><strong>'+r.emp_name+'</strong></td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
-      +'<td colspan="7" style="text-align:center"><span class="badge badge-yellow">🌴 On Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span></td>'
+      +'<td colspan="7" style="text-align:center"><span class="badge badge-yellow">🌴 On Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span>'+leavePayTag(r._leavePay)+'</td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
@@ -3836,7 +3841,7 @@ async function loadTimeLogs(){
       ?'<td style="text-align:center"><button class="btn bs ba" title="View route on map" onclick="event.stopPropagation();openRouteMap(window._tlRows['+rowIdx+'])">📍 Map</button></td>'
       :'<td style="text-align:center"><span style="font-size:10px;color:#dce3ec">no GPS</span></td>';
     return'<tr style="cursor:'+(hasGps?'pointer':'default')+'" '+(hasGps?'onclick="openRouteMap(window._tlRows['+rowIdx+'])" title="Click to view route map"':'')+'>'
-    +'<td><strong>'+r.emp_name+'</strong>'+(r._halfDayLeave?'<br><span class="badge badge-orange" style="font-size:9px">🌓 Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span>':'')+'</td>'
+    +'<td><strong>'+r.emp_name+'</strong>'+(r._halfDayLeave?'<br><span class="badge badge-orange" style="font-size:9px">🌓 Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span>'+leavePayTag(r._leavePay):'')+'</td>'
     +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
     +'<td><span class="badge badge-blue" style="font-size:10px">'+shift.name+'<br><span style="font-weight:400;font-size:9px">'+shift.start+' – '+shift.end+'</span></span></td>'
     +tlCell(r.time_in,'var(--green)')
@@ -3862,7 +3867,7 @@ function exportTimeLogsCSV(){
   source.forEach(item=>{
     var r=item.r,status=item.status||'present';
     if(status!=='present'){
-      var label=status==='leave'?('On Leave'+(r._leaveType?' ('+leaveTypeAbbr(r._leaveType)+')':'')):(status==='halfday-leave'?('Half Day Leave'+(r._leaveType?' ('+leaveTypeAbbr(r._leaveType)+')':'')):(status==='restday'?'Rest Day':(status==='holiday'?('Holiday'+(r._holidayName?' ('+r._holidayName+')':'')):'Absent')));
+      var label=status==='leave'?('On Leave'+(r._leaveType?' ('+leaveTypeAbbr(r._leaveType)+')':'')+(r._leavePay?' - '+r._leavePay:'')):(status==='halfday-leave'?('Half Day Leave'+(r._leaveType?' ('+leaveTypeAbbr(r._leaveType)+')':'')+(r._leavePay?' - '+r._leavePay:'')):(status==='restday'?'Rest Day':(status==='holiday'?('Holiday'+(r._holidayName?' ('+r._holidayName+')':'')):'Absent')));
       rows.push([r.emp_name,r.log_date,label,'','','','','','','','','','','','']);
       return;
     }
@@ -3877,7 +3882,7 @@ function exportTimeLogsCSV(){
       var fromUnder=Math.min(underMin,offsetMin);
       underMin-=fromUnder;offsetMin-=fromUnder;offsetApplied+=fromUnder;
     }
-    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+')':''),r.log_date,'Present',shift.name,shift.start,shift.end,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin,underMin,offsetApplied]);
+    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+(r._leavePay?' - '+r._leavePay:'')+')':''),r.log_date,'Present',shift.name,shift.start,shift.end,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin,underMin,offsetApplied]);
   });
   downloadCSV('HMB_TimeLogs_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
