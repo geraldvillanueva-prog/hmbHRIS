@@ -3896,6 +3896,27 @@ function tlCell(val,color){
   return '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:'+(val?color:'#dce3ec')+';font-weight:'+(val?'700':'400')+'">'+(val||'—')+'</td>';
 }
 // ==================== EDIT TIME LOG ====================
+// The server stores punch times as 12-hour strings with seconds, e.g.
+// "07:00:00 AM" (see app.get('/api/timelogs') / status endpoint) — but
+// <input type="time"> only understands 24-hour "HH:MM". These two helpers
+// convert between the two so the edit modal round-trips correctly.
+function tlTo24h(t){
+  if(!t)return'';
+  var m=String(t).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/);
+  if(!m)return'';
+  var h=parseInt(m[1],10),min=m[2],ap=m[4]?m[4].toUpperCase():null;
+  if(ap==='PM'&&h!==12)h+=12;
+  if(ap==='AM'&&h===12)h=0;
+  return String(h).padStart(2,'0')+':'+min;
+}
+function tlTo12h(t){
+  if(!t)return null;
+  var parts=t.split(':');
+  var h=parseInt(parts[0],10),min=parts[1];
+  var ap=h>=12?'PM':'AM';
+  var h12=h%12;if(h12===0)h12=12;
+  return String(h12).padStart(2,'0')+':'+min+':00 '+ap;
+}
 function openEditTimeLog(rowIdx){
   var r=window._tlRows[rowIdx];
   if(!r)return;
@@ -3903,12 +3924,12 @@ function openEditTimeLog(rowIdx){
   document.getElementById('etl-emp-id').value=r.employee_id||r.emp_id||'';
   document.getElementById('etl-date').value=r.log_date||'';
   document.getElementById('etl-subtitle').textContent=(r.emp_name||'')+' — '+fmtDate(r.log_date||'');
-  document.getElementById('etl-time-in').value=r.time_in||'';
-  document.getElementById('etl-lunch-out').value=r.lunch_out||'';
-  document.getElementById('etl-lunch-in').value=r.lunch_in||'';
-  document.getElementById('etl-merienda-out').value=r.merienda_out||'';
-  document.getElementById('etl-merienda-in').value=r.merienda_in||'';
-  document.getElementById('etl-time-out').value=r.time_out||'';
+  document.getElementById('etl-time-in').value=tlTo24h(r.time_in);
+  document.getElementById('etl-lunch-out').value=tlTo24h(r.lunch_out);
+  document.getElementById('etl-lunch-in').value=tlTo24h(r.lunch_in);
+  document.getElementById('etl-merienda-out').value=tlTo24h(r.merienda_out);
+  document.getElementById('etl-merienda-in').value=tlTo24h(r.merienda_in);
+  document.getElementById('etl-time-out').value=tlTo24h(r.time_out);
   document.getElementById('etl-err').style.display='none';
   document.getElementById('edit-timelog-modal').classList.add('open');
 }
@@ -3923,12 +3944,12 @@ async function saveEditTimeLog(){
   var payload={
     employee_id:parseInt(empId),
     log_date:logDate,
-    time_in:v('etl-time-in')||null,
-    lunch_out:v('etl-lunch-out')||null,
-    lunch_in:v('etl-lunch-in')||null,
-    merienda_out:v('etl-merienda-out')||null,
-    merienda_in:v('etl-merienda-in')||null,
-    time_out:v('etl-time-out')||null
+    time_in:tlTo12h(v('etl-time-in')),
+    lunch_out:tlTo12h(v('etl-lunch-out')),
+    lunch_in:tlTo12h(v('etl-lunch-in')),
+    merienda_out:tlTo12h(v('etl-merienda-out')),
+    merienda_in:tlTo12h(v('etl-merienda-in')),
+    time_out:tlTo12h(v('etl-time-out'))
   };
   var r;
   try{
