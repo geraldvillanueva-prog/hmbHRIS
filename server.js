@@ -144,6 +144,7 @@ db.exec(`
     reason TEXT,
     status TEXT DEFAULT 'Pending',
     pay TEXT DEFAULT 'With Pay',
+    half_day INTEGER DEFAULT 0,
     filed_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
   );
@@ -488,7 +489,7 @@ app.get('/api/my/leaves', requireAdminOrSupervisor, (req, res) => {
   res.json(rows.map(r => ({
     id: r.id, empId: r.employee_id, empName: r.emp_name, empPos: r.emp_pos, empDept: r.emp_dept,
     type: r.type, from: r.from_date, to: r.to_date, days: r.days,
-    reason: r.reason, status: r.status, pay: r.pay, filedAt: r.filed_at
+    reason: r.reason, status: r.status, pay: r.pay, halfDay: !!r.half_day, filedAt: r.filed_at
   })));
 });
 
@@ -656,6 +657,12 @@ try {
 // Migrate employees table — add shift_id if missing
 try {
   db.exec(`ALTER TABLE employees ADD COLUMN shift_id INTEGER`);
+} catch(e) {}
+
+// Migrate existing leave_records table — add half_day if missing
+// (older databases created before half-day leave support was added)
+try {
+  db.exec(`ALTER TABLE leave_records ADD COLUMN half_day INTEGER DEFAULT 0`);
 } catch(e) {}
 
 // Migrate employees table — add location policy columns if missing
@@ -918,13 +925,13 @@ app.get('/api/leave', requireAuth, (req, res) => {
   // Admin & Management: all leaves
   if (role === 'admin' || role === 'management') {
     const rows = db.prepare('SELECT l.*, e.name as emp_name FROM leave_records l JOIN employees e ON l.employee_id=e.id ORDER BY l.filed_at DESC').all();
-    return res.json(rows.map(r => ({ id: r.id, empId: r.employee_id, empName: r.emp_name, type: r.type, from: r.from_date, to: r.to_date, days: r.days, reason: r.reason, status: r.status, pay: r.pay, filedAt: r.filed_at })));
+    return res.json(rows.map(r => ({ id: r.id, empId: r.employee_id, empName: r.emp_name, type: r.type, from: r.from_date, to: r.to_date, days: r.days, reason: r.reason, status: r.status, pay: r.pay, halfDay: !!r.half_day, filedAt: r.filed_at })));
   }
   // Employee/Supervisor: only their own leaves
   const empId = req.session.user.employee_id;
   if (!empId) return res.json([]);
   const rows = db.prepare('SELECT l.*, e.name as emp_name FROM leave_records l JOIN employees e ON l.employee_id=e.id WHERE l.employee_id=? ORDER BY l.filed_at DESC').all(empId);
-  return res.json(rows.map(r => ({ id: r.id, empId: r.employee_id, empName: r.emp_name, type: r.type, from: r.from_date, to: r.to_date, days: r.days, reason: r.reason, status: r.status, pay: r.pay, filedAt: r.filed_at })));
+  return res.json(rows.map(r => ({ id: r.id, empId: r.employee_id, empName: r.emp_name, type: r.type, from: r.from_date, to: r.to_date, days: r.days, reason: r.reason, status: r.status, pay: r.pay, halfDay: !!r.half_day, filedAt: r.filed_at })));
 });
 
 // Employee self-service: file own leave (status always Pending)
@@ -934,7 +941,8 @@ app.post('/api/leave/file', requireAuth, (req, res) => {
   const l = req.body;
   if (!l.from || !l.to) return res.json({ success: false, error: 'Date from and to are required' });
   const pay = (l.pay === 'Without Pay') ? 'Without Pay' : 'With Pay'; // default to With Pay for safety
-  const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay) VALUES (?,?,?,?,?,?,?,?)').run(empId, l.type, l.from, l.to, +l.days||0, l.reason||'', 'Pending', pay);
+  const halfDay = l.halfDay ? 1 : 0;
+  const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay, half_day) VALUES (?,?,?,?,?,?,?,?,?)').run(empId, l.type, l.from, l.to, +l.days||0, l.reason||'', 'Pending', pay, halfDay);
   res.json({ success: true, id: r.lastInsertRowid });
 });
 
@@ -961,7 +969,8 @@ app.get('/api/leave/balance', requireAuth, (req, res) => {
 
 app.post('/api/leave', requireAdmin, (req, res) => {
   const l = req.body;
-  const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay) VALUES (?,?,?,?,?,?,?,?)').run(l.empId, l.type, l.from, l.to, +l.days||0, l.reason||'', l.status||'Pending', l.pay||'With Pay');
+  const halfDay = l.halfDay ? 1 : 0;
+  const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay, half_day) VALUES (?,?,?,?,?,?,?,?,?)').run(l.empId, l.type, l.from, l.to, +l.days||0, l.reason||'', l.status||'Pending', l.pay||'With Pay', halfDay);
   // Deduct balance if approved
   if (l.status === 'Approved' && l.pay === 'With Pay') {
     const e = db.prepare('SELECT * FROM employees WHERE id=?').get(l.empId);
@@ -974,7 +983,6 @@ app.post('/api/leave', requireAdmin, (req, res) => {
 });
 
 app.put('/api/leave/:id', requireAdminOrManagement, (req, res) => {
-  const { status } = req.body;
   const rec = db.prepare('SELECT * FROM leave_records WHERE id=?').get(req.params.id);
   if (!rec) return res.json({ success: false, error: 'Not found' });
   // Supervisor check skipped for admin and management
@@ -982,11 +990,24 @@ app.put('/api/leave/:id', requireAdminOrManagement, (req, res) => {
     const isSub = db.prepare('SELECT id FROM supervisor_subordinates WHERE supervisor_user_id=? AND employee_id=?').get(req.session.user.id, rec.employee_id);
     if (!isSub) return res.status(403).json({ success: false, error: 'Not your subordinate' });
   }
-  db.prepare('UPDATE leave_records SET status=? WHERE id=?').run(status, req.params.id);
+  // Accept either a full edit (admin.html's "File Leave" edit form sends type/from/to/
+  // days/reason/pay/halfDay) or a narrow approve/deny call (just { status }) — any field
+  // not present in the request body keeps its existing value instead of being wiped out.
+  const b = req.body;
+  const status   = b.status   !== undefined ? b.status        : rec.status;
+  const type     = b.type     !== undefined ? b.type          : rec.type;
+  const fromDate = b.from     !== undefined ? b.from          : rec.from_date;
+  const toDate   = b.to       !== undefined ? b.to            : rec.to_date;
+  const days     = b.days     !== undefined ? +b.days         : rec.days;
+  const reason   = b.reason   !== undefined ? b.reason        : rec.reason;
+  const pay      = b.pay      !== undefined ? b.pay           : rec.pay;
+  const halfDay  = b.halfDay  !== undefined ? (b.halfDay?1:0) : rec.half_day;
+  db.prepare('UPDATE leave_records SET status=?, type=?, from_date=?, to_date=?, days=?, reason=?, pay=?, half_day=? WHERE id=?')
+    .run(status, type, fromDate, toDate, days, reason, pay, halfDay, req.params.id);
   // Deduct balance if approved
-  if (status === 'Approved' && rec.pay === 'With Pay') {
-    if (rec.type.includes('VL') || rec.type.includes('Vacation')) db.prepare('UPDATE employees SET vl_bal=MAX(0,vl_bal-?) WHERE id=?').run(rec.days, rec.employee_id);
-    else if (rec.type.includes('SL') || rec.type.includes('Sick')) db.prepare('UPDATE employees SET sl_bal=MAX(0,sl_bal-?) WHERE id=?').run(rec.days, rec.employee_id);
+  if (status === 'Approved' && pay === 'With Pay') {
+    if (type.includes('VL') || type.includes('Vacation')) db.prepare('UPDATE employees SET vl_bal=MAX(0,vl_bal-?) WHERE id=?').run(days, rec.employee_id);
+    else if (type.includes('SL') || type.includes('Sick')) db.prepare('UPDATE employees SET sl_bal=MAX(0,sl_bal-?) WHERE id=?').run(days, rec.employee_id);
   }
   res.json({ success: true });
 });
