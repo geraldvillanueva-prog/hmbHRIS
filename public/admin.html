@@ -3705,13 +3705,34 @@ function calcLateMinutes(timeIn, shiftStart){
   if(!timeIn||!shiftStart)return 0;
   var tiMin=parseTimeStrToMinutes(timeIn),startMin=parseTimeStrToMinutes(shiftStart);
   if(tiMin==null||startMin==null)return 0;
-  var diff=tiMin-startMin;
-  return diff>0?diff:0;
+  // Minutes after shift start, wrapping around midnight — this makes night
+  // shifts (e.g. 9:00 PM start) work the same way as day shifts: a time-in of
+  // 12:15 AM correctly reads as 3h15m late instead of "not late" (which a
+  // plain same-day subtraction would wrongly conclude, since 12:15 AM is
+  // numerically earlier than 9:00 PM within a single calendar day).
+  var elapsed=(tiMin-startMin+1440)%1440;
+  // More than 12 hours "after" start almost certainly means the punch was
+  // actually early for the shift's next occurrence, not extremely late for
+  // this one — treat that as on-time rather than an absurd late figure.
+  if(elapsed>720)return 0;
+  return elapsed;
 }
-function calcUndertimeMinutes(timeOut, shiftEnd){
+function calcUndertimeMinutes(timeOut, shiftEnd, shiftStart){
   if(!timeOut||!shiftEnd)return 0;
   var toMin=parseTimeStrToMinutes(timeOut),endMin=parseTimeStrToMinutes(shiftEnd);
   if(toMin==null||endMin==null)return 0;
+  var startMin=shiftStart?parseTimeStrToMinutes(shiftStart):null;
+  if(startMin!=null){
+    // Same wrap-around approach as calcLateMinutes, anchored to shift start,
+    // so a shift that crosses midnight (e.g. 9:00 PM – 6:00 AM) is measured
+    // on a continuous timeline instead of two disconnected calendar days.
+    var shiftDuration=(endMin-startMin+1440)%1440;
+    if(shiftDuration===0)shiftDuration=1440; // 24-hour shift edge case
+    var outElapsed=(toMin-startMin+1440)%1440;
+    var diff=shiftDuration-outElapsed;
+    return diff>0?diff:0;
+  }
+  // Fallback if shift start isn't available: old same-day comparison
   var diff=endMin-toMin;
   return diff>0?diff:0;
 }
@@ -3802,7 +3823,7 @@ async function loadTimeLogs(){
     if(item.status!=='present')return{r,shift:null,lateMin:null,underMin:null,status:item.status};
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id,r.log_date);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
-    var underMin=calcUndertimeMinutes(r.time_out,shift.end);
+    var underMin=calcUndertimeMinutes(r.time_out,shift.end,shift.start);
     var offsetMin=getOffsetMinutesFor(r.employee_id||r.emp_id,r.log_date);
     var offsetApplied=0;
     if(offsetMin>0){
@@ -3984,7 +4005,7 @@ function exportTimeLogsCSV(){
     }
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id,r.log_date);
     var lateMin=calcLateMinutes(r.time_in,shift.start);
-    var underMin=calcUndertimeMinutes(r.time_out,shift.end);
+    var underMin=calcUndertimeMinutes(r.time_out,shift.end,shift.start);
     var offsetMin=getOffsetMinutesFor(r.employee_id||r.emp_id,r.log_date);
     var offsetApplied=0;
     if(offsetMin>0){
