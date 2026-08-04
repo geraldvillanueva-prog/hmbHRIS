@@ -1615,6 +1615,35 @@ await fetch('/api/recruitment/webhook', {
   </div>
 </div>
 
+<div class="modal-overlay" id="edit-timelog-modal" onclick="if(event.target.id==='edit-timelog-modal')closeEditTimeLogModal()">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-title">
+      ✏️ Edit Time Log
+      <button class="modal-close" onclick="closeEditTimeLogModal()">✕</button>
+    </div>
+    <input type="hidden" id="etl-id">
+    <input type="hidden" id="etl-emp-id">
+    <input type="hidden" id="etl-date">
+    <div id="etl-subtitle" class="page-sub" style="margin-bottom:14px"></div>
+    <div class="row">
+      <div class="f" style="max-width:150px"><label>Time In</label><input id="etl-time-in" type="time"></div>
+      <div class="f" style="max-width:150px"><label>Lunch Out</label><input id="etl-lunch-out" type="time"></div>
+      <div class="f" style="max-width:150px"><label>Lunch In</label><input id="etl-lunch-in" type="time"></div>
+    </div>
+    <div class="row">
+      <div class="f" style="max-width:150px"><label>Merienda Out</label><input id="etl-merienda-out" type="time"></div>
+      <div class="f" style="max-width:150px"><label>Merienda In</label><input id="etl-merienda-in" type="time"></div>
+      <div class="f" style="max-width:150px"><label>Time Out</label><input id="etl-time-out" type="time"></div>
+    </div>
+    <div class="page-sub" style="margin-top:6px">Leave any field blank to clear that punch. Late/undertime and export figures recalculate automatically from the shift assigned to this employee on this date.</div>
+    <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
+      <button class="btn bp" onclick="saveEditTimeLog()">Save Changes</button>
+      <button class="btn" onclick="closeEditTimeLogModal()">Cancel</button>
+      <span id="etl-err" style="color:var(--red);font-size:12px;display:none"></span>
+    </div>
+  </div>
+</div>
+
 <script>
 // ==================== STATE ====================
 var employees=[],attendance={},payslipHistory=[],nextId=1;
@@ -3788,6 +3817,7 @@ async function loadTimeLogs(){
     +'<th>Employee</th><th>Date</th><th>Shift</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th>'
     +'<th style="color:var(--red)">Late / Undertime</th>'
     +'<th>Route</th>'
+    +'<th>Action</th>'
     +'</tr></thead><tbody>'
   +tableRows.map(function({r,shift,lateMin,underMin,offsetApplied,status},rowIdx){
     if(status==='halfday-leave'){
@@ -3796,6 +3826,7 @@ async function loadTimeLogs(){
       +'<td><strong>'+r.emp_name+'</strong></td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
       +'<td colspan="7" style="text-align:center"><span class="badge badge-orange">🌓 Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span>'+leavePayTag(r._leavePay)+'</td>'
+      +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
@@ -3806,6 +3837,7 @@ async function loadTimeLogs(){
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
       +'<td colspan="7" style="text-align:center"><span class="badge badge-yellow">🌴 On Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span>'+leavePayTag(r._leavePay)+'</td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
+      +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
     if(status==='holiday'){
@@ -3814,6 +3846,7 @@ async function loadTimeLogs(){
       +'<td><strong>'+r.emp_name+'</strong></td>'
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
       +'<td colspan="7" style="text-align:center"><span class="badge badge-green">🎉 Holiday'+(r._holidayName?' — '+r._holidayName:'')+'</span></td>'
+      +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
@@ -3824,6 +3857,7 @@ async function loadTimeLogs(){
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
       +'<td colspan="7" style="text-align:center"><span class="badge" style="background:#eceff1;color:#607d8b">🛌 Rest Day</span></td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
+      +'<td style="text-align:center;color:#dce3ec">—</td>'
       +'</tr>';
     }
     if(status==='absent'){
@@ -3833,6 +3867,7 @@ async function loadTimeLogs(){
       +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
       +'<td colspan="7" style="text-align:center"><span class="badge badge-red">❌ Absent</span></td>'
       +'<td style="text-align:center;color:#dce3ec">—</td>'
+      +'<td style="text-align:center"><button class="btn bs ba" onclick="event.stopPropagation();openEditTimeLog('+rowIdx+')">✏️ File Punch</button></td>'
       +'</tr>';
     }
     var hasGps=!!(r.lat||r.lunch_out_lat||r.merienda_out_lat||r.timeout_lat);
@@ -3840,6 +3875,7 @@ async function loadTimeLogs(){
     var mapBtn=hasGps
       ?'<td style="text-align:center"><button class="btn bs ba" title="View route on map" onclick="event.stopPropagation();openRouteMap(window._tlRows['+rowIdx+'])">📍 Map</button></td>'
       :'<td style="text-align:center"><span style="font-size:10px;color:#dce3ec">no GPS</span></td>';
+    var editBtn='<td style="text-align:center"><button class="btn bs ba" onclick="event.stopPropagation();openEditTimeLog('+rowIdx+')">✏️ Edit</button></td>';
     return'<tr style="cursor:'+(hasGps?'pointer':'default')+'" '+(hasGps?'onclick="openRouteMap(window._tlRows['+rowIdx+'])" title="Click to view route map"':'')+'>'
     +'<td><strong>'+r.emp_name+'</strong>'+(r._halfDayLeave?'<br><span class="badge badge-orange" style="font-size:9px">🌓 Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span>'+leavePayTag(r._leavePay):'')+'</td>'
     +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
@@ -3852,11 +3888,63 @@ async function loadTimeLogs(){
     +tlCell(r.time_out,'var(--muted)')
     +'<td style="text-align:center">'+fmtLateUndertime(lateMin,underMin)+(offsetApplied>0?'<br><span class="badge badge-purple" style="font-size:9px">⏱ -'+fmtDuration(offsetApplied)+' offset</span>':'')+'</td>'
     +mapBtn
+    +editBtn
     +'</tr>';}).join('')
   +'</tbody></table></div>';
 }
 function tlCell(val,color){
   return '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:'+(val?color:'#dce3ec')+';font-weight:'+(val?'700':'400')+'">'+(val||'—')+'</td>';
+}
+// ==================== EDIT TIME LOG ====================
+function openEditTimeLog(rowIdx){
+  var r=window._tlRows[rowIdx];
+  if(!r)return;
+  document.getElementById('etl-id').value=r.id||'';
+  document.getElementById('etl-emp-id').value=r.employee_id||r.emp_id||'';
+  document.getElementById('etl-date').value=r.log_date||'';
+  document.getElementById('etl-subtitle').textContent=(r.emp_name||'')+' — '+fmtDate(r.log_date||'');
+  document.getElementById('etl-time-in').value=r.time_in||'';
+  document.getElementById('etl-lunch-out').value=r.lunch_out||'';
+  document.getElementById('etl-lunch-in').value=r.lunch_in||'';
+  document.getElementById('etl-merienda-out').value=r.merienda_out||'';
+  document.getElementById('etl-merienda-in').value=r.merienda_in||'';
+  document.getElementById('etl-time-out').value=r.time_out||'';
+  document.getElementById('etl-err').style.display='none';
+  document.getElementById('edit-timelog-modal').classList.add('open');
+}
+function closeEditTimeLogModal(){
+  document.getElementById('edit-timelog-modal').classList.remove('open');
+}
+async function saveEditTimeLog(){
+  var id=v('etl-id'),empId=v('etl-emp-id'),logDate=v('etl-date');
+  var errEl=document.getElementById('etl-err');
+  errEl.style.display='none';
+  if(!empId||!logDate){errEl.textContent='Missing employee or date — close and reopen this row.';errEl.style.display='inline';return;}
+  var payload={
+    employee_id:parseInt(empId),
+    log_date:logDate,
+    time_in:v('etl-time-in')||null,
+    lunch_out:v('etl-lunch-out')||null,
+    lunch_in:v('etl-lunch-in')||null,
+    merienda_out:v('etl-merienda-out')||null,
+    merienda_in:v('etl-merienda-in')||null,
+    time_out:v('etl-time-out')||null
+  };
+  var r;
+  try{
+    r=id?await api('PATCH','/api/timelogs/'+id,payload):await api('POST','/api/timelogs',payload);
+  }catch(e){
+    errEl.textContent='Could not reach the server. Please try again.';
+    errEl.style.display='inline';
+    return;
+  }
+  if(r&&r.error){
+    errEl.textContent=r.error;
+    errEl.style.display='inline';
+    return;
+  }
+  closeEditTimeLogModal();
+  await loadTimeLogs();
 }
 function exportTimeLogsCSV(){
   if(!allTimeLogs.length&&!(window._tlCombined&&window._tlCombined.length)){alert('Load time logs first.');return;}
