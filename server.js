@@ -749,6 +749,39 @@ app.get('/api/timelogs', requireAuth, (req, res) => {
   res.json(rows);
 });
 
+// EDIT an existing time log record (admin only) — used by the "Edit" action
+// on the Employee Time Logs page in admin.html to correct a punch.
+app.patch('/api/timelogs/:id', requireAdmin, (req, res) => {
+  const row = db.prepare('SELECT * FROM time_logs WHERE id=?').get(req.params.id);
+  if (!row) return res.status(404).json({ success: false, error: 'Time log record not found.' });
+  const { time_in = null, lunch_out = null, lunch_in = null, merienda_out = null, merienda_in = null, time_out = null } = req.body;
+  db.prepare('UPDATE time_logs SET time_in=?, lunch_out=?, lunch_in=?, merienda_out=?, merienda_in=?, time_out=? WHERE id=?')
+    .run(time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out, req.params.id);
+  res.json({ success: true });
+});
+
+// FILE a manual time log entry (admin only) — used by the "File Punch" action
+// on an Absent day in admin.html, or to create a record where none exists yet.
+// If a row already exists for this employee/date it's updated instead of
+// duplicated (time_logs has no unique constraint on employee_id+log_date,
+// since normal punching can legitimately create more than one row per day).
+app.post('/api/timelogs', requireAdmin, (req, res) => {
+  const { employee_id, log_date, time_in = null, lunch_out = null, lunch_in = null, merienda_out = null, merienda_in = null, time_out = null } = req.body;
+  if (!employee_id || !log_date) return res.status(400).json({ success: false, error: 'employee_id and log_date are required.' });
+  const emp = db.prepare('SELECT id FROM employees WHERE id=?').get(employee_id);
+  if (!emp) return res.status(404).json({ success: false, error: 'Employee not found.' });
+
+  const existing = db.prepare('SELECT id FROM time_logs WHERE employee_id=? AND log_date=?').get(employee_id, log_date);
+  if (existing) {
+    db.prepare('UPDATE time_logs SET time_in=?, lunch_out=?, lunch_in=?, merienda_out=?, merienda_in=?, time_out=? WHERE id=?')
+      .run(time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out, existing.id);
+    return res.json({ success: true, id: existing.id });
+  }
+  const info = db.prepare('INSERT INTO time_logs (employee_id, log_date, time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out) VALUES (?,?,?,?,?,?,?,?)')
+    .run(employee_id, log_date, time_in, lunch_out, lunch_in, merienda_out, merienda_in, time_out);
+  res.json({ success: true, id: info.lastInsertRowid });
+});
+
 // Helper: get today's date in Philippine Time (UTC+8)
 function todayPH() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // returns YYYY-MM-DD
