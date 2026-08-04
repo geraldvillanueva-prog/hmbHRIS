@@ -3877,7 +3877,7 @@ async function loadTimeLogs(){
       :'<td style="text-align:center"><span style="font-size:10px;color:#dce3ec">no GPS</span></td>';
     var editBtn='<td style="text-align:center"><button class="btn bs ba" onclick="event.stopPropagation();openEditTimeLog('+rowIdx+')">✏️ Edit</button></td>';
     return'<tr style="cursor:'+(hasGps?'pointer':'default')+'" '+(hasGps?'onclick="openRouteMap(window._tlRows['+rowIdx+'])" title="Click to view route map"':'')+'>'
-    +'<td><strong>'+r.emp_name+'</strong>'+(r._halfDayLeave?'<br><span class="badge badge-orange" style="font-size:9px">🌓 Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+'</span>'+leavePayTag(r._leavePay):'')+'</td>'
+    +'<td><strong>'+r.emp_name+'</strong></td>'
     +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
     +'<td><span class="badge badge-blue" style="font-size:10px">'+shift.name+'<br><span style="font-weight:400;font-size:9px">'+shift.start+' – '+shift.end+'</span></span></td>'
     +tlCell(r.time_in,'var(--green)')
@@ -3887,7 +3887,7 @@ async function loadTimeLogs(){
     +tlCell(r.merienda_in,'#0277bd')
     +tlCell(r.time_out,'var(--muted)')
     +(r._halfDayLeave
-        ?'<td style="text-align:center"><span class="badge badge-orange" style="font-size:10px">🌓 Half Day</span></td>'
+        ?'<td style="text-align:center"><span class="badge badge-orange" style="font-size:10px">🌓 Half Day</span>'+leavePayTag(r._leavePay)+'</td>'
         :'<td style="text-align:center">'+fmtLateUndertime(lateMin,underMin)+(offsetApplied>0?'<br><span class="badge badge-purple" style="font-size:9px">⏱ -'+fmtDuration(offsetApplied)+' offset</span>':'')+'</td>')
     +mapBtn
     +editBtn
