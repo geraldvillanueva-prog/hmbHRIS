@@ -3886,7 +3886,9 @@ async function loadTimeLogs(){
     +tlCell(r.merienda_out,'var(--orange)')
     +tlCell(r.merienda_in,'#0277bd')
     +tlCell(r.time_out,'var(--muted)')
-    +'<td style="text-align:center">'+fmtLateUndertime(lateMin,underMin)+(offsetApplied>0?'<br><span class="badge badge-purple" style="font-size:9px">⏱ -'+fmtDuration(offsetApplied)+' offset</span>':'')+'</td>'
+    +(r._halfDayLeave
+        ?'<td style="text-align:center"><span class="badge badge-orange" style="font-size:10px">🌓 Half Day</span></td>'
+        :'<td style="text-align:center">'+fmtLateUndertime(lateMin,underMin)+(offsetApplied>0?'<br><span class="badge badge-purple" style="font-size:9px">⏱ -'+fmtDuration(offsetApplied)+' offset</span>':'')+'</td>')
     +mapBtn
     +editBtn
     +'</tr>';}).join('')
