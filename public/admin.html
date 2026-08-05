@@ -3779,7 +3779,7 @@ function buildTimeLogRowsWithStatus(empScope,from,to,actualRows){
   var start=new Date(from+'T00:00:00'),end=new Date(to+'T00:00:00');
   if(isNaN(start)||isNaN(end))return actualRows.map(r=>({r,status:'present'}));
   empScope.forEach(e=>{
-    for(var d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+    for(var d=new Date(end);d>=start;d.setDate(d.getDate()-1)){
       var dateStr=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       var hit=byKey[e.id+'_'+dateStr];
       var dow=d.getDay(),isWeekend=(dow===0||dow===6);
@@ -4129,7 +4129,7 @@ async function deleteOffset(id){
 function renderOffsetsList(){
   var w=document.getElementById('offsets-list-wrap');if(!w)return;
   if(!offsetRecords.length){w.innerHTML='<div class="empty">No offsets added yet.</div>';return;}
-  var list=offsetRecords.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  var list=offsetRecords.slice().sort((a,b)=>empName(a.empId).localeCompare(empName(b.empId))||b.date.localeCompare(a.date));
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Date Offset</th><th>Minutes</th><th>Note</th><th></th></tr></thead><tbody>'
   +list.map(rec=>'<tr><td><strong>'+empName(rec.empId)+'</strong></td><td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(rec.date)+'</td><td>'+fmtDuration(rec.minutes)+'</td><td style="font-size:12px;color:var(--muted)">'+(rec.note||'—')+'</td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="editOffset('+rec.id+')">✏️ Edit</button><button class="btn bs br" onclick="deleteOffset('+rec.id+')">🗑 Delete</button></td></tr>').join('')
   +'</tbody></table></div>';
