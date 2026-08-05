@@ -3989,6 +3989,7 @@ async function saveEditTimeLog(){
     return;
   }
   closeEditTimeLogModal();
+  _excessCache={}; // this employee's excess-time total may have changed
   await loadTimeLogs();
 }
 function exportTimeLogsCSV(){
@@ -4127,7 +4128,49 @@ async function deleteOffset(id){
   renderOffsetsList();
   showSaveIndicator();
 }
-function renderOffsetsList(){
+// Cutoff period (1st–15th or 16th–end of month) that a given date falls into
+function cutoffRangeForDate(dateStr){
+  var parts=dateStr.split('-');
+  var y=parseInt(parts[0],10),m=parseInt(parts[1],10),day=parseInt(parts[2],10);
+  var mm=String(m).padStart(2,'0');
+  if(day<=15){
+    return{from:y+'-'+mm+'-01',to:y+'-'+mm+'-15',label:mm+'/1–15/'+y};
+  }
+  var lastDay=new Date(y,m,0).getDate(); // day 0 of next month = last day of this month
+  return{from:y+'-'+mm+'-16',to:y+'-'+mm+'-'+String(lastDay).padStart(2,'0'),label:mm+'/16–'+lastDay+'/'+y};
+}
+// Minutes worked past 6:01 PM on a given day, based on that day's actual time-out.
+// Handles shifts that cross midnight the same way the late/undertime fix does:
+// if time-out is numerically earlier than time-in, the punch happened after
+// midnight, so it's normalized onto a continuous timeline before comparing.
+function calcExcessMinutesForDay(timeIn,timeOut){
+  if(!timeOut)return 0;
+  var toMin=parseTimeStrToMinutes(timeOut);
+  if(toMin==null)return 0;
+  var tiMin=timeIn?parseTimeStrToMinutes(timeIn):null;
+  if(tiMin!=null&&toMin<tiMin)toMin+=24*60;
+  var threshold=18*60+1; // 6:01 PM
+  var excess=toMin-threshold;
+  return excess>0?excess:0;
+}
+// Cache of accumulated excess minutes per employee+cutoff-period, so re-rendering
+// the offsets list (e.g. while typing in the search box) doesn't refetch time
+// logs it already has. Cleared whenever the offsets list is asked to refresh
+// after something that could change the underlying time logs.
+var _excessCache={};
+async function getAccumulatedExcess(empId,cutoff){
+  var key=empId+'_'+cutoff.from+'_'+cutoff.to;
+  if(_excessCache[key]!=null)return _excessCache[key];
+  var params=new URLSearchParams();
+  params.append('employee_id',empId);
+  params.append('from',cutoff.from);
+  params.append('to',cutoff.to);
+  var rows=await api('GET','/api/timelogs?'+params.toString());
+  var total=(rows||[]).reduce((sum,r)=>sum+calcExcessMinutesForDay(r.time_in,r.time_out),0);
+  _excessCache[key]=total;
+  return total;
+}
+async function renderOffsetsList(){
   var w=document.getElementById('offsets-list-wrap');if(!w)return;
   if(!offsetRecords.length){w.innerHTML='<div class="empty">No offsets added yet.</div>';return;}
   var term=(v('off-search')||'').trim().toLowerCase();
@@ -4138,8 +4181,21 @@ function renderOffsetsList(){
   });
   if(!filtered.length){w.innerHTML='<div class="empty">No offsets match your search.</div>';return;}
   var list=filtered.slice().sort((a,b)=>empName(a.empId).localeCompare(empName(b.empId))||b.date.localeCompare(a.date));
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Date Offset</th><th>Minutes</th><th>Note</th><th></th></tr></thead><tbody>'
-  +list.map(rec=>'<tr><td><strong>'+empName(rec.empId)+'</strong></td><td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(rec.date)+'</td><td>'+fmtDuration(rec.minutes)+'</td><td style="font-size:12px;color:var(--muted)">'+(rec.note||'—')+'</td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="editOffset('+rec.id+')">✏️ Edit</button><button class="btn bs br" onclick="deleteOffset('+rec.id+')">🗑 Delete</button></td></tr>').join('')
+
+  var withCutoff=list.map(rec=>({rec,cutoff:cutoffRangeForDate(rec.date)}));
+  await Promise.all(withCutoff.map(x=>getAccumulatedExcess(x.rec.empId,x.cutoff)));
+
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Date Offset</th><th>Minutes</th><th>Note</th><th>Accumulated Excess (this cutoff)</th><th></th></tr></thead><tbody>'
+  +withCutoff.map(x=>{
+    var rec=x.rec,cutoff=x.cutoff;
+    var excessMin=_excessCache[rec.empId+'_'+cutoff.from+'_'+cutoff.to]||0;
+    return'<tr><td><strong>'+empName(rec.empId)+'</strong></td>'
+      +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(rec.date)+'</td>'
+      +'<td>'+fmtDuration(rec.minutes)+'</td>'
+      +'<td style="font-size:12px;color:var(--muted)">'+(rec.note||'—')+'</td>'
+      +'<td style="text-align:center"><span class="badge badge-green" style="font-size:10px" title="'+cutoff.label+' cutoff — time worked after 6:01 PM">⏱ '+(excessMin>0?fmtDuration(excessMin):'—')+'</span></td>'
+      +'<td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="editOffset('+rec.id+')">✏️ Edit</button><button class="btn bs br" onclick="deleteOffset('+rec.id+')">🗑 Delete</button></td></tr>';
+  }).join('')
   +'</tbody></table></div>';
 }
 // Total offset minutes filed for an employee on a specific date
