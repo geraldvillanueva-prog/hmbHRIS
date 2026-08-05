@@ -1091,6 +1091,7 @@ tr:hover td{background:#fafcff}
       </div>
       <button class="btn bp" id="off-save-btn" onclick="saveOffsetForm()">+ Add Offset</button>
       <button class="btn bs" id="off-cancel-btn" style="display:none" onclick="cancelOffsetEdit()">Cancel</button>
+      <div class="f" style="max-width:280px;margin-top:14px"><label>🔍 Search</label><input id="off-search" type="text" placeholder="Search by employee or note…" oninput="renderOffsetsList()"></div>
       <div id="offsets-list-wrap" style="margin-top:10px"><div class="empty">No offsets added yet.</div></div>
     </div>
   </div>
@@ -4129,7 +4130,14 @@ async function deleteOffset(id){
 function renderOffsetsList(){
   var w=document.getElementById('offsets-list-wrap');if(!w)return;
   if(!offsetRecords.length){w.innerHTML='<div class="empty">No offsets added yet.</div>';return;}
-  var list=offsetRecords.slice().sort((a,b)=>empName(a.empId).localeCompare(empName(b.empId))||b.date.localeCompare(a.date));
+  var term=(v('off-search')||'').trim().toLowerCase();
+  var filtered=offsetRecords.filter(rec=>{
+    if(!term)return true;
+    var hay=(empName(rec.empId)+' '+(rec.note||'')).toLowerCase();
+    return hay.indexOf(term)!==-1;
+  });
+  if(!filtered.length){w.innerHTML='<div class="empty">No offsets match your search.</div>';return;}
+  var list=filtered.slice().sort((a,b)=>empName(a.empId).localeCompare(empName(b.empId))||b.date.localeCompare(a.date));
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Date Offset</th><th>Minutes</th><th>Note</th><th></th></tr></thead><tbody>'
   +list.map(rec=>'<tr><td><strong>'+empName(rec.empId)+'</strong></td><td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(rec.date)+'</td><td>'+fmtDuration(rec.minutes)+'</td><td style="font-size:12px;color:var(--muted)">'+(rec.note||'—')+'</td><td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="editOffset('+rec.id+')">✏️ Edit</button><button class="btn bs br" onclick="deleteOffset('+rec.id+')">🗑 Delete</button></td></tr>').join('')
   +'</tbody></table></div>';
