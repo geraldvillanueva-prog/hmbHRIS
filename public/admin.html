@@ -1091,7 +1091,7 @@ tr:hover td{background:#fafcff}
       </div>
       <button class="btn bp" id="off-save-btn" onclick="saveOffsetForm()">+ Add Offset</button>
       <button class="btn bs" id="off-cancel-btn" style="display:none" onclick="cancelOffsetEdit()">Cancel</button>
-      <div class="f" style="max-width:280px;margin-top:14px"><label>🔍 Search</label><input id="off-search" type="text" placeholder="Search by employee or note…" oninput="renderOffsetsList()"></div>
+      <div class="f" style="max-width:280px;margin-top:14px"><label>Filter by Employee</label><select id="off-search-emp" onchange="renderOffsetsList()"><option value="">All</option></select></div>
       <div id="offsets-list-wrap" style="margin-top:10px"><div class="empty">No offsets added yet.</div></div>
     </div>
   </div>
@@ -2098,11 +2098,11 @@ function populatePeriodSelects(){
   }
 }
 function populateAllSelects(){
-  var sels=['lv-emp','lv-filter-emp','disc-emp','disc-filter-emp','perf-emp','perf-filter-emp','hist-emp','att-emp-sel','off-emp'];
+  var sels=['lv-emp','lv-filter-emp','disc-emp','disc-filter-emp','perf-emp','perf-filter-emp','hist-emp','att-emp-sel','off-emp','off-search-emp'];
   sels.forEach(id=>{
     var sel=document.getElementById(id);if(!sel)return;
     var cur=sel.value;
-    var isFilter=id.includes('filter')||id==='hist-emp'||id==='att-emp-sel';
+    var isFilter=id.includes('filter')||id==='hist-emp'||id==='att-emp-sel'||id==='off-search-emp';
     sel.innerHTML=(isFilter?'<option value="">All</option>':'<option value="">-- Select --</option>');
     var list=isFilter?employees:employees.filter(e=>e.active!==0);
     list.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name+(e.active===0?' (Inactive)':'');if(e.id==cur)o.selected=true;sel.appendChild(o);});
@@ -4173,13 +4173,9 @@ async function getAccumulatedExcess(empId,cutoff){
 async function renderOffsetsList(){
   var w=document.getElementById('offsets-list-wrap');if(!w)return;
   if(!offsetRecords.length){w.innerHTML='<div class="empty">No offsets added yet.</div>';return;}
-  var term=(v('off-search')||'').trim().toLowerCase();
-  var filtered=offsetRecords.filter(rec=>{
-    if(!term)return true;
-    var hay=(empName(rec.empId)+' '+(rec.note||'')).toLowerCase();
-    return hay.indexOf(term)!==-1;
-  });
-  if(!filtered.length){w.innerHTML='<div class="empty">No offsets match your search.</div>';return;}
+  var filterEmp=v('off-search-emp');
+  var filtered=offsetRecords.filter(rec=>!filterEmp||rec.empId==filterEmp);
+  if(!filtered.length){w.innerHTML='<div class="empty">No offsets for this employee.</div>';return;}
   var list=filtered.slice().sort((a,b)=>empName(a.empId).localeCompare(empName(b.empId))||b.date.localeCompare(a.date));
 
   var withCutoff=list.map(rec=>({rec,cutoff:cutoffRangeForDate(rec.date)}));
