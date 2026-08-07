@@ -1529,7 +1529,7 @@ function getGpsCoords(){
         setGpsBar('err','🚫 '+msg);
         reject(msg);
       },
-      {enableHighAccuracy:true,maximumAge:15000,timeout:12000}
+      {enableHighAccuracy:true,maximumAge:15000,timeout:5000}
     );
   });
 }
