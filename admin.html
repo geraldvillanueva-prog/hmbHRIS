@@ -780,9 +780,10 @@ tr:hover td{background:#fafcff}
     <div class="card no-print">
       <div class="row" style="align-items:flex-end">
         <div class="f" style="max-width:200px"><label>Any date in the week</label><input id="comm-week-pick" type="date" onchange="loadCommissionWeek()"></div>
-        <div class="f" style="max-width:170px"><label>Week starts (Mon)</label><input id="comm-week-start" type="text" disabled></div>
-        <div class="f" style="max-width:170px"><label>Week ends (Sun)</label><input id="comm-week-end" type="text" disabled></div>
+        <div class="f" style="max-width:170px"><label>Period Start</label><input id="comm-week-start" type="date" onchange="applyCommissionPeriod()"></div>
+        <div class="f" style="max-width:170px"><label>Period End</label><input id="comm-week-end" type="date" onchange="applyCommissionPeriod()"></div>
       </div>
+      <div class="page-sub" style="margin-top:6px">Picking a date auto-fills a Monday–Sunday week — edit Period Start/End directly if this commission run needs a different duration.</div>
     </div>
     <div class="card no-print">
       <div class="card-title">💵 Enter Commission Amounts</div>
@@ -797,6 +798,7 @@ tr:hover td{background:#fafcff}
     <div id="comm-send-msg" style="display:none;margin-bottom:1rem;padding:9px 13px;border-radius:5px;font-size:13px;border-left:3px solid"></div>
     <div class="card">
       <div class="card-title">📧 Send Commission Notices</div>
+      <div style="margin-bottom:10px"><button class="btn bp" id="comm-send-all-btn" onclick="sendAllWeeklyCommissions()">📧 Send All</button> <span id="comm-send-all-status" style="font-size:12px;color:var(--muted);margin-left:8px"></span></div>
       <div id="comm-send-wrap"><div class="empty">Select a week and save amounts first.</div></div>
     </div>
   </div>
@@ -3099,8 +3101,20 @@ function loadCommissionWeek(){
   var mon=getWeekMonday(raw);
   var sun=new Date(mon);sun.setDate(mon.getDate()+6);
   var startStr=fmtISODate(mon),endStr=fmtISODate(sun);
-  document.getElementById('comm-week-start').value=fmtDate(startStr);
-  document.getElementById('comm-week-end').value=fmtDate(endStr);
+  document.getElementById('comm-week-start').value=startStr;
+  document.getElementById('comm-week-end').value=endStr;
+  window._commWeekStart=startStr;window._commWeekEnd=endStr;
+  renderCommissionEntryGrid(startStr,endStr);
+  renderCommissionSendList(startStr,endStr);
+}
+// Lets the admin override the auto-computed Mon–Sun window with a custom
+// duration (e.g. a short week around a holiday, or a longer catch-up period)
+// by editing Period Start/End directly. Whatever range is set here becomes
+// the actual key commissionRecords are stored/matched against.
+function applyCommissionPeriod(){
+  var startStr=v('comm-week-start'),endStr=v('comm-week-end');
+  if(!startStr||!endStr)return;
+  if(endStr<startStr){alert('Period End must be on or after Period Start.');return;}
   window._commWeekStart=startStr;window._commWeekEnd=endStr;
   renderCommissionEntryGrid(startStr,endStr);
   renderCommissionSendList(startStr,endStr);
@@ -3289,6 +3303,38 @@ async function sendWeeklyCommission(recId){
   var indicator=document.getElementById('commSent_'+r.id);if(indicator)indicator.style.display='inline';
   renderCommissionSendList(r.weekStart,r.weekEnd);
   showCommMsg('Commission notice sent to '+e.name+' ('+e.email+')',true);
+}
+// Sends commission notices to everyone in the current period who hasn't been
+// sent one yet (amount > 0, sentAt still empty). Already-sent employees are
+// skipped here on purpose — resending everyone every time "Send All" is
+// clicked would spam people who already got their notice; use the per-row
+// "Resend" button for that instead. Sends one at a time (not in parallel) so
+// a slow/failing email doesn't clobber the others mid-batch.
+async function sendAllWeeklyCommissions(){
+  var startStr=window._commWeekStart,endStr=window._commWeekEnd;
+  if(!startStr||!endStr){alert('Select a commission period first.');return;}
+  var recs=commissionRecords.filter(function(r){return r.weekStart===startStr&&r.weekEnd===endStr&&r.amount>0;});
+  if(!recs.length){alert('No commission amounts saved for this period yet.');return;}
+  var pending=recs.filter(function(r){return !r.sentAt;});
+  if(!pending.length){alert('Everyone with a commission this period has already been sent a notice. Use Resend on an individual row if you need to send again.');return;}
+  var withEmail=pending.filter(function(r){var e=employees.find(function(x){return x.id===r.empId;});return e&&e.email;});
+  var skipped=pending.length-withEmail.length;
+  if(!withEmail.length){alert('None of the pending employees have an email on file.');return;}
+  var weekLabel=fmtDate(startStr)+' – '+fmtDate(endStr);
+  if(!confirm('Send weekly commission notices to '+withEmail.length+' employee(s) for '+weekLabel+'?'+(skipped?(' ('+skipped+' skipped — no email on file.)'):'')))return;
+  var btn=document.getElementById('comm-send-all-btn');
+  var statusEl=document.getElementById('comm-send-all-status');
+  if(btn)btn.disabled=true;
+  var sentCount=0,failCount=0;
+  for(var i=0;i<withEmail.length;i++){
+    if(statusEl)statusEl.textContent='Sending '+(i+1)+' of '+withEmail.length+'…';
+    var rec=withEmail[i];
+    try{ await sendWeeklyCommission(rec.id); }catch(err){}
+    if(rec.sentAt)sentCount++;else failCount++;
+  }
+  if(btn)btn.disabled=false;
+  if(statusEl)statusEl.textContent='';
+  showCommMsg('Send All done — sent: '+sentCount+(failCount?(', failed: '+failCount):'')+(skipped?(', skipped (no email): '+skipped):'')+'.',failCount===0);
 }
 function showCommMsg(msg,ok){
   var el=document.getElementById('comm-send-msg');if(!el)return;
