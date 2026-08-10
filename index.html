@@ -6,193 +6,145 @@
 <title>Careers — HMB Tax Firm</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#F7F8FB; --paper-line:#DCE3EF; --card:#FFFFFF;
-    --ink:#12213D; --ink-soft:#4B5875; --ink-faint:#8695AD;
-    --sky:#8FCBF4; --blue:#2F6FE0; --blue-deep:#1B4FB8;
-    --gold:#A87C2A; --gold-soft:#F3E8D2;
-    --success:#1F8A56; --success-soft:#E6F4EC;
-    --danger:#C23B3B; --danger-soft:#FBEAEA;
-    --radius:10px;
-    --serif:'Fraunces', Georgia, serif;
-    --sans:'IBM Plex Sans', system-ui, sans-serif;
-    --mono:'IBM Plex Mono', 'Courier New', monospace;
+    --bg:#F7F8FA; --card:#FFFFFF; --border:#E2E5EA;
+    --ink:#1A1D23; --ink-soft:#5B6472; --ink-faint:#9AA2AE;
+    --accent:#2F6FE0; --accent-dark:#1B4FB8; --accent-soft:#EAF1FD;
+    --danger:#D64545; --danger-soft:#FBEAEA;
+    --success:#1E8E5A; --success-soft:#E8F6EF;
+    --radius:6px;
+    --sans:'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --mono:'IBM Plex Mono', monospace;
   }
   *{box-sizing:border-box}
-  html{scroll-behavior:smooth}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.5;
-    background-image:repeating-linear-gradient(to bottom, transparent 0, transparent 43px, var(--paper-line) 43px, var(--paper-line) 44px);
-    background-attachment:fixed;
-  }
-  a{color:var(--blue)}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;font-size:15px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
 
-  /* ── top bar ── */
-  .topbar{position:sticky;top:0;z-index:50;background:rgba(247,248,251,0.92);backdrop-filter:blur(6px);
-    border-bottom:1px solid var(--paper-line);display:flex;align-items:center;justify-content:space-between;
-    padding:14px clamp(18px,5vw,48px)}
-  .topbar-brand{display:flex;align-items:center;gap:11px}
-  .topbar-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--sky),var(--blue));
-    display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--serif);font-weight:700;font-size:16px;flex-shrink:0}
-  .topbar-name{font-family:var(--serif);font-weight:600;font-size:16px;letter-spacing:.01em;line-height:1.25}
-  .topbar-name small{display:block;font-family:var(--sans);font-weight:500;font-size:10px;letter-spacing:.1em;
-    text-transform:uppercase;color:var(--ink-faint);margin-top:2px}
-  .formno{font-family:var(--mono);font-size:11px;color:var(--gold);border:1px solid var(--gold-soft);
-    background:var(--gold-soft);padding:5px 10px;border-radius:20px;letter-spacing:.03em;white-space:nowrap}
+  .topbar{background:var(--card);border-bottom:1px solid var(--border)}
+  .topbar-inner{max-width:680px;margin:0 auto;padding:18px 20px;display:flex;align-items:center;gap:10px}
+  .topbar-mark{width:28px;height:28px;border-radius:6px;background:var(--accent);color:#fff;display:flex;
+    align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+  .topbar-name{font-weight:700;font-size:15px}
 
-  /* ── hero ── */
-  .hero{max-width:760px;margin:0 auto;padding:clamp(36px,7vw,64px) clamp(18px,5vw,24px) 8px}
-  .hero-eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--gold);margin:0 0 10px}
-  .hero h1{font-family:var(--serif);font-weight:600;font-size:clamp(32px,5.4vw,48px);line-height:1.08;margin:0 0 12px;
-    letter-spacing:-.01em}
-  .hero-meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--ink-soft);font-size:14.5px;margin-bottom:6px}
-  .hero-meta span{display:flex;align-items:center;gap:6px}
-  .hero-rule{border:none;border-top:1px solid var(--paper-line);margin:28px 0 0}
+  .job-header{background:var(--card);border-bottom:1px solid var(--border);padding:32px 20px 28px}
+  .job-header-inner{max-width:680px;margin:0 auto}
+  .job-title{font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.01em}
+  .job-meta{color:var(--ink-soft);font-size:14px}
+  .job-meta span:not(:last-child)::after{content:'·';margin:0 8px;color:var(--ink-faint)}
 
-  /* ── layout ── */
-  .wrap{max-width:760px;margin:0 auto;padding:0 clamp(18px,5vw,24px) 80px}
-  .card{background:var(--card);border:1px solid var(--paper-line);border-radius:var(--radius);
-    padding:clamp(20px,4vw,34px);margin-top:22px;box-shadow:0 1px 2px rgba(18,33,61,0.03)}
+  .wrap{max-width:680px;margin:0 auto;padding:28px 20px 70px}
 
-  .section-rule{display:flex;align-items:center;gap:14px;margin:0 0 22px}
-  .section-rule::before,.section-rule::after{content:'';flex:1;height:1px;background:var(--paper-line)}
-  .section-rule span{font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
-    color:var(--ink-faint);white-space:nowrap}
+  .section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:18px}
+  .section h3{font-size:15px;font-weight:700;margin:0 0 18px}
 
-  /* ── resume dropzone ── */
-  .dropzone{border:1.5px dashed #B7C4DE;border-radius:var(--radius);padding:28px 20px;text-align:center;
-    cursor:pointer;transition:border-color .15s,background .15s;background:#FAFBFD}
-  .dropzone:hover,.dropzone.drag{border-color:var(--blue);background:#F0F5FE}
-  .dropzone .icon{font-size:26px;margin-bottom:6px;display:block}
-  .dropzone .main{font-weight:600;font-size:14.5px}
+  .dropzone{border:1px solid var(--border);border-radius:var(--radius);padding:22px;text-align:center;
+    cursor:pointer;background:#FAFBFC;transition:border-color .15s,background .15s}
+  .dropzone:hover,.dropzone.drag{border-color:var(--accent);background:var(--accent-soft)}
+  .dropzone .main{font-weight:600;font-size:14px;color:var(--accent)}
   .dropzone .sub{font-size:12.5px;color:var(--ink-faint);margin-top:4px}
-  .file-chip{display:none;align-items:center;gap:10px;margin-top:12px;padding:9px 14px;background:#F0F5FE;
-    border:1px solid #C9DCF9;border-radius:8px;font-size:13px}
+  .file-chip{display:none;align-items:center;gap:10px;margin-top:12px;padding:8px 12px;background:var(--accent-soft);
+    border:1px solid #C9DCF9;border-radius:var(--radius);font-size:13px}
   .file-chip.show{display:flex}
-  .file-chip .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
-  .file-chip button{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:15px;padding:2px}
+  .file-chip .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .file-chip button{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:14px;padding:2px}
 
-  /* ── form fields ── */
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media(max-width:560px){.grid{grid-template-columns:1fr}}
+  @media(max-width:520px){.grid{grid-template-columns:1fr}}
   .field{margin-bottom:16px}
   .field.full{grid-column:1/-1}
-  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--ink)}
-  .field label .opt{font-weight:400;color:var(--ink-faint);text-transform:none;letter-spacing:0}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+  .field label .opt{font-weight:400;color:var(--ink-faint)}
   .field label .req{color:var(--danger)}
-  .field input[type=text],.field input[type=email],.field input[type=tel],.field input[type=number],
-  .field input[type=date],.field select,.field textarea{
-    width:100%;padding:11px 13px;border:1px solid #CBD5E8;border-radius:8px;font-family:var(--sans);
-    font-size:14px;color:var(--ink);background:#fff;transition:border-color .15s,box-shadow .15s}
-  .field textarea{resize:vertical;min-height:76px}
-  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--blue);
-    box-shadow:0 0 0 3px rgba(47,111,224,.13)}
+  .field input,.field select,.field textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);
+    font-family:var(--sans);font-size:14px;color:var(--ink);background:#fff}
+  .field textarea{resize:vertical;min-height:70px}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-soft)}
   .field input.err,.field select.err,.field textarea.err{border-color:var(--danger)}
-  .field .hint{font-size:11.5px;color:var(--ink-faint);margin-top:5px}
 
-  .q{margin-bottom:20px}
-  .q-num{font-family:var(--mono);font-size:12px;color:var(--gold);font-weight:600}
-  .q label{display:block;font-size:13.5px;font-weight:600;margin:3px 0 8px}
+  .q{margin-bottom:18px}
+  .q label{display:block;font-size:13.5px;font-weight:600;margin-bottom:8px}
   .radio-row{display:flex;gap:20px;flex-wrap:wrap}
   .radio-opt{display:flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer;margin-right:6px}
-  .radio-opt input{accent-color:var(--blue)}
+  .radio-opt input{accent-color:var(--accent)}
 
-  .consent{display:flex;gap:12px;align-items:flex-start;padding:16px;background:#FAFBFD;
-    border:1px solid var(--paper-line);border-radius:8px;margin-top:6px}
-  .consent input{margin-top:3px;accent-color:var(--blue)}
-  .consent p{margin:0;font-size:12.5px;color:var(--ink-soft);line-height:1.55}
+  .consent{display:flex;gap:10px;align-items:flex-start}
+  .consent input{margin-top:3px;accent-color:var(--accent)}
+  .consent p{margin:0;font-size:12.5px;color:var(--ink-soft);line-height:1.5}
 
-  .submit-row{display:flex;align-items:center;gap:14px;margin-top:26px}
-  .btn-submit{background:var(--blue);color:#fff;border:none;padding:13px 26px;border-radius:8px;
-    font-family:var(--sans);font-weight:600;font-size:14.5px;cursor:pointer;display:flex;align-items:center;gap:8px;
-    transition:background .15s,transform .1s}
-  .btn-submit:hover{background:var(--blue-deep)}
-  .btn-submit:active{transform:translateY(1px)}
-  .btn-submit:disabled{background:#A9BEDE;cursor:default}
-  .submit-note{font-size:11.5px;color:var(--ink-faint)}
+  .btn-submit{width:100%;background:var(--accent);color:#fff;border:none;padding:13px;border-radius:var(--radius);
+    font-family:var(--sans);font-weight:600;font-size:15px;cursor:pointer;margin-top:6px}
+  .btn-submit:hover{background:var(--accent-dark)}
+  .btn-submit:disabled{background:#AEC3EA;cursor:default}
 
-  #error-banner{display:none;background:var(--danger-soft);border:1px solid #F0C6C6;border-left:4px solid var(--danger);
-    border-radius:8px;padding:13px 16px;font-size:13px;color:var(--danger);margin-top:20px}
+  #error-banner{display:none;background:var(--danger-soft);border:1px solid #F0C6C6;border-radius:var(--radius);
+    padding:12px 15px;font-size:13px;color:var(--danger);margin-bottom:16px}
 
-  /* ── success ── */
-  .success{display:none;max-width:520px;margin:60px auto;text-align:center;padding:0 20px}
-  .stamp{width:132px;height:132px;margin:0 auto 22px;border-radius:50%;border:2.5px solid var(--success);
-    display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--success);
-    transform:rotate(-6deg);animation:stampIn .5s cubic-bezier(.2,1.4,.4,1) both}
-  .stamp .word{font-family:var(--serif);font-weight:700;font-size:14px;letter-spacing:.04em;text-transform:uppercase}
-  .stamp .date{font-family:var(--mono);font-size:10.5px;margin-top:3px}
-  @keyframes stampIn{0%{opacity:0;transform:rotate(-6deg) scale(1.5)}100%{opacity:1;transform:rotate(-6deg) scale(1)}}
-  .success h2{font-family:var(--serif);font-size:26px;margin:0 0 10px}
-  .success p{color:var(--ink-soft);font-size:14.5px;line-height:1.6}
-  .app-code{display:inline-block;font-family:var(--mono);font-size:15px;font-weight:600;background:#fff;
-    border:1px dashed #B7C4DE;border-radius:8px;padding:9px 18px;margin:14px 0;letter-spacing:.03em}
+  .success{display:none;max-width:480px;margin:70px auto;text-align:center;padding:0 20px}
+  .success-icon{width:56px;height:56px;border-radius:50%;background:var(--success-soft);color:var(--success);
+    display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 20px}
+  .success h2{font-size:21px;margin:0 0 8px}
+  .success p{color:var(--ink-soft);font-size:14px;line-height:1.6}
+  .app-code{display:inline-block;font-family:var(--mono);font-size:14px;font-weight:600;background:var(--bg);
+    border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;margin:14px 0}
 
-  footer{text-align:center;padding:30px 20px 50px;font-size:11.5px;color:var(--ink-faint)}
-
-  .reveal{opacity:0;transform:translateY(10px);transition:opacity .5s ease,transform .5s ease}
-  .reveal.in{opacity:1;transform:translateY(0)}
-  @media(prefers-reduced-motion:reduce){.reveal{transition:none;opacity:1;transform:none}.stamp{animation:none}}
+  footer{text-align:center;padding:24px 20px 50px;font-size:11.5px;color:var(--ink-faint)}
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <div class="topbar-brand">
+  <div class="topbar-inner">
     <div class="topbar-mark">H</div>
-    <div class="topbar-name">HMB Tax Firm<small>Careers</small></div>
+    <div class="topbar-name">HMB Tax Firm</div>
   </div>
-  <div class="formno" id="form-no">Form No. HMB-APP</div>
 </div>
 
-<div class="hero">
-  <div class="hero-eyebrow">Now hiring</div>
-  <h1 id="job-title">Join the HMB Team</h1>
-  <div class="hero-meta">
-    <span>📍 San Pedro, Laguna</span>
-    <span>🕘 Full-time · On-site</span>
-    <span>📄 5–7 business day review</span>
+<div class="job-header">
+  <div class="job-header-inner">
+    <h1 class="job-title" id="job-title">Join the HMB Team</h1>
+    <div class="job-meta"><span>San Pedro, Laguna</span><span>Full-time</span><span>On-site</span></div>
   </div>
-  <hr class="hero-rule">
 </div>
 
 <div class="wrap">
   <form id="apply-form" novalidate>
 
-    <div class="card reveal">
-      <div class="section-rule"><span>Résumé</span></div>
+    <div class="section">
+      <h3>Resume/CV <span style="color:var(--danger)">*</span></h3>
       <div class="dropzone" id="dropzone" onclick="document.getElementById('resume_file').click()">
-        <span class="icon">📄</span>
-        <div class="main">Click to upload or drag &amp; drop</div>
+        <div class="main">Upload file or drag and drop here</div>
         <div class="sub">PDF, DOC, or DOCX · Max 10MB</div>
       </div>
       <input type="file" id="resume_file" accept=".pdf,.doc,.docx" style="display:none">
       <div class="file-chip" id="file-chip">
-        <span>📎</span><span class="name" id="file-name"></span>
+        <span id="file-name"></span>
         <button type="button" id="file-clear" aria-label="Remove file">✕</button>
       </div>
-      <div class="hint">Please ensure your résumé is updated and clearly shows your work experience and education.</div>
     </div>
 
-    <div class="card reveal">
-      <div class="section-rule"><span>Personal Information</span></div>
+    <div class="section">
+      <h3>Personal Information</h3>
       <div class="grid">
-        <div class="field full"><label>Full Name <span class="req">*</span></label>
-          <input type="text" id="full_name" placeholder="e.g. Santos, Maria C.">
+        <div class="field"><label>First & Last Name <span class="req">*</span></label>
+          <input type="text" id="full_name">
         </div>
-        <div class="field full"><label>Current Address <span class="req">*</span></label>
-          <input type="text" id="address" placeholder="Street, Barangay, City/Municipality, Province">
+        <div class="field"><label>Email <span class="req">*</span></label>
+          <input type="email" id="email_address">
         </div>
-        <div class="field"><label>Active Mobile Number <span class="req">*</span></label>
+        <div class="field"><label>Phone <span class="req">*</span></label>
           <input type="tel" id="mobile_number" placeholder="09XX XXX XXXX">
         </div>
-        <div class="field"><label>Active Email Address <span class="req">*</span></label>
-          <input type="email" id="email_address" placeholder="you@example.com">
+        <div class="field"><label>Current Address <span class="req">*</span></label>
+          <input type="text" id="address">
         </div>
         <div class="field"><label>Position Applied For <span class="req">*</span></label>
           <select id="position_applied">
-            <option value="">— Select Position —</option>
+            <option value="">Select…</option>
             <option>Tax Associate</option>
             <option>Senior Tax Consultant</option>
             <option>Bookkeeper</option>
@@ -205,21 +157,21 @@
           </select>
         </div>
         <div class="field"><label>Expected Monthly Salary (₱) <span class="req">*</span></label>
-          <input type="number" id="expected_salary" min="0" step="500" placeholder="e.g. 25000">
+          <input type="number" id="expected_salary" min="0" step="500">
         </div>
       </div>
     </div>
 
-    <div class="card reveal">
-      <div class="section-rule"><span>Current / Most Recent Employment</span></div>
+    <div class="section">
+      <h3>Current / Most Recent Employment</h3>
       <div class="grid">
         <div class="field"><label>Company Name <span class="opt">(optional)</span></label>
           <input type="text" id="company_name">
         </div>
-        <div class="field"><label>Position / Job Title <span class="opt">(optional)</span></label>
+        <div class="field"><label>Job Title <span class="opt">(optional)</span></label>
           <input type="text" id="recent_position">
         </div>
-        <div class="field"><label>Current / Last Salary (₱) <span class="opt">(optional)</span></label>
+        <div class="field"><label>Last Salary (₱) <span class="opt">(optional)</span></label>
           <input type="number" id="current_salary" min="0" step="500">
         </div>
         <div class="field"><label>Start Date <span class="opt">(optional)</span></label>
@@ -231,14 +183,13 @@
       </div>
     </div>
 
-    <div class="card reveal">
-      <div class="section-rule"><span>Basic Screening Questions</span></div>
+    <div class="section">
+      <h3>Application Questions</h3>
 
       <div class="q">
-        <span class="q-num">01</span>
         <label>How many years of experience do you have related to this position? <span class="req">*</span></label>
         <select id="years_experience">
-          <option value="">— Select —</option>
+          <option value="">Select…</option>
           <option>Less than 1 year</option><option>1 year</option><option>2 years</option>
           <option>3 years</option><option>4 years</option><option>5 years</option>
           <option>6–8 years</option><option>9–12 years</option><option>More than 12 years</option>
@@ -246,31 +197,27 @@
       </div>
 
       <div class="q">
-        <span class="q-num">02</span>
         <label>What software, tools, or systems are you proficient in? <span class="req">*</span></label>
         <textarea id="tools_proficient" placeholder="e.g. QuickBooks, Excel, BIR eFPS/eBIRForms, SAP"></textarea>
       </div>
 
       <div class="q">
-        <span class="q-num">03</span>
         <label>What are your key strengths relevant to the role? <span class="req">*</span></label>
         <textarea id="key_strengths"></textarea>
       </div>
 
       <div class="q">
-        <span class="q-num">04</span>
         <label>Are you currently employed? <span class="req">*</span></label>
         <div class="radio-row">
-          <label class="radio-opt"><input type="radio" name="is_currently_employed" value="Yes, currently employed"> Yes, currently employed</label>
-          <label class="radio-opt"><input type="radio" name="is_currently_employed" value="No, not currently employed"> No, not currently employed</label>
+          <label class="radio-opt"><input type="radio" name="is_currently_employed" value="Yes, currently employed"> Yes</label>
+          <label class="radio-opt"><input type="radio" name="is_currently_employed" value="No, not currently employed"> No</label>
         </div>
       </div>
 
       <div class="q">
-        <span class="q-num">05</span>
         <label>How soon can you start if selected? <span class="req">*</span></label>
         <select id="earliest_start_date">
-          <option value="">— Select —</option>
+          <option value="">Select…</option>
           <option>Immediately (within 1 week)</option>
           <option>2 weeks notice</option>
           <option>1 month notice</option>
@@ -280,7 +227,6 @@
       </div>
 
       <div class="q" style="margin-bottom:0">
-        <span class="q-num">06</span>
         <label>Do you have ongoing job applications with other employers? <span class="req">*</span></label>
         <div class="radio-row">
           <label class="radio-opt"><input type="radio" name="other_applications" value="Yes"> Yes</label>
@@ -289,8 +235,7 @@
       </div>
     </div>
 
-    <div class="card reveal">
-      <div class="section-rule"><span>Consent</span></div>
+    <div class="section">
       <div class="consent">
         <input type="checkbox" id="consent_check">
         <p>I certify that the information provided is true and correct. I authorize HMB Business Consultancy Services Corp. to process my personal information for recruitment purposes in accordance with the Data Privacy Act of the Philippines (Republic Act No. 10173).</p>
@@ -298,18 +243,15 @@
 
       <div id="error-banner"></div>
 
-      <div class="submit-row">
-        <button type="submit" class="btn-submit" id="submit-btn">
-          <span id="submit-icon">📨</span><span id="submit-text">Submit Application</span>
-        </button>
-        <span class="submit-note">By submitting, you confirm all information provided is accurate and complete.</span>
-      </div>
+      <button type="submit" class="btn-submit" id="submit-btn">
+        <span id="submit-text">Submit application</span>
+      </button>
     </div>
 
   </form>
 
   <div class="success" id="success-card">
-    <div class="stamp"><span class="word">Received</span><span class="date" id="stamp-date"></span></div>
+    <div class="success-icon">✓</div>
     <h2>Application submitted</h2>
     <p>Thank you for applying to HMB Tax Firm. We've received your application and will review it carefully.</p>
     <div class="app-code" id="success-code">APP-2026-0000</div>
@@ -324,11 +266,9 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════
-// JOB TARGETING — reads ?position=Tax+Associate from the URL so this
-// one static page can serve as a per-role "apply" link (e.g. share
-// index.html?position=IT+Staff on a specific job ad), the same way a
-// hosted ATS gives each posting its own apply URL — without needing a
-// backend router.
+// JOB TARGETING — reads ?position=Tax+Associate from the URL, the same
+// way each Workable posting has its own URL, so this one static page
+// can serve as a per-role "apply" link without needing a backend router.
 // ═══════════════════════════════════════════════════════════
 (function(){
   var params = new URLSearchParams(window.location.search);
@@ -340,20 +280,7 @@
     var opt = Array.prototype.find.call(sel.options, function(o){return o.value===pos;});
     if(opt) sel.value = pos;
   }
-  document.getElementById('form-no').textContent = 'Form No. HMB-APP-' + new Date().getFullYear();
 })();
-
-// ═══════════════════════════════════════════════════════════
-// SCROLL REVEAL
-// ═══════════════════════════════════════════════════════════
-if('IntersectionObserver' in window){
-  var io = new IntersectionObserver(function(entries){
-    entries.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
-  }, {threshold:.1});
-  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
-}else{
-  document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in'); });
-}
 
 // ═══════════════════════════════════════════════════════════
 // RESUME FILE UI (drag & drop + chip)
@@ -414,16 +341,17 @@ function validateForm(){
 
 function showErrorBanner(msg){
   var banner = document.getElementById('error-banner');
-  banner.innerHTML = '❌ <strong>Submission failed:</strong> ' + msg;
+  banner.innerHTML = '<strong>Submission failed:</strong> ' + msg;
   banner.style.display = 'block';
   banner.scrollIntoView({behavior:'smooth', block:'center'});
 }
 
 // ═══════════════════════════════════════════════════════════
 // SUPABASE INTEGRATION
-// Same hmb_applicants table the HRIS Recruitment module reads from —
-// see SUPABASE_URL / SUPABASE_ANON below. Fill these in with your real
-// project values from supabase.com → your project → Settings → API.
+// Writes to the same hmb_applicants table the HRIS Recruitment module
+// (admin.html → Recruitment / ATS → Applicants) reads from. Fill in
+// the two values below with your real project values from
+// supabase.com → your project → Settings → API.
 // ═══════════════════════════════════════════════════════════
 var SUPABASE_URL  = 'https://your-project.supabase.co'; // ← replace
 var SUPABASE_ANON = 'your-anon-public-key';              // ← replace
@@ -453,7 +381,6 @@ async function ensureResumeBucket(){
 }
 
 async function uploadResume(file){
-  // Option 1: Supabase Storage
   if(supabaseConfigured()){
     try{
       var base = SUPABASE_URL.replace(/\/$/,'');
@@ -470,7 +397,6 @@ async function uploadResume(file){
       if(r.ok){ return base+'/storage/v1/object/public/resumes/'+fileName; }
     }catch(e){ console.warn('Supabase Storage error:', e.message); }
   }
-  // Option 2: Cloudinary (optional — configure below if you want this path)
   if(CLOUDINARY_ENABLED && CLOUD_NAME !== 'your_cloud_name'){
     try{
       var fd = new FormData();
@@ -481,7 +407,6 @@ async function uploadResume(file){
       if(rc.ok){ var d=await rc.json(); return d.secure_url; }
     }catch(e){ console.warn('Cloudinary error:', e.message); }
   }
-  // Option 3: base64 in DB (reliable fallback, works for files ≤5MB)
   if(file.size > 5*1024*1024){
     throw new Error('Résumé file is '+Math.round(file.size/1024/1024)+'MB. Please compress your PDF to under 5MB and try again.');
   }
@@ -571,7 +496,6 @@ document.getElementById('apply-form').addEventListener('submit', async function(
 
   var btn = document.getElementById('submit-btn');
   btn.disabled = true;
-  document.getElementById('submit-icon').textContent = '⏳';
   document.getElementById('submit-text').textContent = 'Submitting…';
 
   try{
@@ -605,7 +529,6 @@ document.getElementById('apply-form').addEventListener('submit', async function(
     var saved = await saveToSupabase(payload, resumeUrl);
 
     document.getElementById('success-code').textContent = saved.applicant_code || genCode();
-    document.getElementById('stamp-date').textContent = new Date().toLocaleDateString('en-PH', {month:'short', day:'numeric', year:'numeric'});
     document.getElementById('apply-form').style.display = 'none';
     document.getElementById('success-card').style.display = 'block';
     window.scrollTo({top:0, behavior:'smooth'});
@@ -613,8 +536,7 @@ document.getElementById('apply-form').addEventListener('submit', async function(
   }catch(err){
     console.error('Submission error:', err);
     btn.disabled = false;
-    document.getElementById('submit-icon').textContent = '📨';
-    document.getElementById('submit-text').textContent = 'Submit Application';
+    document.getElementById('submit-text').textContent = 'Submit application';
     showErrorBanner(err.message||'Unknown error. Please try again or contact hr@hmbconsultancy.ph');
   }
 });
