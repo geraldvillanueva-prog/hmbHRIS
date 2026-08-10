@@ -758,7 +758,7 @@ function genCode(){
 // ── SAVE TO SUPABASE ──
 async function saveToSupabase(payload, resumeUrl){
   if(!supabaseConfigured()){
-    throw new Error('Supabase not configured. Please enter your Supabase URL and Key in the configuration panel above and click Save.');
+    throw new Error('Supabase not configured. Edit SUPABASE_URL and SUPABASE_ANON near the top of the script in index.html with your real Supabase project values.');
   }
   var code = genCode();
   var rec = {
@@ -782,7 +782,12 @@ async function saveToSupabase(payload, resumeUrl){
     other_applications:    payload.other_applications||null,
     resume_url:            resumeUrl||null,
     status:                'New Applicant',
-    source:                'Application Form (QR)'
+    source:                'Application Form (QR)',
+    rejection_reason:      null,
+    offer_salary:          null,
+    offer_start_date:      null,
+    employee_id:           null,
+    employee_code:         null
   };
   var r;
   try{
@@ -802,7 +807,7 @@ async function saveToSupabase(payload, resumeUrl){
   if(!r.ok){
     var errText = await r.text();
     if(r.status===401||r.status===403)
-      throw new Error('Supabase key is invalid or expired (HTTP '+r.status+'). Check your Anon Key in the config panel.');
+      throw new Error('Supabase key is invalid or expired (HTTP '+r.status+'). Check SUPABASE_ANON near the top of the script in index.html.');
     if(r.status===404)
       throw new Error('Table "hmb_applicants" not found (HTTP 404). Run the SQL setup in your Supabase SQL Editor first.');
     if(r.status===0)
@@ -998,7 +1003,7 @@ document.getElementById('apply-form').addEventListener('submit', async function(
     var banner = document.getElementById('error-banner');
     banner.innerHTML = '❌ <strong>Submission failed:</strong> '+errMsg
       +(errMsg.includes('not configured')||errMsg.includes('Supabase')
-        ? '<br><span style="font-weight:400;font-size:12px">Open the configuration panel at the top of this page and enter your Supabase credentials.</span>'
+        ? '<br><span style="font-weight:400;font-size:12px">This form has not been connected to a database yet — edit SUPABASE_URL and SUPABASE_ANON near the top of the script in index.html with your real Supabase project values.</span>'
         : '<br><span style="font-weight:400;font-size:12px">Please try again or contact hr@hmbconsultancy.ph</span>');
     banner.style.display='block';
     window.scrollTo({top:0,behavior:'smooth'});
@@ -1010,162 +1015,6 @@ function clearFieldErrors(){
   document.getElementById('upload-zone').style.borderColor='';
 }
 
-// ── GENERATE APPLICANT CODE ──
-function genCode(){
-  var yr=new Date().getFullYear();
-  var seq=String(Math.floor(Math.random()*9000)+1000);
-  return 'APP-'+yr+'-'+seq;
-}
-
-// ── SAVE TO SUPABASE ──
-async function saveToSupabase(payload, resumeUrl){
-  var rec = {
-    applicant_code:  genCode(),
-    full_name:       payload.full_name,
-    address:         payload.address,
-    mobile_number:   payload.mobile_number,
-    email_address:   payload.email_address,
-    position_applied:payload.position_applied,
-    expected_salary: parseFloat(payload.expected_salary)||0,
-    company_name:    payload.company_name||null,
-    recent_position: payload.recent_position||null,
-    current_salary:  parseFloat(payload.current_salary)||0,
-    employment_start:payload.employment_start||null,
-    employment_end:  payload.employment_end||null,
-    years_experience:payload.years_experience||null,
-    tools_proficient:payload.tools_proficient||null,
-    key_strengths:   payload.key_strengths||null,
-    is_currently_employed: payload.is_currently_employed||null,
-    earliest_start_date:   payload.earliest_start_date||null,
-    other_applications:    payload.other_applications||null,
-    resume_url:      resumeUrl||null,
-    status:          'New Applicant',
-    source:          'Application Form (QR)',
-    rejection_reason:null,
-    offer_salary:    null,
-    offer_start_date:null,
-    employee_id:     null,
-    employee_code:   null
-  };
-  var r = await fetch(SUPABASE_URL+'/rest/v1/hmb_applicants', {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'apikey':        SUPABASE_ANON,
-      'Authorization': 'Bearer '+SUPABASE_ANON,
-      'Prefer':        'return=representation'
-    },
-    body: JSON.stringify(rec)
-  });
-  if(!r.ok){
-    var err = await r.text();
-    throw new Error('Supabase error: '+err);
-  }
-  var rows = await r.json();
-  return rows[0] || rec;
-}
-
-// ── CLOUDINARY UPLOAD (optional) ──
-var CLOUDINARY_ENABLED  = false;
-var CLOUD_NAME          = 'your_cloud_name';
-var UPLOAD_PRESET       = 'your_upload_preset';
-
-async function uploadResume(file){
-  if(CLOUDINARY_ENABLED && CLOUD_NAME !== 'your_cloud_name'){
-    var fd = new FormData();
-    fd.append('file', file);
-    fd.append('upload_preset', UPLOAD_PRESET);
-    fd.append('folder','hmb-resumes');
-    var r = await fetch('https://api.cloudinary.com/v1_1/'+CLOUD_NAME+'/raw/upload',{method:'POST',body:fd});
-    if(!r.ok) throw new Error('Resume upload failed');
-    var d = await r.json();
-    return d.secure_url;
-  }
-  // Fallback: just store the filename (no cloud upload)
-  return '[Uploaded: '+file.name+']';
-}
-
-// ── SUBMISSION HANDLER ──
-document.getElementById('apply-form').addEventListener('submit', async function(e){
-  e.preventDefault();
-  clearFieldErrors();
-  if(!validateForm()){
-    document.getElementById('error-banner').style.display='block';
-    window.scrollTo({top:0,behavior:'smooth'});
-    return;
-  }
-  document.getElementById('error-banner').style.display='none';
-
-  var btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  document.getElementById('submit-icon').textContent='⏳';
-  document.getElementById('submit-text').textContent='Submitting…';
-
-  try{
-    // 1) Upload resume
-    var resumeUrl = '';
-    var fileInput = document.getElementById('resume_file');
-    if(fileInput.files && fileInput.files[0]){
-      document.getElementById('submit-text').textContent='Uploading resume…';
-      resumeUrl = await uploadResume(fileInput.files[0]);
-    }
-
-    // 2) Build payload
-    var payload = {
-      full_name:       v('full_name'),
-      address:         v('address'),
-      mobile_number:   v('mobile_number'),
-      email_address:   v('email_address'),
-      position_applied:v('position_applied'),
-      expected_salary: parseFloat(v('expected_salary'))||0,
-      company_name:    v('company_name'),
-      recent_position: v('recent_position'),
-      current_salary:  parseFloat(v('current_salary'))||0,
-      employment_start:v('employment_start'),
-      employment_end:  v('employment_end'),
-      years_experience:v('years_experience'),
-      tools_proficient:v('tools_proficient'),
-      key_strengths:   v('key_strengths'),
-      is_currently_employed:(function(){var r=document.querySelector('input[name="is_currently_employed"]:checked');return r?r.value:'';}()),
-      earliest_start_date:  v('earliest_start_date'),
-      other_applications:   (function(){var r=document.querySelector('input[name="other_applications"]:checked');return r?r.value:'';}())
-    };
-
-    // 3) Save to Supabase
-    document.getElementById('submit-text').textContent='Saving application…';
-    var saved = await saveToSupabase(payload, resumeUrl);
-
-    // 4) Show success
-    document.getElementById('success-code').textContent = saved.applicant_code || genCode();
-    document.getElementById('apply-form').style.display='none';
-    document.getElementById('success-card').style.display='block';
-    window.scrollTo({top:0,behavior:'smooth'});
-
-  }catch(err){
-    console.error('Submission error:',err);
-    btn.disabled = false;
-    document.getElementById('submit-icon').textContent='📨';
-    document.getElementById('submit-text').textContent='Submit Application';
-    document.getElementById('error-banner').textContent='Submission failed: '+err.message+'. Please check your connection and try again, or contact hr@hmbconsultancy.ph';
-    document.getElementById('error-banner').style.display='block';
-    window.scrollTo({top:0,behavior:'smooth'});
-  }
-});
-
-// ── GENERATE APPLICANT CODE ──
-function clearFieldErrors(){
-  document.querySelectorAll('.err').forEach(function(el){el.classList.remove('err');});
-  document.getElementById('upload-zone').style.borderColor='';
-}
-
-// ── LIVE PROGRESS UPDATE ──
-document.getElementById('apply-form').querySelectorAll('input,select,textarea').forEach(function(el){
-  el.addEventListener('input',updateProgress);
-  el.addEventListener('change',updateProgress);
-});
-
-// Init
-updateProgress();
 </script>
 </body>
 </html>
