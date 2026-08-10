@@ -91,6 +91,7 @@ tr:hover td{background:#fafcff}
 .badge-blue{background:#e3f2fd;color:var(--blue)}
 .badge-green{background:#e8f5e9;color:var(--green)}
 .badge-red{background:#ffebee;color:var(--red)}
+.applicants-nav-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:auto;font-family:'IBM Plex Mono',monospace}
 .badge-orange{background:#fff3e0;color:var(--orange)}
 .badge-gray{background:#f0f4f8;color:var(--muted)}
 .badge-yellow{background:#fffde7;color:var(--yellow)}
@@ -237,6 +238,8 @@ tr:hover td{background:#fafcff}
   <div id="nav-reports" class="nav-item" onclick="goSec('reports',this)"><span class="nav-icon">📊</span>Reports & Downloads</div>
   <div class="sidebar-section">Time Logs</div>
   <div id="nav-timelogs" class="nav-item" onclick="goSec('timelogs',this)"><span class="nav-icon">🕒</span>Employee Time Logs</div>
+  <div class="sidebar-section">Recruitment</div>
+  <div id="nav-applicants" class="nav-item" onclick="goSec('applicants',this)"><span class="nav-icon">📋</span>Applicants<span id="applicants-nav-badge" class="applicants-nav-badge" style="display:none">0</span></div>
   <div class="sidebar-section">Settings</div>
   <div id="nav-users" class="nav-item" onclick="goSec('users',this)"><span class="nav-icon">🔐</span>User Accounts</div>
   <div id="nav-shifts" class="nav-item" onclick="goSec('shifts',this)"><span class="nav-icon">🕰️</span>Shift Management</div>
@@ -1105,6 +1108,53 @@ tr:hover td{background:#fafcff}
     </div>
   </div>
 
+  <!-- APPLICANTS (RECRUITMENT) -->
+  <div id="sec-applicants" class="sec">
+    <div class="page-title">📋 Applicants</div>
+    <div class="page-sub">Everyone who has submitted an application through the HMB careers site — connected to the same Supabase database that site writes to.</div>
+
+    <div id="appl-kpi" class="metrics" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:16px"></div>
+
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between;display:flex;align-items:center">
+        <span>🔗 Database Connection</span>
+        <span id="appl-conn-status" style="font-size:11px;font-weight:600;color:var(--muted)">Not connected</span>
+      </div>
+      <div class="row">
+        <div class="f"><label>Supabase Project URL <span style="color:var(--red)">*</span></label>
+          <input id="appl-supabase-url" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-family:'IBM Plex Mono',monospace;font-size:12px">
+        </div>
+        <div class="f"><label>Supabase Anon / Public Key <span style="color:var(--red)">*</span></label>
+          <input id="appl-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="font-family:'IBM Plex Mono',monospace;font-size:12px">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn bp" onclick="applSaveConfig()">💾 Save &amp; Connect</button>
+        <button class="btn bs" onclick="applLoadList()" style="background:#e8f5e9;color:var(--green);border-color:#a5d6a7">🔄 Refresh</button>
+        <span id="appl-conn-ok" class="ok-msg">Connected!</span>
+        <span id="appl-conn-err" style="font-size:12px;color:var(--red);display:none"></span>
+      </div>
+      <div class="hint" style="margin-top:8px">This must be the exact same Supabase project (URL + key) the HMB careers site itself is configured with — otherwise this list will always be empty even though applications are still being saved somewhere.</div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="f" style="max-width:200px"><label>Status</label>
+          <select id="appl-filter-status" onchange="renderApplicantsList()">
+            <option value="">All Statuses</option>
+            <option>New Applicant</option><option>Screening</option><option>Interview</option>
+            <option>For Approval</option><option>Job Offer</option><option>Hired</option><option>Rejected</option>
+          </select>
+        </div>
+        <div class="f" style="max-width:200px"><label>Position</label><select id="appl-filter-pos" onchange="renderApplicantsList()"><option value="">All Positions</option></select></div>
+        <div class="f" style="max-width:220px"><label>Search</label><input id="appl-search" oninput="renderApplicantsList()" placeholder="Name or email"></div>
+        <button class="btn bs bp" style="align-self:flex-end" onclick="applExportCSV()">⬇ Export CSV</button>
+      </div>
+    </div>
+
+    <div id="appl-list-wrap"><div class="empty">Connect to Supabase above, then click Refresh to load applicants.</div></div>
+  </div>
+
   <!-- USER ACCOUNTS -->
   <div id="sec-users" class="sec">
     <div class="page-title">User Accounts</div>
@@ -1705,6 +1755,7 @@ function goSec(name,el){
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();renderShiftDayOverrideList();}
   if(name==='location'){renderLocationTable();}
   if(name==='management'){mgmtRenderMetrics();mgmtRenderPayroll();mgmtRenderSlips();mgmtRenderLeaves();}
+  if(name==='applicants'){if(applConfig.url&&applConfig.key&&!applApplicants.length){applLoadList();}else{renderApplicantsList();applRenderKpi();}}
 }
 function goITab(group,name,el){
   var parent=el.closest('.sec');
@@ -4857,6 +4908,216 @@ async function applyImportedPayroll() {
 })();
 
 
+// ==================== APPLICANTS (RECRUITMENT) ====================
+var applConfig = {url:'', key:''};
+var applApplicants = [];
+var APPL_STATUSES = ['New Applicant','Screening','Interview','For Approval','Job Offer','Hired','Rejected'];
+var APPL_STATUS_COLORS = {
+  'New Applicant':'#0288d1','Screening':'#7b1fa2','Interview':'#6a1b9a','For Approval':'#ef6c00',
+  'Job Offer':'#f9a825','Hired':'#2e7d32','Rejected':'#c62828'
+};
+
+function applLoadConfig(){
+  try{
+    var raw = localStorage.getItem('hmb_appl_cfg');
+    if(raw) applConfig = JSON.parse(raw);
+  }catch(e){ applConfig = {url:'', key:''}; }
+  var u=document.getElementById('appl-supabase-url'); if(u) u.value = applConfig.url||'';
+  var k=document.getElementById('appl-supabase-key'); if(k) k.value = applConfig.key||'';
+  applUpdateConnStatus();
+}
+function applSaveConfigLocal(){
+  localStorage.setItem('hmb_appl_cfg', JSON.stringify(applConfig));
+}
+function applUpdateConnStatus(){
+  var el = document.getElementById('appl-conn-status');
+  if(!el) return;
+  if(applConfig.url && applConfig.key){
+    el.textContent = 'Connected';
+    el.style.color = 'var(--green)';
+  }else{
+    el.textContent = 'Not connected';
+    el.style.color = 'var(--muted)';
+  }
+}
+async function applSaveConfig(){
+  var url = v('appl-supabase-url').trim().replace(/\/$/,'');
+  var key = v('appl-supabase-key').trim();
+  var errEl = document.getElementById('appl-conn-err');
+  errEl.style.display='none';
+  if(!url || !key){ errEl.textContent='Both fields are required.'; errEl.style.display='inline'; return; }
+  applConfig = {url:url, key:key};
+  applSaveConfigLocal();
+  applUpdateConnStatus();
+  await applLoadList();
+}
+async function applSupabaseGet(){
+  var url = applConfig.url+'/rest/v1/hmb_applicants?order=created_at.desc&limit=1000';
+  var r = await fetch(url, {
+    headers: { 'apikey': applConfig.key, 'Authorization': 'Bearer '+applConfig.key }
+  });
+  if(!r.ok){
+    var t = await r.text();
+    throw new Error('HTTP '+r.status+': '+t);
+  }
+  return r.json();
+}
+async function applSupabasePatch(id, body){
+  var r = await fetch(applConfig.url+'/rest/v1/hmb_applicants?id=eq.'+id, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': applConfig.key, 'Authorization': 'Bearer '+applConfig.key,
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+}
+async function applSupabaseDelete(id){
+  var r = await fetch(applConfig.url+'/rest/v1/hmb_applicants?id=eq.'+id, {
+    method: 'DELETE',
+    headers: { 'apikey': applConfig.key, 'Authorization': 'Bearer '+applConfig.key }
+  });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+}
+async function applLoadList(){
+  var errEl = document.getElementById('appl-conn-err');
+  var okEl = document.getElementById('appl-conn-ok');
+  errEl.style.display='none';
+  if(!applConfig.url || !applConfig.key){
+    errEl.textContent='Enter your Supabase URL and key first.'; errEl.style.display='inline'; return;
+  }
+  var w = document.getElementById('appl-list-wrap');
+  if(w) w.innerHTML = '<div class="empty">Loading…</div>';
+  try{
+    applApplicants = await applSupabaseGet();
+    flash('appl-conn-ok');
+    applPopulatePosFilter();
+    renderApplicantsList();
+    applRenderKpi();
+    applUpdateNavBadge();
+  }catch(e){
+    errEl.textContent = 'Could not load applicants: '+e.message;
+    errEl.style.display='inline';
+    if(w) w.innerHTML = '<div class="empty">Could not load applicants. Check your connection settings above.</div>';
+  }
+}
+function applPopulatePosFilter(){
+  var sel = document.getElementById('appl-filter-pos');
+  if(!sel) return;
+  var current = sel.value;
+  var positions = [...new Set(applApplicants.map(a=>a.position_applied).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All Positions</option>' + positions.map(p=>'<option'+(p===current?' selected':'')+'>'+p+'</option>').join('');
+}
+function applRenderKpi(){
+  var el = document.getElementById('appl-kpi');
+  if(!el) return;
+  var total = applApplicants.length;
+  var weekAgo = Date.now() - 7*24*60*60*1000;
+  var thisWeek = applApplicants.filter(a=>a.created_at && new Date(a.created_at).getTime()>=weekAgo).length;
+  var newCount = applApplicants.filter(a=>a.status==='New Applicant').length;
+  var hired = applApplicants.filter(a=>a.status==='Hired').length;
+  function card(label,val,colorClass){
+    return '<div class="mc '+(colorClass||'blue')+'"><div class="ml">'+label+'</div><div class="mv">'+val+'</div></div>';
+  }
+  el.innerHTML = card('Total Applicants',total,'blue') + card('New This Week',thisWeek,'accent') + card('Unreviewed',newCount,'orange') + card('Hired',hired,'green');
+}
+function applUpdateNavBadge(){
+  var badge = document.getElementById('applicants-nav-badge');
+  if(!badge) return;
+  var newCount = applApplicants.filter(a=>a.status==='New Applicant').length;
+  if(newCount>0){ badge.textContent = newCount; badge.style.display='inline-flex'; }
+  else{ badge.style.display='none'; }
+}
+function applInitials(name){
+  if(!name) return '?';
+  var parts = name.replace(',', ' ').trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]||'')[0]||'')+((parts[1]||'')[0]||'');
+}
+function renderApplicantsList(){
+  var w = document.getElementById('appl-list-wrap');
+  if(!w) return;
+  var status = v('appl-filter-status');
+  var pos = v('appl-filter-pos');
+  var term = (v('appl-search')||'').toLowerCase();
+  var list = applApplicants.filter(a=>{
+    if(status && a.status!==status) return false;
+    if(pos && a.position_applied!==pos) return false;
+    if(term){
+      var hay = ((a.full_name||'')+' '+(a.email_address||'')).toLowerCase();
+      if(hay.indexOf(term)===-1) return false;
+    }
+    return true;
+  });
+  if(!list.length){ w.innerHTML = '<div class="empty">No applicants match these filters.</div>'; return; }
+  w.innerHTML = '<div style="overflow-x:auto"><table><thead><tr>'
+    + '<th>Applicant</th><th>Position</th><th>Applied</th><th>Expected Salary</th><th>Contact</th><th>Résumé</th><th>Status</th><th></th>'
+    + '</tr></thead><tbody>'
+    + list.map(function(a,idx){
+        window._applRows = window._applRows||[]; window._applRows[idx]=a;
+        var color = APPL_STATUS_COLORS[a.status]||'#607d8b';
+        var appliedDate = a.created_at ? fmtDate(a.created_at.slice(0,10)) : '—';
+        var resumeCell = a.resume_url
+          ? (a.resume_url.length>200
+              ? '<span style="font-size:11px;color:var(--muted)">Attached (inline)</span>'
+              : '<a href="'+a.resume_url+'" target="_blank" rel="noopener">View</a>')
+          : '<span style="color:#dce3ec">—</span>';
+        return '<tr>'
+          + '<td><div style="display:flex;align-items:center;gap:10px">'
+            + '<div style="width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">'+applInitials(a.full_name)+'</div>'
+            + '<div><strong>'+(a.full_name||'—')+'</strong><div style="font-size:11px;color:var(--muted)">'+(a.applicant_code||'')+'</div></div>'
+          + '</div></td>'
+          + '<td>'+(a.position_applied||'—')+'</td>'
+          + '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+appliedDate+'</td>'
+          + '<td>'+(a.expected_salary?'₱'+Number(a.expected_salary).toLocaleString():'—')+'</td>'
+          + '<td style="font-size:12px"><div>'+(a.email_address||'—')+'</div><div style="color:var(--muted)">'+(a.mobile_number||'')+'</div></td>'
+          + '<td>'+resumeCell+'</td>'
+          + '<td><select onchange="applChangeStatus('+idx+',this.value)" style="font-size:11px;font-weight:700;color:'+color+';border-color:'+color+';padding:4px 6px;border-radius:6px">'
+            + APPL_STATUSES.map(function(s){return '<option'+(s===a.status?' selected':'')+'>'+s+'</option>';}).join('')
+          + '</select></td>'
+          + '<td><button class="btn bs br" style="font-size:11px" onclick="applDeleteRow('+idx+')">🗑</button></td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table></div>';
+}
+async function applChangeStatus(idx, newStatus){
+  var a = window._applRows[idx];
+  if(!a) return;
+  try{
+    await applSupabasePatch(a.id, {status:newStatus});
+    a.status = newStatus;
+    applRenderKpi();
+    applUpdateNavBadge();
+  }catch(e){
+    alert('Could not update status: '+e.message);
+    renderApplicantsList();
+  }
+}
+async function applDeleteRow(idx){
+  var a = window._applRows[idx];
+  if(!a) return;
+  if(!confirm('Delete the application from '+(a.full_name||'this applicant')+'? This cannot be undone.')) return;
+  try{
+    await applSupabaseDelete(a.id);
+    applApplicants = applApplicants.filter(function(x){return x.id!==a.id;});
+    applPopulatePosFilter();
+    renderApplicantsList();
+    applRenderKpi();
+    applUpdateNavBadge();
+  }catch(e){
+    alert('Could not delete: '+e.message);
+  }
+}
+function applExportCSV(){
+  if(!applApplicants.length){ alert('No applicants loaded yet.'); return; }
+  var headers = ['Applicant Code','Full Name','Position','Status','Email','Mobile','Address','Expected Salary','Years Experience','Currently Employed','Earliest Start','Date Applied'];
+  var rows = applApplicants.map(function(a){
+    return [a.applicant_code,a.full_name,a.position_applied,a.status,a.email_address,a.mobile_number,a.address,a.expected_salary,a.years_experience,a.is_currently_employed,a.earliest_start_date,a.created_at?a.created_at.slice(0,10):''];
+  });
+  downloadCSV('HMB_Applicants_'+new Date().toISOString().slice(0,10)+'.csv',[headers].concat(rows));
+}
+
 // ==================== INIT ====================
 window.addEventListener('DOMContentLoaded',async function(){
   var ok=await checkAuth();
@@ -4894,6 +5155,7 @@ window.addEventListener('DOMContentLoaded',async function(){
     var today=new Date().toISOString().slice(0,10);
     document.getElementById('att-pdate').value=today;
     document.getElementById('att-month').value=today.slice(0,7);
+    applLoadConfig();
   }
 });
 </script>
