@@ -5059,9 +5059,7 @@ function renderApplicantsList(){
         var color = APPL_STATUS_COLORS[a.status]||'#607d8b';
         var appliedDate = a.created_at ? fmtDate(a.created_at.slice(0,10)) : '—';
         var resumeCell = a.resume_url
-          ? (a.resume_url.length>200
-              ? '<span style="font-size:11px;color:var(--muted)">Attached (inline)</span>'
-              : '<a href="'+a.resume_url+'" target="_blank" rel="noopener">View</a>')
+          ? '<button type="button" class="btn bs" style="font-size:11px;padding:4px 10px" onclick="viewApplicantResume('+idx+')">📄 View</button>'
           : '<span style="color:#dce3ec">—</span>';
         return '<tr>'
           + '<td><div style="display:flex;align-items:center;gap:10px">'
@@ -5107,6 +5105,39 @@ async function applDeleteRow(idx){
     applUpdateNavBadge();
   }catch(e){
     alert('Could not delete: '+e.message);
+  }
+}
+// Opens a résumé in a new tab, whichever way it was stored:
+// - A real URL (Supabase Storage / Cloudinary) — just open it directly.
+// - An inline base64 data: URI (the fallback used when no storage bucket
+//   was configured) — converted to a Blob first, since handing a
+//   multi-megabyte string straight to window.open()/href can hit URL
+//   length limits in some browsers. A Blob URL has no such limit.
+function viewApplicantResume(idx){
+  var a = window._applRows[idx];
+  if(!a || !a.resume_url){ alert('No résumé on file for this applicant.'); return; }
+  var url = a.resume_url;
+  if(!url.startsWith('data:')){
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  try{
+    var parts = url.split(',');
+    var meta = parts[0]; // e.g. "data:application/pdf;base64"
+    var mimeMatch = meta.match(/data:([^;]+)/);
+    var mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+    var base64 = parts[1];
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for(var i=0;i<binary.length;i++){ bytes[i] = binary.charCodeAt(i); }
+    var blob = new Blob([bytes], {type: mime});
+    var blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank', 'noopener');
+    // Revoke after a delay rather than immediately — the new tab needs
+    // time to actually load the blob before the URL is freed.
+    setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 60000);
+  }catch(e){
+    alert('Could not open résumé: '+e.message);
   }
 }
 function applExportCSV(){
