@@ -1762,8 +1762,8 @@ function v(id){return(document.getElementById(id)||{}).value||'';}
 function fp(n){return(isNaN(n)||n===''||n===null)?'-':Number(n).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function peso(n){return(isNaN(n)||n===''||n===null)?'-':'₱'+fp(n);}
 function flash(id){var el=document.getElementById(id);if(!el)return;el.style.display='inline';setTimeout(()=>el.style.display='none',2200);}
-function fmtDate(d){if(!d)return'';try{var dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});}catch(e){return d;}}
-function fmtDT(iso){try{return new Date(iso).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return iso;}}
+function fmtDate(d){if(!d)return'';try{var dt=new Date(d);if(isNaN(dt))return d;var mm=String(dt.getMonth()+1).padStart(2,'0');var dd=String(dt.getDate()).padStart(2,'0');return mm+'/'+dd+'/'+dt.getFullYear();}catch(e){return d;}}
+function fmtDT(iso){try{var dt=new Date(iso);var mm=String(dt.getMonth()+1).padStart(2,'0');var dd=String(dt.getDate()).padStart(2,'0');var datePart=mm+'/'+dd+'/'+dt.getFullYear();var timePart=dt.toLocaleTimeString('en-PH',{hour:'numeric',minute:'2-digit'});return datePart+' '+timePart;}catch(e){return iso;}}
 function empName(id){var e=employees.find(x=>x.id==id);return e?e.name:'Unknown';}
 function attKey(per){return per.replace(/[^a-zA-Z0-9]/g,'_');}
 function daysBetween(from,to){if(!from||!to)return 0;var a=new Date(from),b=new Date(to);if(isNaN(a)||isNaN(b))return 0;return Math.max(0,Math.round((b-a)/(1000*60*60*24))+1);}
