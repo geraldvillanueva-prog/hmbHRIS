@@ -4919,7 +4919,14 @@ async function applyImportedPayroll() {
 
 
 // ==================== APPLICANTS (RECRUITMENT) ====================
-var applConfig = {url:'', key:''};
+// Default connection — same project the public careers site is configured
+// with. Hardcoded here so the Applicants list works out of the box for
+// every admin user, not just whoever happens to have entered these once
+// into their own browser's localStorage. The "Save & Connect" fields still
+// let you override this (e.g. if you ever switch Supabase projects).
+var APPL_DEFAULT_URL = 'https://cvbjrjodlkgdnupbmncb.supabase.co';
+var APPL_DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2Ympyam9kbGtnZG51cGJtbmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzM1ODgsImV4cCI6MjEwMTk0OTU4OH0.GQguBHqswLLdw7zoUdwnOJtBDIFdHUhDCH6dUPoHf68';
+var applConfig = {url:APPL_DEFAULT_URL, key:APPL_DEFAULT_KEY};
 var applApplicants = [];
 var APPL_STATUSES = ['New Applicant','Screening','Interview','For Approval','Job Offer','Hired','Rejected'];
 var APPL_STATUS_COLORS = {
@@ -4928,10 +4935,14 @@ var APPL_STATUS_COLORS = {
 };
 
 function applLoadConfig(){
+  applConfig = {url:APPL_DEFAULT_URL, key:APPL_DEFAULT_KEY};
   try{
     var raw = localStorage.getItem('hmb_appl_cfg');
-    if(raw) applConfig = JSON.parse(raw);
-  }catch(e){ applConfig = {url:'', key:''}; }
+    if(raw){
+      var saved = JSON.parse(raw);
+      if(saved && saved.url && saved.key) applConfig = saved;
+    }
+  }catch(e){ /* keep the defaults if localStorage is corrupted somehow */ }
   var u=document.getElementById('appl-supabase-url'); if(u) u.value = applConfig.url||'';
   var k=document.getElementById('appl-supabase-key'); if(k) k.value = applConfig.key||'';
   applUpdateConnStatus();
