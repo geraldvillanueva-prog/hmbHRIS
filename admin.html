@@ -146,6 +146,7 @@ tr:hover td{background:#fafcff}
 
 /* 201 FILE */
 .emp-profile-hd{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.section201-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#fff;background:var(--blue);padding:5px 10px;border-radius:4px;margin:16px 0 8px;display:inline-block}
 .emp-avatar{width:56px;height:56px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0}
 .emp-profile-name{font-size:17px;font-weight:700;color:var(--navy)}
 .emp-profile-pos{font-size:12px;color:var(--muted)}
@@ -498,25 +499,72 @@ tr:hover td{background:#fafcff}
       </div>
       <div style="padding:1.5rem">
         <input type="hidden" id="edit-emp-id">
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px">Name of Employee</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-          <div class="f"><label>Full Name</label><input id="edit-en" placeholder="Last, First MI"></div>
+          <div class="f"><label>Surname</label><input id="edit-esurname"></div>
+          <div class="f"><label>Given Name</label><input id="edit-egiven"></div>
+          <div class="f"><label>Middle Name</label><input id="edit-emiddle"></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="f"><label>Position</label><input id="edit-epos"></div>
           <div class="f"><label>Department</label><input id="edit-edept"></div>
         </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:14px 0 8px">Government IDs</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>SSS No.</label><input id="edit-esssno" placeholder="XX-XXXXXXX-X"></div>
+          <div class="f"><label>PhilHealth No.</label><input id="edit-ephicno" placeholder="XX-XXXXXXXXX-X"></div>
+          <div class="f"><label>Pag-IBIG No.</label><input id="edit-ehdmfno" placeholder="XXXX-XXXX-XXXX"></div>
+          <div class="f"><label>TIN</label><input id="edit-etin" placeholder="XXX-XXX-XXX-XXX"></div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:14px 0 8px">Personal Details</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>Date of Birth</label><input id="edit-edob" type="date"></div>
+          <div class="f"><label>Civil Status</label>
+            <select id="edit-ecivil"><option value="">— Select —</option><option>Single</option><option>Married</option><option>Widowed</option><option>Separated</option></select>
+          </div>
+          <div class="f"><label>Gender</label>
+            <select id="edit-egender"><option value="">— Select —</option><option>M</option><option>F</option></select>
+          </div>
+          <div class="f"><label>Smoker/Non-Smoker</label>
+            <select id="edit-esmoker"><option value="">— Select —</option><option>Yes</option><option>No</option></select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>Religion</label><input id="edit-ereligion"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>Home Address (Permanent)</label><input id="edit-eaddress-perm"></div>
+          <div class="f"><label>Home Address (Current)</label><input id="edit-eaddress-cur"></div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:14px 0 8px">Contact Information</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-          <div class="f"><label>Employment Type</label>
+          <div class="f"><label>Contact in Case of Emergency</label><input id="edit-eemergency" placeholder="Name (Number - Relationship)"></div>
+          <div class="f"><label>Personal Email Address</label><input id="edit-eemail" type="email"></div>
+          <div class="f"><label>Personal Mobile Number</label><input id="edit-emobile"></div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:14px 0 8px">Employment Details</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="f"><label>Immediate Superior</label><input id="edit-esuperior"></div>
+          <div class="f"><label>Employment Status</label>
             <select id="edit-etype">
               <option>Regular</option><option>Probationary</option><option>Contractual</option><option>Part-time</option>
             </select>
           </div>
-          <div class="f"><label>Start Date</label><input id="edit-estart" type="date"></div>
-          <div class="f"><label>Bank Account</label><input id="edit-ebank"></div>
+          <div class="f"><label>Date Started</label><input id="edit-estart" type="date"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-          <div class="f"><label>Personal Email</label><input id="edit-eemail" type="email"></div>
-          <div class="f"><label>Mobile Number</label><input id="edit-emobile"></div>
-          <div class="f"><label>Emergency Contact</label><input id="edit-eemergency" placeholder="Name / Number"></div>
+          <div class="f"><label>End of Contract <span class="opt" style="font-weight:400;color:var(--muted)">(if applicable)</span></label><input id="edit-eendcontract" type="date"></div>
+          <div class="f"><label>Annual Evaluation Date</label><input id="edit-eannualeval" type="date"></div>
+          <div class="f"><label>Bank Account</label><input id="edit-ebank"></div>
         </div>
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:14px 0 8px">Payroll Setup</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="f"><label>Semi-monthly Pay (₱)</label><input id="edit-esmb" type="number" step="0.01"></div>
           <div class="f"><label>SSS (₱/period)</label><input id="edit-esss" type="number" step="0.01"></div>
@@ -529,11 +577,9 @@ tr:hover td{background:#fafcff}
           <div class="f"><label>Load Allowance (₱)</label><input id="edit-eload" type="number" step="0.01"></div>
           <div class="f"><label>WHT Tax (₱)</label><input id="edit-ewht" type="number" step="0.01"></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="f"><label>VL Balance (days)</label><input id="edit-evl" type="number" step="0.5"></div>
           <div class="f"><label>SL Balance (days)</label><input id="edit-esl" type="number" step="0.5"></div>
-          <div class="f"><label>TIN</label><input id="edit-etin"></div>
-          <div class="f"><label>Address</label><input id="edit-eaddress"></div>
         </div>
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="f"><label>📍 Location Policy</label>
@@ -1927,17 +1973,31 @@ async function removeEmp(id){if(!confirm('Remove this employee?'))return;await a
 function openEditEmp(id){
   var e=employees.find(x=>x.id===id);if(!e)return;
   document.getElementById('edit-emp-id').value=e.id;
-  document.getElementById('edit-en').value=e.name||'';
+  document.getElementById('edit-esurname').value=e.surname||'';
+  document.getElementById('edit-egiven').value=e.givenName||'';
+  document.getElementById('edit-emiddle').value=e.middleName||'';
   document.getElementById('edit-epos').value=e.pos||'';
   document.getElementById('edit-edept').value=e.dept||'';
-  document.getElementById('edit-etype').value=e.type||'Regular';
-  document.getElementById('edit-estart').value=e.start||'';
-  document.getElementById('edit-ebank').value=e.bank||'';
+  document.getElementById('edit-esssno').value=e.sssNo||'';
+  document.getElementById('edit-ephicno').value=e.philhealthNo||'';
+  document.getElementById('edit-ehdmfno').value=e.pagibigNo||'';
+  document.getElementById('edit-etin').value=e.tin||'';
+  document.getElementById('edit-edob').value=e.dob||'';
+  document.getElementById('edit-ecivil').value=e.civilStatus||'';
+  document.getElementById('edit-egender').value=e.gender||'';
+  document.getElementById('edit-esmoker').value=e.smoker||'';
+  document.getElementById('edit-ereligion').value=e.religion||'';
+  document.getElementById('edit-eaddress-perm').value=e.addressPermanent||'';
+  document.getElementById('edit-eaddress-cur').value=e.addressCurrent||'';
+  document.getElementById('edit-eemergency').value=e.emergency||'';
   document.getElementById('edit-eemail').value=e.email||'';
   document.getElementById('edit-emobile').value=e.mobile||'';
-  document.getElementById('edit-eemergency').value=e.emergency||'';
-  document.getElementById('edit-eaddress').value=e.address||'';
-  document.getElementById('edit-etin').value=e.tin||'';
+  document.getElementById('edit-esuperior').value=e.immediateSuperior||'';
+  document.getElementById('edit-etype').value=e.type||'Regular';
+  document.getElementById('edit-estart').value=e.start||'';
+  document.getElementById('edit-eendcontract').value=e.endOfContract||'';
+  document.getElementById('edit-eannualeval').value=e.annualEvaluation||'';
+  document.getElementById('edit-ebank').value=e.bank||'';
   document.getElementById('edit-esmb').value=e.smb||0;
   document.getElementById('edit-esss').value=e.sss||0;
   document.getElementById('edit-ephic').value=e.phic||0;
@@ -1963,24 +2023,42 @@ function closeEditEmp(){
 }
 async function saveEditEmp(){
   var id=parseInt(document.getElementById('edit-emp-id').value);
-  var name=document.getElementById('edit-en').value.trim();
-  if(!name){document.getElementById('edit-emp-err').textContent='Full name is required.';document.getElementById('edit-emp-err').style.display='block';return;}
+  var surname=document.getElementById('edit-esurname').value.trim();
+  var givenName=document.getElementById('edit-egiven').value.trim();
+  var middleName=document.getElementById('edit-emiddle').value.trim();
+  if(!surname||!givenName){document.getElementById('edit-emp-err').textContent='Surname and Given Name are required.';document.getElementById('edit-emp-err').style.display='block';return;}
+  var name=surname+', '+givenName+(middleName?' '+middleName:'');
   var _existing=employees.find(function(x){return x.id===id;});
   var _wfhDays=_existing?(_existing.loc_wfh_days!=null?_existing.loc_wfh_days:(_existing.locWfhDays!=null?_existing.locWfhDays:null)):null;
   var _shiftId=_existing?_existing.shiftId:null;
   var _shiftDayOv=_existing?(_existing.shiftDayOverrides!=null?_existing.shiftDayOverrides:(_existing.shift_day_overrides!=null?_existing.shift_day_overrides:null)):null;
   var emp={
     name,
+    surname,
+    givenName,
+    middleName,
     pos:document.getElementById('edit-epos').value,
     dept:document.getElementById('edit-edept').value,
-    type:document.getElementById('edit-etype').value,
-    start:document.getElementById('edit-estart').value,
-    bank:document.getElementById('edit-ebank').value,
+    sssNo:document.getElementById('edit-esssno').value,
+    philhealthNo:document.getElementById('edit-ephicno').value,
+    pagibigNo:document.getElementById('edit-ehdmfno').value,
+    tin:document.getElementById('edit-etin').value,
+    dob:document.getElementById('edit-edob').value,
+    civilStatus:document.getElementById('edit-ecivil').value,
+    gender:document.getElementById('edit-egender').value,
+    smoker:document.getElementById('edit-esmoker').value,
+    religion:document.getElementById('edit-ereligion').value,
+    addressPermanent:document.getElementById('edit-eaddress-perm').value,
+    addressCurrent:document.getElementById('edit-eaddress-cur').value,
+    emergency:document.getElementById('edit-eemergency').value,
     email:document.getElementById('edit-eemail').value,
     mobile:document.getElementById('edit-emobile').value,
-    emergency:document.getElementById('edit-eemergency').value,
-    address:document.getElementById('edit-eaddress').value,
-    tin:document.getElementById('edit-etin').value,
+    immediateSuperior:document.getElementById('edit-esuperior').value,
+    type:document.getElementById('edit-etype').value,
+    start:document.getElementById('edit-estart').value,
+    endOfContract:document.getElementById('edit-eendcontract').value,
+    annualEvaluation:document.getElementById('edit-eannualeval').value,
+    bank:document.getElementById('edit-ebank').value,
     smb:parseFloat(document.getElementById('edit-esmb').value)||0,
     sss:parseFloat(document.getElementById('edit-esss').value)||0,
     phic:parseFloat(document.getElementById('edit-ephic').value)||0,
@@ -2072,6 +2150,15 @@ function render201(){
   var perfs=perfRecords.filter(p=>p.empId==id);
   var discs=discRecords.filter(d=>d.empId==id);
   var slips=payslipHistory.filter(h=>h.empId==id);
+  var age='—';
+  if(e.dob){
+    try{
+      var dobDate=new Date(e.dob),today=new Date();
+      age=today.getFullYear()-dobDate.getFullYear();
+      var m=today.getMonth()-dobDate.getMonth();
+      if(m<0||(m===0&&today.getDate()<dobDate.getDate()))age--;
+    }catch(err){age='—';}
+  }
   w.innerHTML=`
   <div class="card">
     <div class="emp-profile-hd">
@@ -2083,8 +2170,35 @@ function render201(){
       <button class="btn bs bg no-print" style="margin-left:auto" onclick="export201CSV(${e.id})">⬇ Export 201 CSV</button>
       <button class="btn bs no-print" onclick="window.print()">🖨 Print</button>
     </div>
+
+    <div class="section201-label">Name of Employee</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
-      ${infoRow('Start Date',fmtDate(e.start))}${infoRow('Bank Account',e.bank)}${infoRow('TIN',e.tin)}${infoRow('Mobile',e.mobile)}${infoRow('Email',e.email)}${infoRow('Emergency Contact',e.emergency)}${infoRow('Address',e.address)}${infoRow('Semi-monthly Pay','₱'+fp(e.smb))}${infoRow('SSS','₱'+fp(e.sss))}${infoRow('PHIC','₱'+fp(e.phic))}${infoRow('HDMF','₱'+fp(e.hdmf))}${infoRow('VL Balance',e.vlBal+' days')}${infoRow('SL Balance',e.slBal+' days')}
+      ${infoRow('Surname',e.surname)}${infoRow('Given Name',e.givenName)}${infoRow('Middle Name',e.middleName)}
+    </div>
+
+    <div class="section201-label">Government IDs</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+      ${infoRow('SSS No.',e.sssNo)}${infoRow('PhilHealth No.',e.philhealthNo)}${infoRow('Pag-IBIG No.',e.pagibigNo)}${infoRow('TIN',e.tin)}
+    </div>
+
+    <div class="section201-label">Personal Details</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+      ${infoRow('Date of Birth',fmtDate(e.dob))}${infoRow('Age',age)}${infoRow('Civil Status',e.civilStatus)}${infoRow('Gender',e.gender)}${infoRow('Smoker/Non-Smoker',e.smoker)}${infoRow('Religion',e.religion)}${infoRow('Home Address (Permanent)',e.addressPermanent)}${infoRow('Home Address (Current)',e.addressCurrent)}
+    </div>
+
+    <div class="section201-label">Contact Information</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+      ${infoRow('Contact in Case of Emergency',e.emergency)}${infoRow('Personal Email Address',e.email)}${infoRow('Personal Mobile Number',e.mobile)}
+    </div>
+
+    <div class="section201-label">Employment Details</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+      ${infoRow('Immediate Superior',e.immediateSuperior)}${infoRow('Employment Status',e.type)}${infoRow('Date Started',fmtDate(e.start))}${infoRow('End of Contract',fmtDate(e.endOfContract))}${infoRow('Annual Evaluation',fmtDate(e.annualEvaluation))}${infoRow('Bank Account',e.bank)}
+    </div>
+
+    <div class="section201-label">Payroll Setup</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+      ${infoRow('Semi-monthly Pay','₱'+fp(e.smb))}${infoRow('SSS','₱'+fp(e.sss))}${infoRow('PHIC','₱'+fp(e.phic))}${infoRow('HDMF','₱'+fp(e.hdmf))}${infoRow('VL Balance',e.vlBal+' days')}${infoRow('SL Balance',e.slBal+' days')}
     </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -3441,7 +3555,16 @@ function exportEmpCSV(){
 }
 function export201CSV(empId){
   var e=employees.find(x=>x.id===empId);if(!e)return;
-  var rows=[['Field','Value'],['Name',e.name],['Position',e.pos||''],['Department',e.dept||''],['Type',e.type||''],['Start Date',e.start||''],['Bank Account',e.bank||''],['Email',e.email||''],['Mobile',e.mobile||''],['TIN',e.tin||''],['Address',e.address||''],['Emergency Contact',e.emergency||''],['Semi-monthly Pay',e.smb||0],['SSS',e.sss||0],['PHIC',e.phic||0],['HDMF',e.hdmf||0],['VL Balance',e.vlBal||0],['SL Balance',e.slBal||0]];
+  var rows=[['Field','Value'],
+    ['Surname',e.surname||''],['Given Name',e.givenName||''],['Middle Name',e.middleName||''],
+    ['Position',e.pos||''],['Department',e.dept||''],
+    ['SSS No.',e.sssNo||''],['PhilHealth No.',e.philhealthNo||''],['Pag-IBIG No.',e.pagibigNo||''],['TIN',e.tin||''],
+    ['Date of Birth',e.dob||''],['Civil Status',e.civilStatus||''],['Gender',e.gender||''],['Smoker/Non-Smoker',e.smoker||''],['Religion',e.religion||''],
+    ['Home Address (Permanent)',e.addressPermanent||''],['Home Address (Current)',e.addressCurrent||''],
+    ['Contact in Case of Emergency',e.emergency||''],['Personal Email Address',e.email||''],['Personal Mobile Number',e.mobile||''],
+    ['Immediate Superior',e.immediateSuperior||''],['Employment Status',e.type||''],['Date Started',e.start||''],['End of Contract',e.endOfContract||''],['Annual Evaluation',e.annualEvaluation||''],['Bank Account',e.bank||''],
+    ['Semi-monthly Pay',e.smb||0],['SSS',e.sss||0],['PHIC',e.phic||0],['HDMF',e.hdmf||0],['VL Balance',e.vlBal||0],['SL Balance',e.slBal||0]
+  ];
   downloadCSV('HMB_201_'+e.name.replace(/\s/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
 function exportData(){window.open('/api/export','_blank');}

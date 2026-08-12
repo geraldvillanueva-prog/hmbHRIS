@@ -73,6 +73,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS employees (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    surname TEXT,
+    given_name TEXT,
+    middle_name TEXT,
     pos TEXT,
     dept TEXT,
     type TEXT DEFAULT 'Regular',
@@ -82,7 +85,20 @@ db.exec(`
     mobile TEXT,
     emergency TEXT,
     address TEXT,
+    address_permanent TEXT,
+    address_current TEXT,
     tin TEXT,
+    sss_no TEXT,
+    philhealth_no TEXT,
+    pagibig_no TEXT,
+    dob TEXT,
+    civil_status TEXT,
+    gender TEXT,
+    smoker TEXT,
+    religion TEXT,
+    immediate_superior TEXT,
+    end_of_contract TEXT,
+    annual_evaluation TEXT,
     smb REAL DEFAULT 0,
     sss REAL DEFAULT 0,
     phic REAL DEFAULT 0,
@@ -527,9 +543,11 @@ app.get('/api/employees', requireAuth, (req, res) => {
 
 app.post('/api/employees', requireAdmin, (req, res) => {
   const e = req.body;
-  const r = db.prepare(`INSERT INTO employees (name,pos,dept,type,start,bank,email,mobile,emergency,address,tin,smb,sss,phic,hdmf,mpl,dm,load,wht,vl_bal,sl_bal)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-    e.name,e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',e.tin||'',
+  const r = db.prepare(`INSERT INTO employees (name,surname,given_name,middle_name,pos,dept,type,start,bank,email,mobile,emergency,address,address_permanent,address_current,tin,sss_no,philhealth_no,pagibig_no,dob,civil_status,gender,smoker,religion,immediate_superior,end_of_contract,annual_evaluation,smb,sss,phic,hdmf,mpl,dm,load,wht,vl_bal,sl_bal)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    e.name,e.surname||'',e.givenName||'',e.middleName||'',e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',
+    e.addressPermanent||'',e.addressCurrent||'',e.tin||'',e.sssNo||'',e.philhealthNo||'',e.pagibigNo||'',e.dob||'',e.civilStatus||'',e.gender||'',e.smoker||'',e.religion||'',
+    e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',
     +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0
   );
   res.json({ success: true, id: r.lastInsertRowid });
@@ -544,10 +562,14 @@ app.put('/api/employees/:id', requireAdmin, (req, res) => {
   const locRadius = e.locRadius ? parseInt(e.locRadius) : 300;
   // locWfhDays: comma-separated day numbers "1,3" or null; only meaningful for wfh policy
   const locWfhDays = (locPolicy === 'wfh' && e.locWfhDays) ? e.locWfhDays : null;
-  db.prepare(`UPDATE employees SET name=?,pos=?,dept=?,type=?,start=?,bank=?,email=?,mobile=?,emergency=?,address=?,tin=?,
+  db.prepare(`UPDATE employees SET name=?,surname=?,given_name=?,middle_name=?,pos=?,dept=?,type=?,start=?,bank=?,email=?,mobile=?,emergency=?,address=?,
+    address_permanent=?,address_current=?,tin=?,sss_no=?,philhealth_no=?,pagibig_no=?,dob=?,civil_status=?,gender=?,smoker=?,religion=?,
+    immediate_superior=?,end_of_contract=?,annual_evaluation=?,
     smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,vl_bal=?,sl_bal=?,shift_id=?,
     loc_policy=?,loc_lat=?,loc_lng=?,loc_radius=?,loc_wfh_days=? WHERE id=?`).run(
-    e.name,e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',e.tin||'',
+    e.name,e.surname||'',e.givenName||'',e.middleName||'',e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',
+    e.addressPermanent||'',e.addressCurrent||'',e.tin||'',e.sssNo||'',e.philhealthNo||'',e.pagibigNo||'',e.dob||'',e.civilStatus||'',e.gender||'',e.smoker||'',e.religion||'',
+    e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',
     +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0, shiftId,
     locPolicy, locLat, locLng, locRadius, locWfhDays, req.params.id
   );
@@ -596,7 +618,14 @@ function mapEmployee(e) {
     locLat:     e.loc_lat     || null,
     locLng:     e.loc_lng     || null,
     locRadius:  e.loc_radius  || 300,
-    locWfhDays: e.loc_wfh_days || null   // e.g. "1,3" = Mon+Wed; null = any day
+    locWfhDays: e.loc_wfh_days || null,   // e.g. "1,3" = Mon+Wed; null = any day
+    // 201 file fields
+    surname: e.surname || '', givenName: e.given_name || '', middleName: e.middle_name || '',
+    addressPermanent: e.address_permanent || '', addressCurrent: e.address_current || '',
+    sssNo: e.sss_no || '', philhealthNo: e.philhealth_no || '', pagibigNo: e.pagibig_no || '',
+    dob: e.dob || '', civilStatus: e.civil_status || '', gender: e.gender || '',
+    smoker: e.smoker || '', religion: e.religion || '',
+    immediateSuperior: e.immediate_superior || '', endOfContract: e.end_of_contract || '', annualEvaluation: e.annual_evaluation || ''
   };
 }
 
@@ -673,6 +702,25 @@ try { db.exec(`ALTER TABLE employees ADD COLUMN loc_radius INTEGER DEFAULT 300`)
 // Comma-separated day numbers: 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
 // Empty/null = no day restriction (WFH allowed any day)
 try { db.exec(`ALTER TABLE employees ADD COLUMN loc_wfh_days TEXT`); } catch(e) {}
+
+// Migrate employees table — add 201 file fields (name split, government ID
+// numbers, personal details, split addresses, employment details) if missing
+try { db.exec(`ALTER TABLE employees ADD COLUMN surname TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN given_name TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN middle_name TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN sss_no TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN philhealth_no TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN pagibig_no TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN dob TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN civil_status TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN gender TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN smoker TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN religion TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN address_permanent TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN address_current TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN immediate_superior TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN end_of_contract TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN annual_evaluation TEXT`); } catch(e) {}
 
 // Migrate time_logs table — add GPS columns for audit trail
 try { db.exec(`ALTER TABLE time_logs ADD COLUMN lat REAL`); } catch(e) {}
