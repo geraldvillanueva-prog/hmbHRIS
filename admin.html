@@ -1399,6 +1399,16 @@ tr:hover td{background:#fafcff}
   </div>
 </div>
 
+<div class="modal-overlay" id="appl-detail-modal" onclick="if(event.target.id==='appl-detail-modal')closeApplDetailModal()">
+  <div class="modal-box" style="max-width:640px;max-height:85vh;overflow-y:auto">
+    <div class="modal-title">
+      📋 Applicant Details
+      <button class="modal-close" onclick="closeApplDetailModal()">✕</button>
+    </div>
+    <div id="appl-detail-body"></div>
+  </div>
+</div>
+
 <script>
 // ==================== STATE ====================
 var employees=[],attendance={},payslipHistory=[],nextId=1;
@@ -5062,9 +5072,9 @@ function renderApplicantsList(){
           ? '<button type="button" class="btn bs" style="font-size:11px;padding:4px 10px" onclick="viewApplicantResume('+idx+')">📄 View</button>'
           : '<span style="color:#dce3ec">—</span>';
         return '<tr>'
-          + '<td><div style="display:flex;align-items:center;gap:10px">'
+          + '<td><div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openApplDetailModal('+idx+')">'
             + '<div style="width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">'+applInitials(a.full_name)+'</div>'
-            + '<div><strong>'+(a.full_name||'—')+'</strong><div style="font-size:11px;color:var(--muted)">'+(a.applicant_code||'')+'</div></div>'
+            + '<div><strong style="color:var(--blue)">'+(a.full_name||'—')+'</strong><div style="font-size:11px;color:var(--muted)">'+(a.applicant_code||'')+'</div></div>'
           + '</div></td>'
           + '<td>'+(a.position_applied||'—')+'</td>'
           + '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+appliedDate+'</td>'
@@ -5078,6 +5088,94 @@ function renderApplicantsList(){
           + '</tr>';
       }).join('')
     + '</tbody></table></div>';
+}
+function closeApplDetailModal(){
+  document.getElementById('appl-detail-modal').classList.remove('open');
+}
+function applDetailRow(label, value){
+  if(!value) return '';
+  return '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">'+label+'</div><div style="font-size:13px;margin-top:2px">'+value+'</div></div>';
+}
+function openApplDetailModal(idx){
+  var a = window._applRows[idx];
+  if(!a) return;
+  var color = APPL_STATUS_COLORS[a.status]||'#607d8b';
+  var html = '';
+
+  // Header block
+  html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">';
+  if(a.photo_url){
+    html += '<img src="'+a.photo_url+'" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0">';
+  }else{
+    html += '<div style="width:56px;height:56px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0">'+applInitials(a.full_name)+'</div>';
+  }
+  html += '<div style="flex:1">'
+    + '<div style="font-size:17px;font-weight:700">'+(a.full_name||'—')+'</div>'
+    + (a.headline?'<div style="font-size:12.5px;color:var(--muted);margin-top:1px">'+a.headline+'</div>':'')
+    + '<div style="font-size:11px;color:var(--muted);margin-top:2px">'+(a.applicant_code||'')+' · Applied '+(a.created_at?fmtDate(a.created_at.slice(0,10)):'—')+'</div>'
+    + '</div>'
+    + '<span class="badge" style="background:'+color+'22;color:'+color+';font-weight:700;font-size:11px;padding:5px 12px">'+a.status+'</span>';
+  html += '</div>';
+
+  // Basic info grid
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-bottom:16px">';
+  html += applDetailRow('Position Applied For', a.position_applied);
+  html += applDetailRow('Expected Salary', a.expected_salary?'₱'+Number(a.expected_salary).toLocaleString():'');
+  html += applDetailRow('Email', a.email_address);
+  html += applDetailRow('Mobile', a.mobile_number);
+  html += applDetailRow('Address', a.address);
+  html += applDetailRow('Résumé', a.resume_url?'<button type="button" class="btn bs" style="font-size:11px;padding:3px 10px" onclick="viewApplicantResume('+idx+')">📄 View Résumé</button>':'');
+  html += '</div>';
+
+  // Summary
+  if(a.summary){
+    html += '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px">Summary</div><div style="font-size:13px;line-height:1.6;background:#FAFBFC;border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+a.summary+'</div></div>';
+  }
+
+  // Education
+  if(a.education && a.education.length){
+    html += '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px">Education</div>';
+    a.education.forEach(function(e){
+      html += '<div style="font-size:13px;margin-bottom:6px;padding-left:10px;border-left:2px solid var(--border)">'
+        + '<strong>'+(e.school||'—')+'</strong>'+(e.degree?' — '+e.degree:'')+(e.year?' <span style="color:var(--muted)">('+e.year+')</span>':'')
+        + '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Experience
+  if(a.experience && a.experience.length){
+    html += '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px">Experience</div>';
+    a.experience.forEach(function(e){
+      html += '<div style="font-size:13px;margin-bottom:8px;padding-left:10px;border-left:2px solid var(--border)">'
+        + '<strong>'+(e.title||'—')+'</strong>'+(e.company?' at '+e.company:'')+(e.duration?' <span style="color:var(--muted)">('+e.duration+')</span>':'')
+        + (e.description?'<div style="color:var(--muted);margin-top:2px">'+e.description+'</div>':'')
+        + '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Cover letter
+  if(a.cover_letter){
+    html += '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px">Cover Letter</div><div style="font-size:13px;line-height:1.6;background:#FAFBFC;border:1px solid var(--border);border-radius:8px;padding:10px 12px;white-space:pre-wrap">'+a.cover_letter+'</div></div>';
+  }
+
+  // Screening answers
+  if(a.screening_answers && Object.keys(a.screening_answers).length){
+    html += '<div style="margin-bottom:6px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px">Screening Answers</div>';
+    Object.keys(a.screening_answers).forEach(function(q){
+      var ans = a.screening_answers[q];
+      var ansColor = ans==='Yes' ? 'var(--green)' : 'var(--red)';
+      html += '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">'
+        + '<div style="font-size:13px;flex:1">'+q+'</div>'
+        + '<span style="font-size:11px;font-weight:700;color:'+ansColor+';white-space:nowrap">'+ans+'</span>'
+        + '</div>';
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('appl-detail-body').innerHTML = html;
+  document.getElementById('appl-detail-modal').classList.add('open');
 }
 async function applChangeStatus(idx, newStatus){
   var a = window._applRows[idx];
