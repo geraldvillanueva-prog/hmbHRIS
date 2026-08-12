@@ -454,9 +454,9 @@ tr:hover td{background:#fafcff}
         <div class="f"><label>HDMF (₱/period)</label><input id="ehdmf" type="number" placeholder="" step="0.01"></div>
       </div>
       <div class="row">
-        <div class="f"><label>Mandatory Loan/mo (₱)</label><input id="empl" type="number" placeholder="" step="0.01"></div>
+        <div class="f"><label>Mandatory Loan/Period (₱)</label><input id="empl" type="number" placeholder="" step="0.01"></div>
         <div class="f"><label>Deminimis (₱)</label><input id="edm" type="number" placeholder="" step="0.01"></div>
-        <div class="f"><label>Load allowance/mo (₱)</label><input id="eload" type="number" placeholder="" step="0.01"></div>
+        <div class="f"><label>Load Allowance/Period (₱)</label><input id="eload" type="number" placeholder="" step="0.01"></div>
         <div class="f"><label>WHT tax (₱)</label><input id="ewht" type="number" placeholder="" step="0.01"></div>
       </div>
       <div class="row">
@@ -478,7 +478,7 @@ tr:hover td{background:#fafcff}
         <div class="f" style="max-width:140px"><label>Allowed Radius (m)</label><input id="eloc_radius" type="number" placeholder="300" value="300" min="50" step="10"></div>
       </div>
       <div class="row">
-        <div class="f"><label>📝 Payslip Note (shown at bottom of pay slip)</label><input id="epayslipNote" placeholder="e.g. Load Allowance: ₱500/mo. | Mandatory Loan: ₱1,000/mo."></div>
+        <div class="f"><label>📝 Payslip Note (shown at bottom of pay slip)</label><input id="epayslipNote" placeholder="e.g. Load Allowance: ₱500/period. | Mandatory Loan: ₱1,000/period."></div>
       </div>
       <button class="btn bp" onclick="addEmp()">+ Add Employee</button>
     </div>
@@ -572,9 +572,9 @@ tr:hover td{background:#fafcff}
           <div class="f"><label>HDMF (₱/period)</label><input id="edit-ehdmf" type="number" step="0.01"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-          <div class="f"><label>Mandatory Loan/mo (₱)</label><input id="edit-empl" type="number" step="0.01"></div>
+          <div class="f"><label>Mandatory Loan/Period (₱)</label><input id="edit-empl" type="number" step="0.01"></div>
           <div class="f"><label>Deminimis (₱)</label><input id="edit-edm" type="number" step="0.01"></div>
-          <div class="f"><label>Load Allowance (₱)</label><input id="edit-eload" type="number" step="0.01"></div>
+          <div class="f"><label>Load Allowance/Period (₱)</label><input id="edit-eload" type="number" step="0.01"></div>
           <div class="f"><label>WHT Tax (₱)</label><input id="edit-ewht" type="number" step="0.01"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
@@ -594,7 +594,7 @@ tr:hover td{background:#fafcff}
           <div class="f"><label>Allowed Radius (m)</label><input id="edit-eloc_radius" type="number" placeholder="300" min="50" step="10"></div>
         </div>
         <div style="margin-bottom:10px">
-          <div class="f"><label>📝 Payslip Note (shown at bottom of pay slip)</label><input id="edit-epayslipNote" placeholder="e.g. Load Allowance: ₱500/mo. | Mandatory Loan: ₱1,000/mo."></div>
+          <div class="f"><label>📝 Payslip Note (shown at bottom of pay slip)</label><input id="edit-epayslipNote" placeholder="e.g. Load Allowance: ₱500/period. | Mandatory Loan: ₱1,000/period."></div>
         </div>
         <div id="edit-emp-err" style="display:none;background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:10px"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
