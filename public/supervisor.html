@@ -2364,6 +2364,7 @@ async function loadSupAnnouncements(){
     supAnnRecords=await r.json();
     renderSupAnn();
     celCheckAnnouncementsForCelebration(supAnnRecords);
+    celCheckTodayBirthday(supAnnRecords);
   }catch(e){console.error(e);}
 }
 
@@ -2690,6 +2691,53 @@ function celStartAmbientBand(containerId,count){
 
 // Auto-trigger: celebrate the first time a new award / best-employee
 // announcement shows up (tracked per-browser so it only fires once).
+// Dedicated birthday celebration — same mascot/confetti engine as
+// celebrateMilestone(), but with its own festive toast text.
+function celebrateBirthday(name){
+  if(celIsBusy)return;
+  celIsBusy=true;
+  var overlay=document.getElementById('cel-overlay');
+  if(!overlay){celIsBusy=false;return;}
+  var w=window.innerWidth,h=window.innerHeight;
+  var toast=document.createElement('div');
+  toast.className='cel-toast';
+  toast.style.background='linear-gradient(135deg,#fce4ec,#fff)';
+  toast.style.borderColor='#f8bbd0';
+  toast.textContent='🎂 Happy Birthday'+(name?', '+name:'')+'! 🎉';
+  document.body.appendChild(toast);
+  requestAnimationFrame(function(){toast.classList.add('show');});
+  var kinds=['balloons','balloons','jump','dance','clap','toss','trophy','balloons'];
+  var w2=window.innerWidth,h2=window.innerHeight;
+  var maxLife=0;
+  kinds.forEach(function(k){var life=celSpawnMascot(overlay,k,w2,h2);if(life>maxLife)maxLife=life;});
+  celSpawnConfettiBurst(overlay,w,h,26,false);
+  var idle=document.getElementById('cel-idle-corner');
+  if(idle){idle.classList.add('perked');setTimeout(function(){idle.classList.remove('perked');},1500);}
+  setTimeout(function(){
+    toast.classList.remove('show');
+    setTimeout(function(){if(toast.parentNode)toast.parentNode.removeChild(toast);},400);
+    var residual=document.createElement('div');
+    residual.className='cel-toast residual';
+    residual.textContent='🎈 Have a great one!';
+    document.body.appendChild(residual);
+    requestAnimationFrame(function(){residual.classList.add('show');});
+    celSpawnConfettiBurst(overlay,w,h,6,true);
+    setTimeout(function(){
+      residual.classList.remove('show');
+      setTimeout(function(){
+        if(residual.parentNode)residual.parentNode.removeChild(residual);
+        celIsBusy=false;
+      },400);
+    },2000);
+  },(maxLife+0.3)*1000);
+}
+window.celebrateBirthday=celebrateBirthday;
+function celExtractFirstName(title){
+  if(!title)return'';
+  var m=title.match(/Happy Birthday,\s*([^!]+)/i);
+  return m?m[1].trim():'';
+}
+
 var CEL_TYPE_MAP={award:'award',best_employee:'award',event:'milestone'};
 function celCheckAnnouncementsForCelebration(records){
   try{
@@ -2697,14 +2745,45 @@ function celCheckAnnouncementsForCelebration(records){
     var seenKey='hmb_sup_celebrated_ann_ids';
     var seen=JSON.parse(localStorage.getItem(seenKey)||'[]');
     var worthy=records.filter(function(a){return a.type==='award'||a.type==='best_employee';});
-    if(!worthy.length)return;
-    worthy.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});
-    var latest=worthy[0];
-    if(seen.indexOf(latest.id)!==-1)return;
-    seen.push(latest.id);
-    if(seen.length>50)seen=seen.slice(-50);
-    localStorage.setItem(seenKey,JSON.stringify(seen));
-    celebrateMilestone(CEL_TYPE_MAP[latest.type]||'award',latest.title||'');
+    if(worthy.length){
+      worthy.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});
+      var latest=worthy[0];
+      if(seen.indexOf(latest.id)===-1){
+        seen.push(latest.id);
+        if(seen.length>50)seen=seen.slice(-50);
+        localStorage.setItem(seenKey,JSON.stringify(seen));
+        celebrateMilestone(CEL_TYPE_MAP[latest.type]||'award',latest.title||'');
+        return;
+      }
+    }
+    var bdaySeenKey='hmb_sup_celebrated_bday_ids';
+    var bdaySeen=JSON.parse(localStorage.getItem(bdaySeenKey)||'[]');
+    var bdays=records.filter(function(a){return a.type==='birthday';});
+    if(!bdays.length)return;
+    bdays.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});
+    var latestBday=bdays[0];
+    if(bdaySeen.indexOf(latestBday.id)!==-1)return;
+    bdaySeen.push(latestBday.id);
+    if(bdaySeen.length>50)bdaySeen=bdaySeen.slice(-50);
+    localStorage.setItem(bdaySeenKey,JSON.stringify(bdaySeen));
+    celebrateBirthday(celExtractFirstName(latestBday.title));
+  }catch(e){console.error(e);}
+}
+
+// Separate trigger for "when opening the dashboard": celebrates once per
+// calendar day per browser if a birthday announcement was posted today.
+function celCheckTodayBirthday(records){
+  try{
+    if(!records||!records.length)return;
+    var todayStr=new Date().toISOString().slice(0,10);
+    var dayKey='hmb_sup_bday_today_'+todayStr;
+    if(localStorage.getItem(dayKey))return;
+    var todays=records.filter(function(a){
+      return a.type==='birthday' && a.created_at && a.created_at.slice(0,10)===todayStr;
+    });
+    if(!todays.length)return;
+    localStorage.setItem(dayKey,'1');
+    celebrateBirthday(celExtractFirstName(todays[0].title));
   }catch(e){console.error(e);}
 }
 
