@@ -117,6 +117,28 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS benefit_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    code TEXT,
+    category TEXT,
+    provider TEXT,
+    description TEXT,
+    ee_contribution_type TEXT DEFAULT 'none',
+    ee_contribution_value REAL DEFAULT 0,
+    er_contribution_type TEXT DEFAULT 'none',
+    er_contribution_value REAL DEFAULT 0,
+    frequency TEXT DEFAULT 'Monthly',
+    eligibility_rule TEXT DEFAULT 'all',
+    eligibility_param TEXT,
+    effective_date TEXT,
+    expiration_date TEXT,
+    status TEXT DEFAULT 'Active',
+    remarks TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS attendance (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     employee_id INTEGER NOT NULL,
@@ -541,6 +563,60 @@ app.get('/api/employees', requireAuth, (req, res) => {
   const emps = db.prepare('SELECT * FROM employees WHERE active = 1 ORDER BY name').all();
   res.json(emps.map(mapEmployee));
 });
+
+// ==================== BENEFIT TYPES (Benefits Management, Section 1) ====================
+function mapBenefitType(b){
+  return {
+    id: b.id, name: b.name, code: b.code || '', category: b.category || '', provider: b.provider || '',
+    description: b.description || '',
+    eeContributionType: b.ee_contribution_type || 'none', eeContributionValue: b.ee_contribution_value || 0,
+    erContributionType: b.er_contribution_type || 'none', erContributionValue: b.er_contribution_value || 0,
+    frequency: b.frequency || 'Monthly',
+    eligibilityRule: b.eligibility_rule || 'all', eligibilityParam: b.eligibility_param || '',
+    effectiveDate: b.effective_date || '', expirationDate: b.expiration_date || '',
+    status: b.status || 'Active', remarks: b.remarks || '',
+    createdAt: b.created_at, updatedAt: b.updated_at
+  };
+}
+// Any authenticated user can read the catalog (Management/read-only access per
+// the spec's permission model); only Admin can create/edit for now — HR Staff
+// submit-for-approval comes with the Approvals section in a later increment.
+app.get('/api/benefit-types', requireAuth, (req, res) => {
+  const rows = db.prepare('SELECT * FROM benefit_types ORDER BY name').all();
+  res.json(rows.map(mapBenefitType));
+});
+app.post('/api/benefit-types', requireAdmin, (req, res) => {
+  const b = req.body;
+  if (!b.name) return res.status(400).json({ success: false, error: 'Benefit Name is required.' });
+  const r = db.prepare(`INSERT INTO benefit_types
+    (name,code,category,provider,description,ee_contribution_type,ee_contribution_value,er_contribution_type,er_contribution_value,frequency,eligibility_rule,eligibility_param,effective_date,expiration_date,status,remarks,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`).run(
+    b.name, b.code||'', b.category||'', b.provider||'', b.description||'',
+    b.eeContributionType||'none', +b.eeContributionValue||0, b.erContributionType||'none', +b.erContributionValue||0,
+    b.frequency||'Monthly', b.eligibilityRule||'all', b.eligibilityParam||'',
+    b.effectiveDate||'', b.expirationDate||'', b.status||'Active', b.remarks||''
+  );
+  res.json({ success: true, id: r.lastInsertRowid });
+});
+app.put('/api/benefit-types/:id', requireAdmin, (req, res) => {
+  const b = req.body;
+  const existing = db.prepare('SELECT id FROM benefit_types WHERE id=?').get(req.params.id);
+  if (!existing) return res.status(404).json({ success: false, error: 'Benefit not found.' });
+  db.prepare(`UPDATE benefit_types SET
+    name=?,code=?,category=?,provider=?,description=?,ee_contribution_type=?,ee_contribution_value=?,er_contribution_type=?,er_contribution_value=?,
+    frequency=?,eligibility_rule=?,eligibility_param=?,effective_date=?,expiration_date=?,status=?,remarks=?,updated_at=datetime('now')
+    WHERE id=?`).run(
+    b.name, b.code||'', b.category||'', b.provider||'', b.description||'',
+    b.eeContributionType||'none', +b.eeContributionValue||0, b.erContributionType||'none', +b.erContributionValue||0,
+    b.frequency||'Monthly', b.eligibilityRule||'all', b.eligibilityParam||'',
+    b.effectiveDate||'', b.expirationDate||'', b.status||'Active', b.remarks||'',
+    req.params.id
+  );
+  res.json({ success: true });
+});
+// No DELETE route on purpose — the spec requires preserving benefit history
+// and using soft deactivation ("Do not permanently delete historical
+// records"), so Inactive status is the only supported removal path.
 
 app.post('/api/employees', requireAdmin, (req, res) => {
   const e = req.body;
