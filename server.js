@@ -99,6 +99,7 @@ db.exec(`
     immediate_superior TEXT,
     end_of_contract TEXT,
     annual_evaluation TEXT,
+    payslip_note TEXT,
     smb REAL DEFAULT 0,
     sss REAL DEFAULT 0,
     phic REAL DEFAULT 0,
@@ -543,11 +544,11 @@ app.get('/api/employees', requireAuth, (req, res) => {
 
 app.post('/api/employees', requireAdmin, (req, res) => {
   const e = req.body;
-  const r = db.prepare(`INSERT INTO employees (name,surname,given_name,middle_name,pos,dept,type,start,bank,email,mobile,emergency,address,address_permanent,address_current,tin,sss_no,philhealth_no,pagibig_no,dob,civil_status,gender,smoker,religion,immediate_superior,end_of_contract,annual_evaluation,smb,sss,phic,hdmf,mpl,dm,load,wht,vl_bal,sl_bal)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+  const r = db.prepare(`INSERT INTO employees (name,surname,given_name,middle_name,pos,dept,type,start,bank,email,mobile,emergency,address,address_permanent,address_current,tin,sss_no,philhealth_no,pagibig_no,dob,civil_status,gender,smoker,religion,immediate_superior,end_of_contract,annual_evaluation,payslip_note,smb,sss,phic,hdmf,mpl,dm,load,wht,vl_bal,sl_bal)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     e.name,e.surname||'',e.givenName||'',e.middleName||'',e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',
     e.addressPermanent||'',e.addressCurrent||'',e.tin||'',e.sssNo||'',e.philhealthNo||'',e.pagibigNo||'',e.dob||'',e.civilStatus||'',e.gender||'',e.smoker||'',e.religion||'',
-    e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',
+    e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',e.payslipNote||'',
     +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0
   );
   res.json({ success: true, id: r.lastInsertRowid });
@@ -564,12 +565,12 @@ app.put('/api/employees/:id', requireAdmin, (req, res) => {
   const locWfhDays = (locPolicy === 'wfh' && e.locWfhDays) ? e.locWfhDays : null;
   db.prepare(`UPDATE employees SET name=?,surname=?,given_name=?,middle_name=?,pos=?,dept=?,type=?,start=?,bank=?,email=?,mobile=?,emergency=?,address=?,
     address_permanent=?,address_current=?,tin=?,sss_no=?,philhealth_no=?,pagibig_no=?,dob=?,civil_status=?,gender=?,smoker=?,religion=?,
-    immediate_superior=?,end_of_contract=?,annual_evaluation=?,
+    immediate_superior=?,end_of_contract=?,annual_evaluation=?,payslip_note=?,
     smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,vl_bal=?,sl_bal=?,shift_id=?,
     loc_policy=?,loc_lat=?,loc_lng=?,loc_radius=?,loc_wfh_days=? WHERE id=?`).run(
     e.name,e.surname||'',e.givenName||'',e.middleName||'',e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',
     e.addressPermanent||'',e.addressCurrent||'',e.tin||'',e.sssNo||'',e.philhealthNo||'',e.pagibigNo||'',e.dob||'',e.civilStatus||'',e.gender||'',e.smoker||'',e.religion||'',
-    e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',
+    e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',e.payslipNote||'',
     +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0, shiftId,
     locPolicy, locLat, locLng, locRadius, locWfhDays, req.params.id
   );
@@ -625,7 +626,8 @@ function mapEmployee(e) {
     sssNo: e.sss_no || '', philhealthNo: e.philhealth_no || '', pagibigNo: e.pagibig_no || '',
     dob: e.dob || '', civilStatus: e.civil_status || '', gender: e.gender || '',
     smoker: e.smoker || '', religion: e.religion || '',
-    immediateSuperior: e.immediate_superior || '', endOfContract: e.end_of_contract || '', annualEvaluation: e.annual_evaluation || ''
+    immediateSuperior: e.immediate_superior || '', endOfContract: e.end_of_contract || '', annualEvaluation: e.annual_evaluation || '',
+    payslipNote: e.payslip_note || ''
   };
 }
 
@@ -721,6 +723,7 @@ try { db.exec(`ALTER TABLE employees ADD COLUMN address_current TEXT`); } catch(
 try { db.exec(`ALTER TABLE employees ADD COLUMN immediate_superior TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE employees ADD COLUMN end_of_contract TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE employees ADD COLUMN annual_evaluation TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN payslip_note TEXT`); } catch(e) {}
 
 // Migrate time_logs table — add GPS columns for audit trail
 try { db.exec(`ALTER TABLE time_logs ADD COLUMN lat REAL`); } catch(e) {}
