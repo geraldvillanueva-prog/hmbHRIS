@@ -1255,57 +1255,100 @@ tr:hover td{background:#fafcff}
   <!-- BENEFITS MANAGEMENT -->
   <div id="sec-benefits" class="sec">
     <div class="page-title">💳 Benefits Management</div>
-    <div class="page-sub">Keep SSS, PhilHealth, and Pag-IBIG rates up to date here — when the government changes a rate, floor, or ceiling, update it once below and recalculate everyone's payroll deduction in one step instead of editing each employee individually.</div>
+    <div class="page-sub">Manage the catalog of benefits HMB offers — HMO, insurance, allowances, and government-mandated programs. Enrolling employees, dependents, approvals, and reports are separate, upcoming sections; this page defines what benefits exist and their rules.</div>
 
-    <div class="row" style="align-items:stretch">
-      <div class="card" style="flex:1;min-width:260px">
-        <div class="card-title">🏦 SSS</div>
-        <div class="f"><label>Employee Share (%)</label><input id="ben-sss-ee" type="number" step="0.01" placeholder="5"></div>
-        <div class="f"><label>Employer Share (%)</label><input id="ben-sss-er" type="number" step="0.01" placeholder="10"></div>
-        <div class="f"><label>MSC Floor (₱)</label><input id="ben-sss-floor" type="number" step="1" placeholder="5000"></div>
-        <div class="f"><label>MSC Ceiling (₱)</label><input id="ben-sss-ceiling" type="number" step="1" placeholder="35000"></div>
-        <div class="f"><label>Effective Date</label><input id="ben-sss-eff" type="date"></div>
+    <div class="row no-print" style="margin-bottom:14px;align-items:flex-end">
+      <div class="f" style="max-width:200px"><label>Category</label>
+        <select id="bt-filter-cat" onchange="renderBenefitTypesList()"><option value="">All Categories</option></select>
       </div>
-      <div class="card" style="flex:1;min-width:260px">
-        <div class="card-title">🏥 PhilHealth</div>
-        <div class="f"><label>Employee Share (%)</label><input id="ben-phic-ee" type="number" step="0.01" placeholder="2.5"></div>
-        <div class="f"><label>Employer Share (%)</label><input id="ben-phic-er" type="number" step="0.01" placeholder="2.5"></div>
-        <div class="f"><label>Salary Floor (₱)</label><input id="ben-phic-floor" type="number" step="1" placeholder="10000"></div>
-        <div class="f"><label>Salary Ceiling (₱)</label><input id="ben-phic-ceiling" type="number" step="1" placeholder="100000"></div>
-        <div class="f"><label>Effective Date</label><input id="ben-phic-eff" type="date"></div>
+      <div class="f" style="max-width:160px"><label>Status</label>
+        <select id="bt-filter-status" onchange="renderBenefitTypesList()"><option value="">All</option><option>Active</option><option>Inactive</option></select>
       </div>
-      <div class="card" style="flex:1;min-width:260px">
-        <div class="card-title">🏠 Pag-IBIG (HDMF)</div>
-        <div class="f"><label>Employee Share — ≤ Low Threshold (%)</label><input id="ben-hdmf-eelow" type="number" step="0.01" placeholder="1"></div>
-        <div class="f"><label>Employee Share — Above Threshold (%)</label><input id="ben-hdmf-eehigh" type="number" step="0.01" placeholder="2"></div>
-        <div class="f"><label>Low Threshold (₱)</label><input id="ben-hdmf-lowthresh" type="number" step="1" placeholder="1500"></div>
-        <div class="f"><label>Employer Share (%)</label><input id="ben-hdmf-er" type="number" step="0.01" placeholder="2"></div>
-        <div class="f"><label>Max Fund Salary (₱)</label><input id="ben-hdmf-mfs" type="number" step="1" placeholder="10000"></div>
-        <div class="f"><label>Effective Date</label><input id="ben-hdmf-eff" type="date"></div>
-      </div>
+      <div class="f" style="max-width:220px"><label>Search</label><input id="bt-search" oninput="renderBenefitTypesList()" placeholder="Name, code, or provider"></div>
+      <button class="btn bp" onclick="openBenefitTypeModal()">+ Add Benefit</button>
     </div>
 
-    <div style="display:flex;align-items:center;gap:12px;margin:14px 0">
-      <button class="btn bp" onclick="saveBenefitsConfig()">💾 Save Rates</button>
-      <span class="ok-msg" id="ben-save-ok">Saved!</span>
-      <span id="ben-last-updated" style="font-size:11px;color:var(--muted)"></span>
-    </div>
+    <div id="bt-list-wrap"><div class="empty">Loading…</div></div>
+  </div>
 
-    <div class="card">
-      <div class="card-title">🧮 Quick Calculator</div>
+  <div id="benefit-type-modal" class="modal-overlay" onclick="if(event.target.id==='benefit-type-modal')closeBenefitTypeModal()">
+    <div class="modal-box" style="max-width:640px;max-height:88vh;overflow-y:auto">
+      <div class="modal-title">
+        <span id="bt-modal-title">➕ Add Benefit</span>
+        <button class="modal-close" onclick="closeBenefitTypeModal()">✕</button>
+      </div>
+      <input type="hidden" id="bt-id">
       <div class="row">
-        <div class="f" style="max-width:220px"><label>Monthly Salary (₱)</label><input id="ben-calc-salary" type="number" step="0.01" oninput="calcBenefitsPreview()" placeholder="e.g. 25000"></div>
+        <div class="f"><label>Benefit Name <span style="color:var(--red)">*</span></label><input id="bt-name" placeholder="e.g. HMO / Health Insurance"></div>
+        <div class="f"><label>Benefit Code</label><input id="bt-code" placeholder="e.g. HMO-01"></div>
       </div>
-      <div id="ben-calc-result" style="margin-top:10px"><div class="empty">Enter a monthly salary above to see the computed shares.</div></div>
-    </div>
+      <div class="row">
+        <div class="f"><label>Category</label>
+          <select id="bt-category">
+            <option>HMO / Health Insurance</option>
+            <option>Life Insurance</option>
+            <option>Government Mandated</option>
+            <option>Allowance</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="f"><label>Provider</label><input id="bt-provider" placeholder="e.g. Maxicare, SSS, Internal"></div>
+      </div>
+      <div class="f"><label>Description</label><textarea id="bt-description" rows="2"></textarea></div>
 
-    <div class="card">
-      <div class="card-title" style="justify-content:space-between;display:flex;align-items:center">
-        <span>🔄 Recalculate All Employees</span>
-        <button class="btn bp" onclick="previewRecalcAll()">Preview Changes</button>
+      <div class="row">
+        <div class="f"><label>Employee Contribution Type</label>
+          <select id="bt-ee-type" onchange="toggleBtContribFields()">
+            <option value="none">No employee contribution</option>
+            <option value="fixed">Fixed amount (₱)</option>
+            <option value="percentage">Percentage (%)</option>
+          </select>
+        </div>
+        <div class="f" id="bt-ee-value-wrap" style="display:none"><label>Employee Contribution Value</label><input id="bt-ee-value" type="number" step="0.01"></div>
       </div>
-      <div class="hint">This recomputes each active employee's SSS, PHIC, and HDMF deduction per pay period from their Semi-monthly Pay using the rates above. Nothing changes until you review the preview and click Apply.</div>
-      <div id="ben-recalc-wrap" style="margin-top:10px"></div>
+      <div class="row">
+        <div class="f"><label>Employer Contribution Type</label>
+          <select id="bt-er-type" onchange="toggleBtContribFields()">
+            <option value="none">No employer contribution</option>
+            <option value="fixed">Fixed amount (₱)</option>
+            <option value="percentage">Percentage (%)</option>
+          </select>
+        </div>
+        <div class="f" id="bt-er-value-wrap" style="display:none"><label>Employer Contribution Value</label><input id="bt-er-value" type="number" step="0.01"></div>
+      </div>
+      <div class="f"><label>Contribution Frequency</label>
+        <select id="bt-frequency"><option>Monthly</option><option>Semi-monthly</option><option>Annual</option><option>One-time</option></select>
+      </div>
+
+      <div class="row">
+        <div class="f"><label>Eligibility Rule</label>
+          <select id="bt-elig-rule" onchange="toggleBtEligParam()">
+            <option value="all">All employees</option>
+            <option value="regular">Regular employees only</option>
+            <option value="probationary">Probationary employees</option>
+            <option value="after_months">Employees after X months</option>
+            <option value="department">Specific department</option>
+            <option value="employment_type">Specific employment type</option>
+            <option value="position">Specific position</option>
+          </select>
+        </div>
+        <div class="f" id="bt-elig-param-wrap" style="display:none"><label id="bt-elig-param-label">Parameter</label><input id="bt-elig-param" placeholder=""></div>
+      </div>
+
+      <div class="row">
+        <div class="f"><label>Effective Date</label><input id="bt-effective" type="date"></div>
+        <div class="f"><label>Expiration Date <span class="opt" style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="bt-expiration" type="date"></div>
+      </div>
+      <div class="row">
+        <div class="f"><label>Status</label><select id="bt-status"><option>Active</option><option>Inactive</option></select></div>
+      </div>
+      <div class="f"><label>Remarks</label><textarea id="bt-remarks" rows="2"></textarea></div>
+
+      <div id="bt-err" style="display:none;background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn" onclick="closeBenefitTypeModal()">Cancel</button>
+        <button class="btn bp" onclick="saveBenefitType()">💾 Save Benefit</button>
+      </div>
     </div>
   </div>
 
@@ -1627,163 +1670,154 @@ async function saveOfficeLocation(){
     if(btn){btn.disabled=false;btn.innerHTML='💾 Save Office Location';}
   }
 }
-// ==================== BENEFITS MANAGEMENT ====================
-var benefitsConfig=null;
-function defaultBenefitsConfig(){
-  return{
-    sss:{eeRate:5,erRate:10,floor:5000,ceiling:35000,effective:''},
-    philhealth:{eeRate:2.5,erRate:2.5,floor:10000,ceiling:100000,effective:''},
-    pagibig:{eeRateLow:1,eeRateHigh:2,lowThreshold:1500,erRate:2,mfs:10000,effective:''},
-    lastUpdated:''
-  };
-}
-async function loadBenefitsConfig(){
+// ==================== BENEFITS MANAGEMENT (Benefit Types) ====================
+var benefitTypes=[];
+var BT_ELIG_LABELS={
+  all:'All employees', regular:'Regular employees only', probationary:'Probationary employees',
+  after_months:'After X months of tenure', department:'Specific department',
+  employment_type:'Specific employment type', position:'Specific position'
+};
+var BT_ELIG_PARAM_LABEL={
+  after_months:'Number of months', department:'Department name',
+  employment_type:'Employment type (e.g. Regular)', position:'Position title'
+};
+async function loadBenefitTypes(){
+  var w=document.getElementById('bt-list-wrap');
   try{
-    var cfg=await api('GET','/api/settings');
-    benefitsConfig=cfg&&cfg.benefits_json?JSON.parse(cfg.benefits_json):defaultBenefitsConfig();
-  }catch(e){benefitsConfig=defaultBenefitsConfig();}
-  var b=benefitsConfig;
-  document.getElementById('ben-sss-ee').value=b.sss.eeRate;
-  document.getElementById('ben-sss-er').value=b.sss.erRate;
-  document.getElementById('ben-sss-floor').value=b.sss.floor;
-  document.getElementById('ben-sss-ceiling').value=b.sss.ceiling;
-  document.getElementById('ben-sss-eff').value=b.sss.effective||'';
-  document.getElementById('ben-phic-ee').value=b.philhealth.eeRate;
-  document.getElementById('ben-phic-er').value=b.philhealth.erRate;
-  document.getElementById('ben-phic-floor').value=b.philhealth.floor;
-  document.getElementById('ben-phic-ceiling').value=b.philhealth.ceiling;
-  document.getElementById('ben-phic-eff').value=b.philhealth.effective||'';
-  document.getElementById('ben-hdmf-eelow').value=b.pagibig.eeRateLow;
-  document.getElementById('ben-hdmf-eehigh').value=b.pagibig.eeRateHigh;
-  document.getElementById('ben-hdmf-lowthresh').value=b.pagibig.lowThreshold;
-  document.getElementById('ben-hdmf-er').value=b.pagibig.erRate;
-  document.getElementById('ben-hdmf-mfs').value=b.pagibig.mfs;
-  document.getElementById('ben-hdmf-eff').value=b.pagibig.effective||'';
-  var lu=document.getElementById('ben-last-updated');
-  lu.textContent=b.lastUpdated?('Last updated '+fmtDate(b.lastUpdated.slice(0,10))):'';
-  document.getElementById('ben-recalc-wrap').innerHTML='';
-  calcBenefitsPreview();
-}
-async function saveBenefitsConfig(){
-  benefitsConfig={
-    sss:{
-      eeRate:parseFloat(document.getElementById('ben-sss-ee').value)||0,
-      erRate:parseFloat(document.getElementById('ben-sss-er').value)||0,
-      floor:parseFloat(document.getElementById('ben-sss-floor').value)||0,
-      ceiling:parseFloat(document.getElementById('ben-sss-ceiling').value)||0,
-      effective:document.getElementById('ben-sss-eff').value||''
-    },
-    philhealth:{
-      eeRate:parseFloat(document.getElementById('ben-phic-ee').value)||0,
-      erRate:parseFloat(document.getElementById('ben-phic-er').value)||0,
-      floor:parseFloat(document.getElementById('ben-phic-floor').value)||0,
-      ceiling:parseFloat(document.getElementById('ben-phic-ceiling').value)||0,
-      effective:document.getElementById('ben-phic-eff').value||''
-    },
-    pagibig:{
-      eeRateLow:parseFloat(document.getElementById('ben-hdmf-eelow').value)||0,
-      eeRateHigh:parseFloat(document.getElementById('ben-hdmf-eehigh').value)||0,
-      lowThreshold:parseFloat(document.getElementById('ben-hdmf-lowthresh').value)||0,
-      erRate:parseFloat(document.getElementById('ben-hdmf-er').value)||0,
-      mfs:parseFloat(document.getElementById('ben-hdmf-mfs').value)||0,
-      effective:document.getElementById('ben-hdmf-eff').value||''
-    },
-    lastUpdated:new Date().toISOString()
-  };
-  await api('POST','/api/settings',{benefits_json:JSON.stringify(benefitsConfig)});
-  flash('ben-save-ok');
-  document.getElementById('ben-last-updated').textContent='Last updated '+fmtDate(new Date().toISOString().slice(0,10));
-  calcBenefitsPreview();
-}
-// Formulas follow the standard PH structure: a flat rate applied to a
-// salary/MSC base that's clamped between a floor and ceiling — only the
-// numbers change when the government updates a rate, not the shape of
-// the calculation, which is why these stay generic rather than hardcoded.
-function calcSSSMonthly(monthlySalary,cfg){
-  cfg=cfg||benefitsConfig.sss;
-  var base=Math.min(Math.max(monthlySalary,cfg.floor),cfg.ceiling);
-  return{ee:base*cfg.eeRate/100,er:base*cfg.erRate/100,base:base};
-}
-function calcPhilHealthMonthly(monthlySalary,cfg){
-  cfg=cfg||benefitsConfig.philhealth;
-  var base=Math.min(Math.max(monthlySalary,cfg.floor),cfg.ceiling);
-  return{ee:base*cfg.eeRate/100,er:base*cfg.erRate/100,base:base};
-}
-function calcPagibigMonthly(monthlySalary,cfg){
-  cfg=cfg||benefitsConfig.pagibig;
-  var base=Math.min(monthlySalary,cfg.mfs);
-  var eeRate=monthlySalary<=cfg.lowThreshold?cfg.eeRateLow:cfg.eeRateHigh;
-  return{ee:base*eeRate/100,er:base*cfg.erRate/100,base:base};
-}
-function calcBenefitsPreview(){
-  var wrap=document.getElementById('ben-calc-result');
-  var salary=parseFloat(document.getElementById('ben-calc-salary').value);
-  if(!benefitsConfig){wrap.innerHTML='<div class="empty">Save or load rates first.</div>';return;}
-  if(!salary||salary<=0){wrap.innerHTML='<div class="empty">Enter a monthly salary above to see the computed shares.</div>';return;}
-  var sss=calcSSSMonthly(salary),phic=calcPhilHealthMonthly(salary),hdmf=calcPagibigMonthly(salary);
-  function row(label,r){
-    return'<tr><td>'+label+'</td><td>₱'+fp(r.base)+'</td><td>₱'+fp(r.ee)+'</td><td>₱'+fp(r.er)+'</td><td>₱'+fp(r.ee/2)+'</td></tr>';
+    benefitTypes=await api('GET','/api/benefit-types')||[];
+    populateBtCategoryFilter();
+    renderBenefitTypesList();
+  }catch(e){
+    console.error(e);
+    if(w)w.innerHTML='<div class="empty">Could not load benefits. Is the backend route set up?</div>';
   }
-  wrap.innerHTML='<table><thead><tr><th>Program</th><th>Base Used</th><th>Employee Share (mo.)</th><th>Employer Share (mo.)</th><th>Per Pay Period</th></tr></thead><tbody>'
-    +row('SSS',sss)+row('PhilHealth',phic)+row('Pag-IBIG',hdmf)
-    +'</tbody></table>';
 }
-var _recalcPreviewData=null;
-function previewRecalcAll(){
-  if(!benefitsConfig){alert('Load or save benefit rates first.');return;}
-  var active=employees.filter(function(e){return e.active!==0;});
-  if(!active.length){document.getElementById('ben-recalc-wrap').innerHTML='<div class="empty">No active employees found.</div>';return;}
-  var rows=active.map(function(e){
-    var monthly=(e.smb||0)*2;
-    var sss=calcSSSMonthly(monthly),phic=calcPhilHealthMonthly(monthly),hdmf=calcPagibigMonthly(monthly);
-    var newSss=sss.ee/2,newPhic=phic.ee/2,newHdmf=hdmf.ee/2;
-    return{
-      id:e.id,name:e.name,monthly:monthly,
-      oldSss:e.sss||0,newSss:newSss,
-      oldPhic:e.phic||0,newPhic:newPhic,
-      oldHdmf:e.hdmf||0,newHdmf:newHdmf
-    };
+function populateBtCategoryFilter(){
+  var sel=document.getElementById('bt-filter-cat');
+  if(!sel)return;
+  var current=sel.value;
+  var cats=[...new Set(benefitTypes.map(function(b){return b.category;}).filter(Boolean))].sort();
+  sel.innerHTML='<option value="">All Categories</option>'+cats.map(function(c){return'<option'+(c===current?' selected':'')+'>'+c+'</option>';}).join('');
+}
+function fmtContribution(type,value){
+  if(type==='fixed')return'₱'+fp(value);
+  if(type==='percentage')return value+'%';
+  return'None';
+}
+function renderBenefitTypesList(){
+  var w=document.getElementById('bt-list-wrap');
+  var cat=v('bt-filter-cat'),status=v('bt-filter-status'),term=(v('bt-search')||'').toLowerCase();
+  var list=benefitTypes.filter(function(b){
+    if(cat&&b.category!==cat)return false;
+    if(status&&b.status!==status)return false;
+    if(term){
+      var hay=((b.name||'')+' '+(b.code||'')+' '+(b.provider||'')).toLowerCase();
+      if(hay.indexOf(term)===-1)return false;
+    }
+    return true;
   });
-  _recalcPreviewData=rows;
-  var changed=rows.filter(function(r){return Math.abs(r.oldSss-r.newSss)>0.005||Math.abs(r.oldPhic-r.newPhic)>0.005||Math.abs(r.oldHdmf-r.newHdmf)>0.005;});
-  function diffCell(oldV,newV){
-    var diff=newV-oldV;
-    var color=Math.abs(diff)<0.005?'var(--muted)':(diff>0?'var(--red)':'var(--green)');
-    return'<td>₱'+fp(oldV)+' → <strong style="color:'+color+'">₱'+fp(newV)+'</strong></td>';
-  }
-  var wrap=document.getElementById('ben-recalc-wrap');
-  if(!changed.length){
-    wrap.innerHTML='<div class="empty">Everyone\'s deductions already match the current rates — nothing to change.</div>';
-    return;
-  }
-  wrap.innerHTML='<div style="margin-bottom:8px;font-size:12.5px;color:var(--muted)">'+changed.length+' of '+rows.length+' active employees would change:</div>'
-    +'<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Monthly Salary</th><th>SSS/period</th><th>PHIC/period</th><th>HDMF/period</th></tr></thead><tbody>'
-    +changed.map(function(r){
-      return'<tr><td><strong>'+r.name+'</strong></td><td>₱'+fp(r.monthly)+'</td>'
-        +diffCell(r.oldSss,r.newSss)+diffCell(r.oldPhic,r.newPhic)+diffCell(r.oldHdmf,r.newHdmf)+'</tr>';
+  if(!list.length){w.innerHTML='<div class="empty">No benefits found. Click "+ Add Benefit" to create one.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>Benefit</th><th>Category</th><th>Provider</th><th>Employee Share</th><th>Employer Share</th><th>Eligibility</th><th>Effective</th><th>Status</th><th></th>'
+    +'</tr></thead><tbody>'
+    +list.map(function(b){
+      var statusBadge=b.status==='Active'?'<span class="badge badge-green">Active</span>':'<span class="badge" style="background:#eceff1;color:#607d8b">Inactive</span>';
+      return'<tr>'
+        +'<td><strong>'+b.name+'</strong>'+(b.code?'<div style="font-size:11px;color:var(--muted);font-family:\'IBM Plex Mono\',monospace">'+b.code+'</div>':'')+'</td>'
+        +'<td>'+(b.category||'—')+'</td>'
+        +'<td>'+(b.provider||'—')+'</td>'
+        +'<td>'+fmtContribution(b.eeContributionType,b.eeContributionValue)+'</td>'
+        +'<td>'+fmtContribution(b.erContributionType,b.erContributionValue)+'</td>'
+        +'<td style="font-size:12px">'+(BT_ELIG_LABELS[b.eligibilityRule]||b.eligibilityRule)+(b.eligibilityParam?' — '+b.eligibilityParam:'')+'</td>'
+        +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(b.effectiveDate)+'</td>'
+        +'<td>'+statusBadge+'</td>'
+        +'<td style="white-space:nowrap">'
+          +'<button class="btn bs" style="font-size:11px;margin-right:4px" onclick="openBenefitTypeModal('+b.id+')">✏️ Edit</button>'
+          +'<button class="btn bs" style="font-size:11px" onclick="toggleBenefitTypeStatus('+b.id+')">'+(b.status==='Active'?'⏸ Deactivate':'▶ Activate')+'</button>'
+        +'</td>'
+        +'</tr>';
     }).join('')
-    +'</tbody></table></div>'
-    +'<div style="margin-top:12px;display:flex;gap:10px;align-items:center">'
-    +'<button class="btn bp" onclick="applyRecalcAll()">✅ Apply These Changes</button>'
-    +'<button class="btn bs" onclick="document.getElementById(\'ben-recalc-wrap\').innerHTML=\'\'">Cancel</button>'
-    +'<span class="ok-msg" id="ben-recalc-ok">Applied!</span>'
-    +'</div>';
+    +'</tbody></table></div>';
 }
-async function applyRecalcAll(){
-  if(!_recalcPreviewData||!_recalcPreviewData.length)return;
-  var changed=_recalcPreviewData.filter(function(r){return Math.abs(r.oldSss-r.newSss)>0.005||Math.abs(r.oldPhic-r.newPhic)>0.005||Math.abs(r.oldHdmf-r.newHdmf)>0.005;});
-  for(var i=0;i<changed.length;i++){
-    var r=changed[i];
-    var e=employees.find(function(x){return x.id===r.id;});
-    if(!e)continue;
-    e.sss=Math.round(r.newSss*100)/100;
-    e.phic=Math.round(r.newPhic*100)/100;
-    e.hdmf=Math.round(r.newHdmf*100)/100;
-    await api('PUT','/api/employees/'+e.id,e);
+function toggleBtContribFields(){
+  document.getElementById('bt-ee-value-wrap').style.display=v('bt-ee-type')==='none'?'none':'block';
+  document.getElementById('bt-er-value-wrap').style.display=v('bt-er-type')==='none'?'none':'block';
+}
+function toggleBtEligParam(){
+  var rule=v('bt-elig-rule');
+  var wrap=document.getElementById('bt-elig-param-wrap');
+  if(rule==='all'||rule==='regular'||rule==='probationary'){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  document.getElementById('bt-elig-param-label').textContent=BT_ELIG_PARAM_LABEL[rule]||'Parameter';
+}
+function openBenefitTypeModal(id){
+  document.getElementById('bt-err').style.display='none';
+  var b=id?benefitTypes.find(function(x){return x.id===id;}):null;
+  document.getElementById('bt-modal-title').textContent=b?'✏️ Edit Benefit':'➕ Add Benefit';
+  document.getElementById('bt-id').value=b?b.id:'';
+  document.getElementById('bt-name').value=b?b.name:'';
+  document.getElementById('bt-code').value=b?b.code||'':'';
+  document.getElementById('bt-category').value=b?b.category:'HMO / Health Insurance';
+  document.getElementById('bt-provider').value=b?b.provider||'':'';
+  document.getElementById('bt-description').value=b?b.description||'':'';
+  document.getElementById('bt-ee-type').value=b?b.eeContributionType:'none';
+  document.getElementById('bt-ee-value').value=b?b.eeContributionValue||0:0;
+  document.getElementById('bt-er-type').value=b?b.erContributionType:'none';
+  document.getElementById('bt-er-value').value=b?b.erContributionValue||0:0;
+  document.getElementById('bt-frequency').value=b?b.frequency:'Monthly';
+  document.getElementById('bt-elig-rule').value=b?b.eligibilityRule:'all';
+  document.getElementById('bt-elig-param').value=b?b.eligibilityParam||'':'';
+  document.getElementById('bt-effective').value=b?b.effectiveDate||'':'';
+  document.getElementById('bt-expiration').value=b?b.expirationDate||'':'';
+  document.getElementById('bt-status').value=b?b.status:'Active';
+  document.getElementById('bt-remarks').value=b?b.remarks||'':'';
+  toggleBtContribFields();
+  toggleBtEligParam();
+  document.getElementById('benefit-type-modal').classList.add('open');
+}
+function closeBenefitTypeModal(){
+  document.getElementById('benefit-type-modal').classList.remove('open');
+}
+async function saveBenefitType(){
+  var name=document.getElementById('bt-name').value.trim();
+  var errEl=document.getElementById('bt-err');
+  if(!name){errEl.textContent='Benefit Name is required.';errEl.style.display='block';return;}
+  var id=v('bt-id');
+  var payload={
+    name:name,
+    code:document.getElementById('bt-code').value.trim(),
+    category:v('bt-category'),
+    provider:document.getElementById('bt-provider').value.trim(),
+    description:document.getElementById('bt-description').value.trim(),
+    eeContributionType:v('bt-ee-type'),
+    eeContributionValue:parseFloat(document.getElementById('bt-ee-value').value)||0,
+    erContributionType:v('bt-er-type'),
+    erContributionValue:parseFloat(document.getElementById('bt-er-value').value)||0,
+    frequency:v('bt-frequency'),
+    eligibilityRule:v('bt-elig-rule'),
+    eligibilityParam:document.getElementById('bt-elig-param').value.trim(),
+    effectiveDate:v('bt-effective'),
+    expirationDate:v('bt-expiration'),
+    status:v('bt-status'),
+    remarks:document.getElementById('bt-remarks').value.trim()
+  };
+  try{
+    if(id){await api('PUT','/api/benefit-types/'+id,payload);}
+    else{await api('POST','/api/benefit-types',payload);}
+    closeBenefitTypeModal();
+    await loadBenefitTypes();
+  }catch(e){
+    errEl.textContent='Could not save: '+(e&&e.message?e.message:'please try again.');
+    errEl.style.display='block';
   }
-  flash('ben-recalc-ok');
-  document.getElementById('ben-recalc-wrap').innerHTML='<div class="empty">✅ Updated '+changed.length+' employee(s). Reload the Employees list to see the new figures.</div>';
-  _recalcPreviewData=null;
+}
+async function toggleBenefitTypeStatus(id){
+  var b=benefitTypes.find(function(x){return x.id===id;});
+  if(!b)return;
+  var newStatus=b.status==='Active'?'Inactive':'Active';
+  if(!confirm((newStatus==='Inactive'?'Deactivate':'Activate')+' "'+b.name+'"?'))return;
+  await api('PUT','/api/benefit-types/'+id,Object.assign({},b,{status:newStatus}));
+  await loadBenefitTypes();
 }
 
 function renderLocationTable(){
@@ -2026,7 +2060,7 @@ function goSec(name,el){
   if(name==='users'){populateTlEmpFilter();loadUsers();}
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();renderShiftDayOverrideList();}
   if(name==='location'){renderLocationTable();}
-  if(name==='benefits'){loadBenefitsConfig();}
+  if(name==='benefits'){loadBenefitTypes();}
   if(name==='management'){mgmtRenderMetrics();mgmtRenderPayroll();mgmtRenderSlips();mgmtRenderLeaves();}
   if(name==='applicants'){if(applConfig.url&&applConfig.key&&!applApplicants.length){applLoadList();}else{renderApplicantsList();applRenderKpi();}}
 }
