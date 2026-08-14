@@ -638,6 +638,7 @@ input:focus,select:focus,textarea:focus{
   <button class="tab-btn" onclick="goTab('leavebal',this)">🌴 Leave Balance</button>
   <button class="tab-btn" onclick="goTab('payslips',this)">💰 Payslip History</button>
   <button class="tab-btn" onclick="goTab('account',this)">🔐 My Account</button>
+  <button class="tab-btn" onclick="goTab('mydetails',this)">🪪 My Details</button>
 </div>
 
 <!-- ════════════ TAB 0: DASHBOARD ════════════ -->
@@ -895,6 +896,14 @@ input:focus,select:focus,textarea:focus{
   </div>
 </div>
 
+<div class="tab-content" id="tab-mydetails">
+  <div class="panel" style="max-width:760px">
+    <div class="panel-title">🪪 My Details</div>
+    <div class="page-sub" style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px">This is what's currently on file for you in HMB's HR system. If anything here is missing or incorrect, let HR know so your 201 file can be updated.</div>
+    <div id="mydetails-wrap"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
 <script>
 var user = null;
 
@@ -943,6 +952,7 @@ function goTab(name,el){
   if(name==='leavefile')loadMyLeaves();
   if(name==='leavebal'){loadBalance();loadLeaveAll();}
   if(name==='payslips')loadPayslips();
+  if(name==='mydetails')loadMyDetails();
 
   // Scroll reveal on tab switch
   setTimeout(setupScrollReveal, 50);
@@ -1590,6 +1600,51 @@ async function loadLeaveAll(){
         +'<td><span class="badge '+bc+'">'+r.status+'</span></td>'
         +'<td style="font-size:11px;color:var(--muted)">'+fmtDate(r.filedAt?r.filedAt.slice(0,10):'')+'</td></tr>';
     }).join('')+'</tbody></table>';
+}
+
+// ── MY DETAILS (from HR's employee record) ──────────────────────────────────
+function mdRow(label,val){
+  return '<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700">'+label+'</div><div style="font-size:13.5px;margin-top:2px">'+(val||'—')+'</div></div>';
+}
+function mdSectionLabel(text){
+  return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#fff;background:var(--blue);padding:5px 10px;border-radius:4px;margin:16px 0 8px;display:inline-block">'+text+'</div>';
+}
+async function loadMyDetails(){
+  var w=document.getElementById('mydetails-wrap');
+  w.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    if(!user||!user.employee_id){w.innerHTML='<div class="empty">No employee record is linked to your account yet. Please check with HR.</div>';return;}
+    var res=await fetch('/api/employees',{credentials:'same-origin'});
+    var list=await res.json();
+    var e=list.find(function(x){return x.id===user.employee_id;});
+    if(!e){w.innerHTML='<div class="empty">Could not find your employee record. Please check with HR.</div>';return;}
+    var age='—';
+    if(e.dob){
+      try{
+        var dobDate=new Date(e.dob),today=new Date();
+        age=today.getFullYear()-dobDate.getFullYear();
+        var m=today.getMonth()-dobDate.getMonth();
+        if(m<0||(m===0&&today.getDate()<dobDate.getDate()))age--;
+      }catch(err){age='—';}
+    }
+    var grid='style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 16px"';
+    w.innerHTML=
+      mdSectionLabel('Name of Employee')
+      +'<div '+grid+'>'+mdRow('Surname',e.surname)+mdRow('Given Name',e.givenName)+mdRow('Middle Name',e.middleName)+'</div>'
+      +mdSectionLabel('Position')
+      +'<div '+grid+'>'+mdRow('Position',e.pos)+mdRow('Department',e.dept)+mdRow('Employment Status',e.type)+'</div>'
+      +mdSectionLabel('Government IDs')
+      +'<div '+grid+'>'+mdRow('SSS No.',e.sssNo)+mdRow('PhilHealth No.',e.philhealthNo)+mdRow('Pag-IBIG No.',e.pagibigNo)+mdRow('TIN',e.tin)+'</div>'
+      +mdSectionLabel('Personal Details')
+      +'<div '+grid+'>'+mdRow('Date of Birth',fmtDate(e.dob))+mdRow('Age',age)+mdRow('Civil Status',e.civilStatus)+mdRow('Gender',e.gender)+mdRow('Smoker/Non-Smoker',e.smoker)+mdRow('Religion',e.religion)+mdRow('Home Address (Permanent)',e.addressPermanent)+mdRow('Home Address (Current)',e.addressCurrent)+'</div>'
+      +mdSectionLabel('Contact Information')
+      +'<div '+grid+'>'+mdRow('Contact in Case of Emergency',e.emergency)+mdRow('Personal Email Address',e.email)+mdRow('Personal Mobile Number',e.mobile)+'</div>'
+      +mdSectionLabel('Employment Details')
+      +'<div '+grid+'>'+mdRow('Immediate Superior',e.immediateSuperior)+mdRow('Date Started',fmtDate(e.start))+mdRow('End of Contract',fmtDate(e.endOfContract))+mdRow('Annual Evaluation',fmtDate(e.annualEvaluation))+'</div>';
+  }catch(err){
+    console.error(err);
+    w.innerHTML='<div class="empty">Could not load your details right now. Please try again later.</div>';
+  }
 }
 
 // ── PAYSLIPS ───────────────────────────────────────────────────────────────────
