@@ -1052,9 +1052,6 @@ tr:hover td{background:#fafcff}
         </div>
         <div class="f" style="max-width:150px"><label>From date</label><input id="tl-from" type="date"></div>
         <div class="f" style="max-width:150px"><label>To date</label><input id="tl-to" type="date"></div>
-        <div class="f" style="max-width:200px"><label>Override shift (optional)</label>
-          <select id="tl-shift-override"><option value="">Use employee's assigned shift</option></select>
-        </div>
         <button class="btn bp" style="align-self:flex-end" onclick="loadTimeLogs()">View</button>
         <button class="btn bg no-print" style="align-self:flex-end" onclick="exportTimeLogsCSV()">⬇ CSV</button>
       </div>
@@ -4281,6 +4278,7 @@ async function saveOffsetForm(){
   await saveOffsets();
   cancelOffsetEdit();
   renderOffsetsList();
+  await loadTimeLogs(); // offsets change the late/undertime shown there, so refresh it too
   showSaveIndicator();
 }
 function editOffset(id){
@@ -4307,6 +4305,7 @@ async function deleteOffset(id){
   offsetRecords=offsetRecords.filter(x=>x.id!==id);
   await saveOffsets();
   renderOffsetsList();
+  await loadTimeLogs();
   showSaveIndicator();
 }
 // Cutoff period (1st–15th or 16th–end of month) that a given date falls into
@@ -4320,28 +4319,36 @@ function cutoffRangeForDate(dateStr){
   var lastDay=new Date(y,m,0).getDate(); // day 0 of next month = last day of this month
   return{from:y+'-'+mm+'-16',to:y+'-'+mm+'-'+String(lastDay).padStart(2,'0'),label:mm+'/16–'+lastDay+'/'+y};
 }
-// Minutes worked past 5:31 PM on a given day, based on that day's actual time-out.
-// Handles shifts that cross midnight the same way the late/undertime fix does:
-// if time-out is numerically earlier than time-in, the punch happened after
-// midnight, so it's normalized onto a continuous timeline before comparing.
-function calcExcessMinutesForDay(timeIn,timeOut){
+// Minutes worked past a threshold time on a given day, based on that day's
+// actual time-out. Threshold is passed in minutes-since-midnight since it now
+// varies by employee location policy (liaisons vs. office staff have
+// different "excess time" start points). Handles shifts that cross midnight
+// the same way the late/undertime fix does: if time-out is numerically
+// earlier than time-in, the punch happened after midnight, so it's
+// normalized onto a continuous timeline before comparing.
+function calcExcessMinutesForDay(timeIn,timeOut,threshold){
   if(!timeOut)return 0;
   var toMin=parseTimeStrToMinutes(timeOut);
   if(toMin==null)return 0;
   var tiMin=timeIn?parseTimeStrToMinutes(timeIn):null;
   if(tiMin!=null&&toMin<tiMin)toMin+=24*60;
-  var threshold=17*60+31; // 5:31 PM
   var excess=toMin-threshold;
   return excess>0?excess:0;
+}
+// Excess-time threshold depends on the employee's location policy: liaisons
+// (field/messenger staff without a fixed office schedule) start accruing
+// excess at 5:31 PM; office-based staff (and WFH, treated the same as office
+// unless told otherwise) start at 6:01 PM.
+function excessThresholdFor(empId){
+  var e=employees.find(x=>x.id==empId);
+  var policy=e?(e.loc_policy||e.locPolicy||'office'):'office';
+  return policy==='liaison' ? (17*60+31) : (18*60+1);
 }
 // Offset Balance — the simple version. Instead of recalculating "excess time
 // this cutoff" for every row on every render (the old, confusing approach),
 // this works the same way VL/SL balances already do elsewhere in the app:
-// one running total, checked on demand for whichever employee is selected.
-//   Balance = (all-time total of minutes worked past 5:31 PM) − (all-time
-//             total of offset minutes already filed for them)
-// No per-cutoff math, no background fetching on every keystroke — just a
-// single number you check when you need it, for whatever date range you set.
+// one running total, checked on demand for whichever employee is selected,
+// over whatever date range you set (defaults to all-time if left blank).
 async function checkOffsetBalance(){
   var empId=v('off-search-emp');
   var from=v('off-bal-from'),to=v('off-bal-to');
@@ -4354,7 +4361,14 @@ async function checkOffsetBalance(){
     if(from)params.append('from',from);
     if(to)params.append('to',to);
     var rows=await api('GET','/api/timelogs?'+params.toString());
-    var totalExcess=(rows||[]).reduce((sum,r)=>sum+calcExcessMinutesForDay(r.time_in,r.time_out),0);
+    var threshold=excessThresholdFor(parseInt(empId));
+    var totalExcess=(rows||[]).reduce((sum,r)=>sum+calcExcessMinutesForDay(r.time_in,r.time_out,threshold),0);
+    var totalLateUndertime=(rows||[]).reduce((sum,r)=>{
+      var shift=getEmpShift(parseInt(empId),r.log_date);
+      var late=calcLateMinutes(r.time_in,shift.start);
+      var under=calcUndertimeMinutes(r.time_out,shift.end,shift.start);
+      return sum+late+under;
+    },0);
     var totalFiled=offsetRecords.filter(o=>{
       if(o.empId!=empId)return false;
       if(from&&o.date<from)return false;
@@ -4363,11 +4377,16 @@ async function checkOffsetBalance(){
     }).reduce((s,o)=>s+(o.minutes||0),0);
     var available=totalExcess-totalFiled;
     var rangeLabel=(from||to)?(fmtDate(from||'')+' – '+fmtDate(to||'')):'all-time';
-    wrap.innerHTML='<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Range: '+rangeLabel+'</div>'
+    var thresholdLabel=threshold===17*60+31?'5:31 PM (liaison)':'6:01 PM (office)';
+    function stat(label,value,color){
+      return'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">'+label+'</div><div style="font-size:18px;font-weight:700'+(color?';color:'+color:'')+'">'+value+' min</div></div>';
+    }
+    wrap.innerHTML='<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Range: '+rangeLabel+' &nbsp;·&nbsp; Excess threshold: '+thresholdLabel+'</div>'
       +'<div style="display:flex;gap:24px;flex-wrap:wrap">'
-      +'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Excess Time Worked (past 5:31 PM)</div><div style="font-size:18px;font-weight:700">'+fmtDuration(totalExcess)+'</div></div>'
-      +'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Already Filed as Offsets</div><div style="font-size:18px;font-weight:700">'+fmtDuration(totalFiled)+'</div></div>'
-      +'<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Available Balance</div><div style="font-size:18px;font-weight:700;color:'+(available>0?'var(--green)':'var(--muted)')+'">'+(available>0?fmtDuration(available):'0m')+'</div></div>'
+      +stat('Excess Time Worked',totalExcess)
+      +stat('Total Late/Undertime',totalLateUndertime)
+      +stat('Already Filed as Offsets',totalFiled)
+      +stat('Available Balance',available>0?available:0,available>0?'var(--green)':'var(--muted)')
       +'</div>';
   }catch(e){
     wrap.innerHTML='<div class="empty">Could not calculate — please try again.</div>';
@@ -4426,13 +4445,12 @@ function renderShiftAssignList(){
   }).join('')+'</tbody></table></div>';
 }
 function populateShiftSelects(){
-  // Populate shift selectors in Shift Management and Time Logs
-  var sels=['sh-shift-sel','tl-shift-override'];
+  // Populate shift selectors in Shift Management
+  var sels=['sh-shift-sel'];
   sels.forEach(id=>{
     var sel=document.getElementById(id);if(!sel)return;
     var cur=sel.value;
-    var isOverride=id==='tl-shift-override';
-    sel.innerHTML=isOverride?'<option value="">Use employee\'s assigned shift</option>':'<option value="">-- Select shift --</option>';
+    sel.innerHTML='<option value="">-- Select shift --</option>';
     shifts.forEach(s=>{var o=document.createElement('option');o.value=s.id;o.textContent=s.name+' ('+s.start+' – '+s.end+')';if(s.id==cur)o.selected=true;sel.appendChild(o);});
   });
   // Populate sh-emp-sel
