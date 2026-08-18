@@ -3964,11 +3964,12 @@ function buildTimeLogRowsWithStatus(empScope,from,to,actualRows){
       var hit=byKey[e.id+'_'+dateStr];
       var dow=d.getDay(),isWeekend=(dow===0||dow===6);
       var leaveRec=getApprovedLeaveOn(e.id,dateStr);
-      if(hit){
+      if(hit&&hit.time_in){
         if(leaveRec&&leaveRec.halfDay){hit._halfDayLeave=true;hit._leaveType=leaveRec.type;hit._leavePay=leaveRec.pay;}
         result.push({r:hit,status:'present'});
       }
       else if(leaveRec){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr,_leaveType:leaveRec.type,_leavePay:leaveRec.pay},status:leaveRec.halfDay?'halfday-leave':'leave'});}
+      else if(hit){result.push({r:hit,status:'present'});} // a real row with no time_in (e.g. GPS-only artifact) but no covering leave — still show it as-is so it's visible for investigation
       else if(isHoliday(dateStr)){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr,_holidayName:getHolidayName(dateStr)},status:'holiday'});}
       else if(isWeekend){result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'restday'});}
       else{result.push({r:{emp_name:e.name,employee_id:e.id,log_date:dateStr},status:'absent'});}
