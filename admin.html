@@ -4361,9 +4361,23 @@ async function checkOffsetBalance(){
     if(from)params.append('from',from);
     if(to)params.append('to',to);
     var rows=await api('GET','/api/timelogs?'+params.toString());
+    // Guard against double-counting: if more than one time_logs row exists
+    // for the same date (a corrected punch that created a new row instead of
+    // updating the old one, or a leftover artifact row), keep only one per
+    // date — prefer the row that actually has a time_out, otherwise the most
+    // recently created row (highest id).
+    var byDate={};
+    (rows||[]).forEach(function(r){
+      var existing=byDate[r.log_date];
+      if(!existing){byDate[r.log_date]=r;return;}
+      var existingHasOut=!!existing.time_out, thisHasOut=!!r.time_out;
+      if(thisHasOut&&!existingHasOut){byDate[r.log_date]=r;return;}
+      if(thisHasOut===existingHasOut&&(r.id||0)>(existing.id||0)){byDate[r.log_date]=r;}
+    });
+    var dedupedRows=Object.values(byDate);
     var threshold=excessThresholdFor(parseInt(empId));
-    var totalExcess=(rows||[]).reduce((sum,r)=>sum+calcExcessMinutesForDay(r.time_in,r.time_out,threshold),0);
-    var totalLateUndertime=(rows||[]).reduce((sum,r)=>{
+    var totalExcess=dedupedRows.reduce((sum,r)=>sum+calcExcessMinutesForDay(r.time_in,r.time_out,threshold),0);
+    var totalLateUndertime=dedupedRows.reduce((sum,r)=>{
       var shift=getEmpShift(parseInt(empId),r.log_date);
       var late=calcLateMinutes(r.time_in,shift.start);
       var under=calcUndertimeMinutes(r.time_out,shift.end,shift.start);
