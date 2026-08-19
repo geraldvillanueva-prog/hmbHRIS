@@ -634,18 +634,18 @@ input:focus,select:focus,textarea:focus{
 
 <!-- TAB NAV -->
 <div class="tab-nav">
-  <button class="tab-btn" onclick="goTab('dashboard',this)">📢 Dashboard</button>
-  <button class="tab-btn on" onclick="goTab('leaves',this)">🌴 Leave Approvals <span class="tab-notif" id="pending-count" style="display:none">0</span></button>
+  <button class="tab-btn on" onclick="goTab('dashboard',this)">📢 Dashboard</button>
+  <button class="tab-btn" onclick="goTab('mydetails',this)">🪪 My Details</button>
+  <button class="tab-btn" onclick="goTab('leaves',this)">🌴 Leave Approvals <span class="tab-notif" id="pending-count" style="display:none">0</span></button>
   <button class="tab-btn" onclick="goTab('leavefile',this)">📝 File My Leave</button>
   <button class="tab-btn" onclick="goTab('team',this)">👥 My Team</button>
   <button class="tab-btn" onclick="goTab('timeinout',this)">🕐 My Time In/Out</button>
   <button class="tab-btn" onclick="goTab('payslips',this)">💰 My Payslips</button>
   <button class="tab-btn" onclick="goTab('account',this)">🔐 My Account</button>
-  <button class="tab-btn" onclick="goTab('mydetails',this)">🪪 My Details</button>
 </div>
 
 <!-- ════════════ TAB 0: DASHBOARD ════════════ -->
-<div class="tab-content" id="tab-dashboard">
+<div class="tab-content on" id="tab-dashboard">
   <div class="ann-dashboard">
     <div class="ann-dash-top">
       <div>
@@ -688,7 +688,7 @@ input:focus,select:focus,textarea:focus{
 </div>
 
 <!-- ════════ TAB 1: LEAVE APPROVALS ════════ -->
-<div class="tab-content on" id="tab-leaves">
+<div class="tab-content" id="tab-leaves">
   <div class="stats-row">
     <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value sv-pending" id="stat-pending">—</div></div>
     <div class="stat-card"><div class="stat-label">Approved</div><div class="stat-value sv-approved" id="stat-approved">—</div></div>
@@ -2853,8 +2853,8 @@ var _celAmbientStarted=false;
       if(name==='dashboard')loadSupAnnouncements();
       if(name==='dashboard'&&!_celAmbientStarted){_celAmbientStarted=true;celStartAmbientBand('cel-overlay',3);}
     };
-    // Pre-fetch in background
-    setTimeout(loadSupAnnouncements,1200);
+    // Dashboard is now the default active tab, so pre-fetch its data right away
+    setTimeout(loadSupAnnouncements,300);
   });
 })();
 </script>
