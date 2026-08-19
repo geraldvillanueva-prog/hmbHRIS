@@ -632,17 +632,17 @@ input:focus,select:focus,textarea:focus{
 
 <!-- TAB NAV -->
 <div class="tab-nav">
-  <button class="tab-btn" onclick="goTab('dashboard',this)">📢 Dashboard</button>
-  <button class="tab-btn on" onclick="goTab('timeinout',this)">🕐 Time In / Out</button>
+  <button class="tab-btn on" onclick="goTab('dashboard',this)">📢 Dashboard</button>
+  <button class="tab-btn" onclick="goTab('mydetails',this)">🪪 My Details</button>
+  <button class="tab-btn" onclick="goTab('timeinout',this)">🕐 Time In / Out</button>
   <button class="tab-btn" onclick="goTab('leavefile',this)">📝 File a Leave</button>
   <button class="tab-btn" onclick="goTab('leavebal',this)">🌴 Leave Balance</button>
   <button class="tab-btn" onclick="goTab('payslips',this)">💰 Payslip History</button>
   <button class="tab-btn" onclick="goTab('account',this)">🔐 My Account</button>
-  <button class="tab-btn" onclick="goTab('mydetails',this)">🪪 My Details</button>
 </div>
 
 <!-- ════════════ TAB 0: DASHBOARD ════════════ -->
-<div class="tab-content" id="tab-dashboard">
+<div class="tab-content on" id="tab-dashboard">
   <div class="ann-dashboard">
     <div class="ann-dash-top">
       <div>
@@ -685,7 +685,7 @@ input:focus,select:focus,textarea:focus{
 </div>
 
 <!-- ════════════ TAB 1: TIME IN / OUT ════════════ -->
-<div class="tab-content on" id="tab-timeinout">
+<div class="tab-content" id="tab-timeinout">
   <div class="clock-card">
     <div class="hris-avatar-block">
       <div class="hris-avatar-ring-wrap">
@@ -2601,9 +2601,9 @@ var _celAmbientStarted=false;
       else if(name==='dashboard'){renderEmpAnn();celCheckTodayBirthday(empAnnRecords);}
       if(name==='dashboard'&&!_celAmbientStarted){_celAmbientStarted=true;celStartAmbientBand('cel-overlay',3);}
     };
-    // Auto-load since dashboard is not the default active tab (user opens it manually)
-    // But pre-fetch on page load so it's instant when they click
-    setTimeout(loadEmpAnnouncements,1200);
+    // Dashboard is now the default active tab, so pre-fetch its data right
+    // away rather than waiting for a click into the tab.
+    setTimeout(function(){ _empAnnLoaded=true; loadEmpAnnouncements(); },300);
   });
 })();
 </script>
