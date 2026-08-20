@@ -1094,6 +1094,17 @@ tr:hover td{background:#fafcff}
       <div id="off-balance-wrap" style="margin-top:10px"></div>
       <div id="offsets-list-wrap" style="margin-top:10px"><div class="empty">No offsets added yet.</div></div>
     </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Perfect Attendance Leaderboard</div>
+      <div class="page-sub" style="margin:-6px 0 12px">Review the Time Logs above, then add anyone who had zero late, undertime, or unexcused absences for the period. Employees see this list on their own dashboard once you've added them.</div>
+      <div class="row" style="align-items:flex-end">
+        <div class="f" style="max-width:180px"><label>Period (Month)</label><input id="pa-period" type="month" onchange="loadPerfectAttendanceList()"></div>
+        <div class="f" style="max-width:240px"><label>Employee</label><select id="pa-emp"><option value="">-- Select employee --</option></select></div>
+        <button class="btn bp" onclick="addPerfectAttendance()">+ Add to Leaderboard</button>
+      </div>
+      <div id="pa-list-wrap" style="margin-top:12px"><div class="empty">Pick a period above to see who's on the list.</div></div>
+    </div>
   </div>
 
   <!-- SHIFT MANAGEMENT -->
@@ -2059,7 +2070,7 @@ function goSec(name,el){
   if(name==='disciplinary')renderDiscList();
   if(name==='attendance')renderAttRecords();
   if(name==='reports'){}
-  if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();}
+  if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();populatePaEmpSelect();loadPerfectAttendanceList();}
   if(name==='users'){populateTlEmpFilter();loadUsers();}
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();renderShiftDayOverrideList();}
   if(name==='location'){renderLocationTable();}
@@ -4349,6 +4360,44 @@ function excessThresholdFor(empId){
 // this works the same way VL/SL balances already do elsewhere in the app:
 // one running total, checked on demand for whichever employee is selected,
 // over whatever date range you set (defaults to all-time if left blank).
+// ==================== PERFECT ATTENDANCE LEADERBOARD ====================
+function populatePaEmpSelect(){
+  var sel=document.getElementById('pa-emp');
+  if(!sel)return;
+  var cur=sel.value;
+  sel.innerHTML='<option value="">-- Select employee --</option>'
+    +employees.filter(e=>e.active!==0).map(e=>'<option value="'+e.id+'"'+(e.id==cur?' selected':'')+'>'+e.name+'</option>').join('');
+}
+async function loadPerfectAttendanceList(){
+  var period=v('pa-period');
+  var wrap=document.getElementById('pa-list-wrap');
+  if(!period){wrap.innerHTML='<div class="empty">Pick a period above to see who\'s on the list.</div>';return;}
+  wrap.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    var list=await api('GET','/api/perfect-attendance?period='+period);
+    if(!list||!list.length){wrap.innerHTML='<div class="empty">No one added for '+period+' yet.</div>';return;}
+    wrap.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px">'
+      +list.map(r=>'<span class="badge badge-green" style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px">🎯 '+r.empName+' <button onclick="deletePerfectAttendance('+r.id+')" style="background:none;border:none;color:inherit;cursor:pointer;font-weight:700;padding:0 0 0 4px">✕</button></span>').join('')
+      +'</div>';
+  }catch(e){
+    wrap.innerHTML='<div class="empty">Could not load the list — please try again.</div>';
+  }
+}
+async function addPerfectAttendance(){
+  var period=v('pa-period'),empId=v('pa-emp');
+  if(!period){alert('Select a period (month) first.');return;}
+  if(!empId){alert('Select an employee first.');return;}
+  var emp=employees.find(e=>e.id==empId);
+  var r=await api('POST','/api/perfect-attendance',{period:period,empId:parseInt(empId),empName:emp?emp.name:''});
+  if(r&&r.error){alert(r.error);return;}
+  document.getElementById('pa-emp').value='';
+  await loadPerfectAttendanceList();
+}
+async function deletePerfectAttendance(id){
+  if(!confirm('Remove this person from the leaderboard for this period?'))return;
+  await api('DELETE','/api/perfect-attendance/'+id);
+  await loadPerfectAttendanceList();
+}
 async function checkOffsetBalance(){
   var empId=v('off-search-emp');
   var from=v('off-bal-from'),to=v('off-bal-to');
