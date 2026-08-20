@@ -535,6 +535,16 @@ input:focus,select:focus,textarea:focus{
 
 /* lightbox */
 .ann-lightbox{display:none;position:fixed;inset:0;background:rgba(10,22,40,0.88);z-index:2000;align-items:center;justify-content:center;padding:30px;cursor:zoom-out;animation:annLightboxIn .18s ease}
+.pa-modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,22,40,0.55);z-index:1500;align-items:center;justify-content:center;padding:20px}
+.pa-modal-overlay.open{display:flex}
+.pa-modal-box{background:var(--card);border-radius:14px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(10,22,40,.3)}
+.pa-modal-title{display:flex;align-items:center;justify-content:space-between;font-size:17px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.pa-modal-close{background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1}
+.pa-modal-sub{font-size:12.5px;color:var(--muted);margin-bottom:16px}
+.pa-entry{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.pa-entry:last-child{border-bottom:none}
+.pa-entry .pa-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--blue));color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.pa-entry .pa-name{font-size:13.5px;font-weight:600;color:var(--text)}
 .ann-lightbox.show{display:flex}
 .ann-lightbox img{max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5);cursor:default;animation:annLightboxZoom .2s cubic-bezier(.2,.8,.2,1)}
 .ann-lightbox-close{position:absolute;top:18px;right:22px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.3);color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;transition:background .15s}
@@ -660,9 +670,9 @@ input:focus,select:focus,textarea:focus{
         <button class="ann-filter-btn on" data-type="" onclick="empAnnFilter(\'\',this)">All<span class="ann-count" id="emp-cnt-">0</span></button>
         <button class="ann-filter-btn" data-type="general" onclick="empAnnFilter(\'general\',this)">📣 General<span class="ann-count" id="emp-cnt-general">0</span></button>
         <button class="ann-filter-btn" data-type="event" onclick="empAnnFilter(\'event\',this)">📅 Events<span class="ann-count" id="emp-cnt-event">0</span></button>
-        <button class="ann-filter-btn" data-type="birthday" onclick="empAnnFilter(\'birthday\',this)">🎂 Birthdays<span class="ann-count" id="emp-cnt-birthday">0</span></button>
-        <button class="ann-filter-btn" data-type="award" onclick="empAnnFilter(\'award\',this)">🏆 Awards<span class="ann-count" id="emp-cnt-award">0</span></button>
-        <button class="ann-filter-btn" data-type="best_employee" onclick="empAnnFilter(\'best_employee\',this)">⭐ Best Employee<span class="ann-count" id="emp-cnt-best_employee">0</span></button>
+        <button class="ann-filter-btn" data-type="birthday" onclick="empAnnFilter('birthday',this)">🎂 Birthdays<span class="ann-count" id="emp-cnt-birthday">0</span></button>
+        <button class="ann-filter-btn" onclick="openPerfectAttendanceModal()">🎯 Perfect Attendance</button>
+        <button class="ann-filter-btn" data-type="best_employee" onclick="empAnnFilter('best_employee',this)">⭐ Best Employee<span class="ann-count" id="emp-cnt-best_employee">0</span></button>
         <button class="ann-filter-btn" data-type="early_bird" onclick="empAnnFilter(\'early_bird\',this)">🐦 Early Bird<span class="ann-count" id="emp-cnt-early_bird">0</span></button>
       </div>
       <div class="ann-sort-row">
@@ -2328,6 +2338,39 @@ function closeAnnLightbox(e){
 }
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAnnLightbox();});
 
+// ── PERFECT ATTENDANCE LEADERBOARD ──────────────────────────────────────────
+function paInitials(name){
+  if(!name)return'?';
+  var parts=name.replace(',',' ').trim().split(/\s+/).filter(Boolean);
+  return((parts[0]||'')[0]||'')+((parts[1]||'')[0]||'');
+}
+async function openPerfectAttendanceModal(){
+  var modal=document.getElementById('pa-modal');
+  var body=document.getElementById('pa-modal-body');
+  var periodLabel=document.getElementById('pa-modal-period');
+  modal.classList.add('open');
+  body.innerHTML='<div style="font-size:13px;color:var(--muted)">Loading…</div>';
+  var now=new Date();
+  var period=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  periodLabel.textContent=now.toLocaleDateString('en-PH',{month:'long',year:'numeric'});
+  try{
+    var res=await fetch('/api/perfect-attendance?period='+period,{credentials:'same-origin'});
+    var list=await res.json();
+    if(!list||!list.length){
+      body.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">No one\'s been added to this month\'s list yet — check back later!</div>';
+      return;
+    }
+    body.innerHTML=list.map(function(r){
+      return'<div class="pa-entry"><div class="pa-avatar">'+paInitials(r.empName)+'</div><div class="pa-name">'+r.empName+'</div></div>';
+    }).join('');
+  }catch(e){
+    body.innerHTML='<div style="font-size:13px;color:var(--muted)">Could not load the list right now. Please try again later.</div>';
+  }
+}
+function closePerfectAttendanceModal(){
+  document.getElementById('pa-modal').classList.remove('open');
+}
+
 function toggleAnnBody(btn){
   var body=btn.previousElementSibling;
   var collapsed=body.classList.toggle('clamped');
@@ -2610,6 +2653,17 @@ var _celAmbientStarted=false;
 <div id="ann-lightbox" class="ann-lightbox" onclick="closeAnnLightbox(event)">
   <button class="ann-lightbox-close" onclick="closeAnnLightbox(event)">✕</button>
   <img id="ann-lightbox-img" src="" alt="">
+</div>
+
+<div class="pa-modal-overlay" id="pa-modal" onclick="if(event.target.id==='pa-modal')closePerfectAttendanceModal()">
+  <div class="pa-modal-box">
+    <div class="pa-modal-title">
+      <span>🎯 Perfect Attendance</span>
+      <button class="pa-modal-close" onclick="closePerfectAttendanceModal()">✕</button>
+    </div>
+    <div class="pa-modal-sub" id="pa-modal-period">This month</div>
+    <div id="pa-modal-body"><div style="font-size:13px;color:var(--muted)">Loading…</div></div>
+  </div>
 </div>
 
 <div id="cel-idle-corner" class="cel-idle-corner">

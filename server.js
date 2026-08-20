@@ -118,6 +118,14 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS perfect_attendance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    period TEXT NOT NULL,
+    employee_id INTEGER NOT NULL,
+    employee_name TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS benefit_types (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -585,6 +593,35 @@ function mapBenefitType(b){
 app.get('/api/benefit-types', requireAuth, (req, res) => {
   const rows = db.prepare('SELECT * FROM benefit_types ORDER BY name').all();
   res.json(rows.map(mapBenefitType));
+});
+
+// ==================== PERFECT ATTENDANCE LEADERBOARD ====================
+// HR reviews Time Logs (where the shift/leave/holiday-aware late & undertime
+// logic already lives) and adds qualifying employees here per period. Kept
+// deliberately simple — a confirmed list per month, not an auto-detector —
+// since accurately computing "zero lates/undertime/absences all month" needs
+// the same engine already built into admin.html's Time Logs page.
+function mapPerfectAttendance(r){
+  return { id: r.id, period: r.period, empId: r.employee_id, empName: r.employee_name, createdAt: r.created_at };
+}
+app.get('/api/perfect-attendance', requireAuth, (req, res) => {
+  const period = req.query.period;
+  const rows = period
+    ? db.prepare('SELECT * FROM perfect_attendance WHERE period=? ORDER BY employee_name').all(period)
+    : db.prepare('SELECT * FROM perfect_attendance ORDER BY period DESC, employee_name').all();
+  res.json(rows.map(mapPerfectAttendance));
+});
+app.post('/api/perfect-attendance', requireAdmin, (req, res) => {
+  const { period, empId, empName } = req.body;
+  if (!period || !empId) return res.status(400).json({ success: false, error: 'period and empId are required.' });
+  const existing = db.prepare('SELECT id FROM perfect_attendance WHERE period=? AND employee_id=?').get(period, empId);
+  if (existing) return res.json({ success: false, error: 'Already on the list for this period.' });
+  const r = db.prepare('INSERT INTO perfect_attendance (period, employee_id, employee_name) VALUES (?,?,?)').run(period, empId, empName||'');
+  res.json({ success: true, id: r.lastInsertRowid });
+});
+app.delete('/api/perfect-attendance/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM perfect_attendance WHERE id=?').run(req.params.id);
+  res.json({ success: true });
 });
 app.post('/api/benefit-types', requireAdmin, (req, res) => {
   const b = req.body;
