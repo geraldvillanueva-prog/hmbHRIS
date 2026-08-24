@@ -120,6 +120,7 @@ tr:hover td{background:#fafcff}
 
 /* PAYSLIP */
 .slip-wrap{background:#fff;color:#000;border:1px solid #aaa;border-radius:4px;padding:18px 20px;max-width:640px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;margin-bottom:1rem}
+.slip-company-hd{text-align:center;font-weight:700;font-size:14px;letter-spacing:.02em;color:#1a2332;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #1565c0}
 .slip-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
 .slip-co-name{font-size:14px;font-weight:700;margin-bottom:3px}
 .slip-co-addr{font-size:10px;color:#444;line-height:1.6}
@@ -318,9 +319,9 @@ tr:hover td{background:#fafcff}
             <option value="general">📣 General</option>
             <option value="event">📅 Event</option>
             <option value="birthday">🎂 Birthday</option>
-            <option value="award">🏆 Award</option>
             <option value="best_employee">⭐ Best Employee</option>
             <option value="early_bird">🐦 Early Bird</option>
+            <option value="perfect_attendance">🎯 Perfect Attendance</option>
           </select>
         </div>
         <div class="f">
@@ -412,9 +413,9 @@ tr:hover td{background:#fafcff}
         <option value="general">General</option>
         <option value="event">Event</option>
         <option value="birthday">Birthday</option>
-        <option value="award">Award</option>
         <option value="best_employee">Best Employee</option>
         <option value="early_bird">Early Bird</option>
+        <option value="perfect_attendance">Perfect Attendance</option>
       </select>
       <input id="ann-filter-search" oninput="renderAnnList()" placeholder="Search…" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12.5px;width:160px">
     </div>
@@ -1093,17 +1094,6 @@ tr:hover td{background:#fafcff}
       </div>
       <div id="off-balance-wrap" style="margin-top:10px"></div>
       <div id="offsets-list-wrap" style="margin-top:10px"><div class="empty">No offsets added yet.</div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">🎯 Perfect Attendance Leaderboard</div>
-      <div class="page-sub" style="margin:-6px 0 12px">Review the Time Logs above, then add anyone who had zero late, undertime, or unexcused absences for the period. Employees see this list on their own dashboard once you've added them.</div>
-      <div class="row" style="align-items:flex-end">
-        <div class="f" style="max-width:180px"><label>Period (Month)</label><input id="pa-period" type="month" onchange="loadPerfectAttendanceList()"></div>
-        <div class="f" style="max-width:240px"><label>Employee</label><select id="pa-emp"><option value="">-- Select employee --</option></select></div>
-        <button class="btn bp" onclick="addPerfectAttendance()">+ Add to Leaderboard</button>
-      </div>
-      <div id="pa-list-wrap" style="margin-top:12px"><div class="empty">Pick a period above to see who's on the list.</div></div>
     </div>
   </div>
 
@@ -2070,7 +2060,7 @@ function goSec(name,el){
   if(name==='disciplinary')renderDiscList();
   if(name==='attendance')renderAttRecords();
   if(name==='reports'){}
-  if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();populatePaEmpSelect();loadPerfectAttendanceList();}
+  if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();}
   if(name==='users'){populateTlEmpFilter();loadUsers();}
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();renderShiftDayOverrideList();}
   if(name==='location'){renderLocationTable();}
@@ -3040,6 +3030,7 @@ function buildSlipHTML(e,a,per,pdate){
       +'</table></div>';
   }
   return'<div class="slip-wrap">'
+  +'<div class="slip-company-hd">'+(setup.name||'HMB Management Consultancy Services')+'</div>'
   +(isCommOnly?'<div style="background:#6a1b9a;color:#fff;text-align:center;font-size:11px;font-weight:700;padding:4px 0;letter-spacing:1px;margin-bottom:6px">COMMISSION PAYSLIP</div>':'')
   +'<div class="slip-info-grid">'
   +'<div class="slip-info-row"><span class="sik">NAME:</span><span>'+e.name+'</span></div>'
@@ -3065,8 +3056,9 @@ function buildSlipHTML(e,a,per,pdate){
 function buildSlipText(e,a,per,pdate){
   var p=calcPay(e,a);
   var isCommOnly=!!(a.commissionOnly);
+  var companyHd=(setup.name||'HMB Management Consultancy Services');
   if(isCommOnly){
-    return 'COMMISSION PAYSLIP\n'
+    return companyHd+'\n\nCOMMISSION PAYSLIP\n'
     +'NAME: '+e.name+'\nPOSITION: '+(e.pos||'')+'\nBANK ACC: '+(e.bank||'')
     +'\nCUT-OFF: '+per+'\nPAYROLL DATE: '+(pdate||'')+'\nSTART DATE: '+(e.start||'')
     +'\n\n--- COMMISSION EARNINGS ---\nCommission: '+fp(a.commission||0)
@@ -3076,7 +3068,8 @@ function buildSlipText(e,a,per,pdate){
     +'\n\nNET PAY: ₱'+fp(p.netPay)+'\n'+(e.payslipNote?'\nNote: '+e.payslipNote+'\n':'')
     +'\nPrepared by: '+setup.prep+'     Approved by: '+setup.appr;
   }
-  return 'NAME: '+e.name+'\nPOSITION: '+(e.pos||'')+'\nBANK ACC: '+(e.bank||'')
+  return companyHd+'\n\n'
+  +'NAME: '+e.name+'\nPOSITION: '+(e.pos||'')+'\nBANK ACC: '+(e.bank||'')
   +'\nCUT-OFF: '+per+'\nPAYROLL DATE: '+(pdate||'')+'\nSTART DATE: '+(e.start||'')
   +'\n\n--- EARNINGS ---\nSemi-monthly: '+fp(e.smb)+'\nDaily rate: '+fp(p.dr)+'\nDays worked: '+a.days+'\nBasic pay: '+fp(p.basicPay)
   +'\nDeminimis: '+fp(e.dm)+'\nOther additionals: '+fp(a.otherAdd)+'\nOT ('+p.otHrs+'h): '+fp(p.otPay)
@@ -3536,8 +3529,8 @@ var annRecords=[];
 var annEditId=null;
 var annPendingFiles=[];// DataTransfer FileList
 
-const ANN_ICONS={birthday:'🎂',award:'🏆',best_employee:'⭐',early_bird:'🐦',general:'📣',event:'📅'};
-const ANN_LABELS={birthday:'Birthday',award:'Award',best_employee:'Best Employee',early_bird:'Early Bird',general:'General',event:'Event'};
+const ANN_ICONS={birthday:'🎂',award:'🏆',best_employee:'⭐',early_bird:'🐦',general:'📣',event:'📅',perfect_attendance:'🎯'};
+const ANN_LABELS={birthday:'Birthday',award:'Award',best_employee:'Best Employee',early_bird:'Early Bird',general:'General',event:'Event',perfect_attendance:'Perfect Attendance'};
 const MONTHS=['','January','February','March','April','May','June','July','August','September','October','November','December'];
 
 async function loadAnnouncements(){
@@ -4361,43 +4354,6 @@ function excessThresholdFor(empId){
 // one running total, checked on demand for whichever employee is selected,
 // over whatever date range you set (defaults to all-time if left blank).
 // ==================== PERFECT ATTENDANCE LEADERBOARD ====================
-function populatePaEmpSelect(){
-  var sel=document.getElementById('pa-emp');
-  if(!sel)return;
-  var cur=sel.value;
-  sel.innerHTML='<option value="">-- Select employee --</option>'
-    +employees.filter(e=>e.active!==0).map(e=>'<option value="'+e.id+'"'+(e.id==cur?' selected':'')+'>'+e.name+'</option>').join('');
-}
-async function loadPerfectAttendanceList(){
-  var period=v('pa-period');
-  var wrap=document.getElementById('pa-list-wrap');
-  if(!period){wrap.innerHTML='<div class="empty">Pick a period above to see who\'s on the list.</div>';return;}
-  wrap.innerHTML='<div class="empty">Loading…</div>';
-  try{
-    var list=await api('GET','/api/perfect-attendance?period='+period);
-    if(!list||!list.length){wrap.innerHTML='<div class="empty">No one added for '+period+' yet.</div>';return;}
-    wrap.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:8px">'
-      +list.map(r=>'<span class="badge badge-green" style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px">🎯 '+r.empName+' <button onclick="deletePerfectAttendance('+r.id+')" style="background:none;border:none;color:inherit;cursor:pointer;font-weight:700;padding:0 0 0 4px">✕</button></span>').join('')
-      +'</div>';
-  }catch(e){
-    wrap.innerHTML='<div class="empty">Could not load the list — please try again.</div>';
-  }
-}
-async function addPerfectAttendance(){
-  var period=v('pa-period'),empId=v('pa-emp');
-  if(!period){alert('Select a period (month) first.');return;}
-  if(!empId){alert('Select an employee first.');return;}
-  var emp=employees.find(e=>e.id==empId);
-  var r=await api('POST','/api/perfect-attendance',{period:period,empId:parseInt(empId),empName:emp?emp.name:''});
-  if(r&&r.error){alert(r.error);return;}
-  document.getElementById('pa-emp').value='';
-  await loadPerfectAttendanceList();
-}
-async function deletePerfectAttendance(id){
-  if(!confirm('Remove this person from the leaderboard for this period?'))return;
-  await api('DELETE','/api/perfect-attendance/'+id);
-  await loadPerfectAttendanceList();
-}
 async function checkOffsetBalance(){
   var empId=v('off-search-emp');
   var from=v('off-bal-from'),to=v('off-bal-to');
