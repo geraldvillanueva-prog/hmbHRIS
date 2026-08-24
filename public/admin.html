@@ -4339,6 +4339,16 @@ function calcExcessMinutesForDay(timeIn,timeOut,threshold){
   var excess=toMin-threshold;
   return excess>0?excess:0;
 }
+// Minutes clocked in before a cutoff time (default 7:00 AM) on a given day.
+// Separate from the late-afternoon "excess" concept — this is specifically
+// about early arrivals in the morning.
+function calcEarlyMinutesForDay(timeIn,threshold){
+  if(!timeIn)return 0;
+  var tiMin=parseTimeStrToMinutes(timeIn);
+  if(tiMin==null)return 0;
+  var early=threshold-tiMin;
+  return early>0?early:0;
+}
 // Excess-time threshold depends on the employee's location policy: liaisons
 // (field/messenger staff without a fixed office schedule) start accruing
 // excess at 5:31 PM; office-based staff (and WFH, treated the same as office
@@ -4394,6 +4404,7 @@ async function checkOffsetBalance(){
       if(to&&o.date>to)return false;
       return true;
     }).reduce((s,o)=>s+(o.minutes||0),0);
+    var totalEarly=dedupedRows.reduce((sum,r)=>sum+calcEarlyMinutesForDay(r.time_in,7*60),0);
     var available=totalExcess-totalFiled;
     var rangeLabel=(from||to)?(fmtDate(from||'')+' – '+fmtDate(to||'')):'all-time';
     var thresholdLabel=threshold===17*60+31?'5:31 PM (liaison)':'6:01 PM (office)';
@@ -4404,6 +4415,7 @@ async function checkOffsetBalance(){
       +'<div style="display:flex;gap:24px;flex-wrap:wrap">'
       +stat('Excess Time Worked',totalExcess)
       +stat('Total Late/Undertime',totalLateUndertime)
+      +stat('Total Early Time-In (before 7:00 AM)',totalEarly)
       +stat('Already Filed as Offsets',totalFiled)
       +stat('Available Balance',available>0?available:0,available>0?'var(--green)':'var(--muted)')
       +'</div>';
