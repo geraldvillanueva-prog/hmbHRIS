@@ -999,7 +999,11 @@ tr:hover td{background:#fafcff}
       </div>
       <div class="row">
         <div class="f"><label>Prepared by</label><input id="co-prep" value="KMD. GRASPARIL"></div>
+        <div class="f"><label>Prepared by — Position</label><input id="co-prep-pos" value="HR Generalist"></div>
+      </div>
+      <div class="row">
         <div class="f"><label>Approved by</label><input id="co-appr" value="KKM. BUÑAG"></div>
+        <div class="f"><label>Approved by — Position</label><input id="co-appr-pos" value="Finance Manager"></div>
       </div>
       <div class="row" style="align-items:flex-start">
         <div class="f">
@@ -1985,13 +1989,13 @@ async function loadFromStorage(){
       nextShiftId=Math.max(...shifts.map(s=>s.id))+1;
     }
     if(cfg){
-      setup={name:cfg.co_name||'',tin:cfg.co_tin||'',addr1:cfg.co_addr1||'',addr2:cfg.co_addr2||'',prep:cfg.co_prep||'',appr:cfg.co_appr||'',prepSig:cfg.co_prep_sig||'',apprSig:cfg.co_appr_sig||''};
+      setup={name:cfg.co_name||'',tin:cfg.co_tin||'',addr1:cfg.co_addr1||'',addr2:cfg.co_addr2||'',prep:cfg.co_prep||'',appr:cfg.co_appr||'',prepPos:cfg.co_prep_pos||'',apprPos:cfg.co_appr_pos||'',prepSig:cfg.co_prep_sig||'',apprSig:cfg.co_appr_sig||''};
       emailCfg={svc:cfg.ejs_svc||'',tpl:cfg.ejs_tpl||'',key:cfg.ejs_key||''};
       try{holidays=cfg.holidays_json?JSON.parse(cfg.holidays_json):[];}catch(e){holidays=[];}
       try{offsetRecords=cfg.offsets_json?JSON.parse(cfg.offsets_json):[];}catch(e){offsetRecords=[];}
       try{commissionRecords=cfg.commissions_json?JSON.parse(cfg.commissions_json):[];}catch(e){commissionRecords=[];}
       var setVal=(id,v)=>{var el=document.getElementById(id);if(el)el.value=v;};
-      setVal('co-name',setup.name);setVal('co-tin',setup.tin);setVal('co-addr1',setup.addr1);setVal('co-addr2',setup.addr2);setVal('co-prep',setup.prep);setVal('co-appr',setup.appr);
+      setVal('co-name',setup.name);setVal('co-tin',setup.tin);setVal('co-addr1',setup.addr1);setVal('co-addr2',setup.addr2);setVal('co-prep',setup.prep);setVal('co-appr',setup.appr);setVal('co-prep-pos',setup.prepPos);setVal('co-appr-pos',setup.apprPos);
       // Restore signature previews
       if(setup.prepSig)applySigPreview('prep',setup.prepSig);
       if(setup.apprSig)applySigPreview('appr',setup.apprSig);
@@ -2174,8 +2178,8 @@ function populateAllSelects(){
 
 // ==================== SETUP ====================
 async function saveSetup(){
-  setup={name:v('co-name'),tin:v('co-tin'),addr1:v('co-addr1'),addr2:v('co-addr2'),prep:v('co-prep'),appr:v('co-appr'),prepSig:setup.prepSig||'',apprSig:setup.apprSig||''};
-  await api('POST','/api/settings',{co_name:setup.name,co_tin:setup.tin,co_addr1:setup.addr1,co_addr2:setup.addr2,co_prep:setup.prep,co_appr:setup.appr,co_prep_sig:setup.prepSig,co_appr_sig:setup.apprSig});
+  setup={name:v('co-name'),tin:v('co-tin'),addr1:v('co-addr1'),addr2:v('co-addr2'),prep:v('co-prep'),appr:v('co-appr'),prepPos:v('co-prep-pos'),apprPos:v('co-appr-pos'),prepSig:setup.prepSig||'',apprSig:setup.apprSig||''};
+  await api('POST','/api/settings',{co_name:setup.name,co_tin:setup.tin,co_addr1:setup.addr1,co_addr2:setup.addr2,co_prep:setup.prep,co_appr:setup.appr,co_prep_pos:setup.prepPos,co_appr_pos:setup.apprPos,co_prep_sig:setup.prepSig,co_appr_sig:setup.apprSig});
   flash('setup-ok');showSaveIndicator();
 }
 async function saveEmail(){
@@ -3048,10 +3052,10 @@ function buildSlipHTML(e,a,per,pdate){
   +'<div class="slip-notes">'+(e.payslipNote||'')+'</div>'
   +'<div class="slip-sigs"><div>'
   +(setup.prepSig?'<img src="'+setup.prepSig+'" class="slip-sig-img" alt="signature">':'<div style="height:38px"></div>')
-  +'<div class="slip-sig-name">'+setup.prep+'</div><div style="color:#666;font-size:10px;text-transform:uppercase;margin-top:2px">PREPARED BY</div></div>'
+  +'<div class="slip-sig-name">'+setup.prep+'</div>'+(setup.prepPos?'<div style="font-size:9.5px;color:#555">'+setup.prepPos+'</div>':'')+'<div style="color:#666;font-size:10px;text-transform:uppercase;margin-top:2px">PREPARED BY</div></div>'
   +'<div>'
   +(setup.apprSig?'<img src="'+setup.apprSig+'" class="slip-sig-img" alt="signature">':'<div style="height:38px"></div>')
-  +'<div class="slip-sig-name">'+setup.appr+'</div><div style="color:#666;font-size:10px;text-transform:uppercase;margin-top:2px">APPROVED BY</div></div>'
+  +'<div class="slip-sig-name">'+setup.appr+'</div>'+(setup.apprPos?'<div style="font-size:9.5px;color:#555">'+setup.apprPos+'</div>':'')+'<div style="color:#666;font-size:10px;text-transform:uppercase;margin-top:2px">APPROVED BY</div></div>'
   +'</div></div>';
 }
 function buildSlipText(e,a,per,pdate){
@@ -3067,7 +3071,7 @@ function buildSlipText(e,a,per,pdate){
     +'\nTOTAL EARNINGS: '+fp(p.totalEarnings)
     +'\n\n--- DEDUCTIONS ---\nNo deductions for commission payslip'
     +'\n\nNET PAY: ₱'+fp(p.netPay)+'\n'+(e.payslipNote?'\nNote: '+e.payslipNote+'\n':'')
-    +'\nPrepared by: '+setup.prep+'     Approved by: '+setup.appr;
+    +'\nPrepared by: '+setup.prep+(setup.prepPos?' ('+setup.prepPos+')':'')+'     Approved by: '+setup.appr+(setup.apprPos?' ('+setup.apprPos+')':'');
   }
   return companyHd+'\n\n'
   +'NAME: '+e.name+'\nPOSITION: '+(e.pos||'')+'\nBANK ACC: '+(e.bank||'')
@@ -3078,7 +3082,7 @@ function buildSlipText(e,a,per,pdate){
   +'\nHoliday: '+fp(a.holiday)+'\nLeave w/pay: '+fp(a.leave)+'\nCommission: '+fp(a.commission)+'\nTOTAL EARNINGS: '+fp(p.totalEarnings)
   +'\n\n--- DEDUCTIONS ---\nSSS: '+fp(e.sss)+'\nPHIC: '+fp(e.phic)+'\nHDMF: '+fp(e.hdmf)
   +'\nOther deductions: '+fp(a.otherDed)+'\nWHT: '+fp(e.wht)+'\nLate: '+fp(a.late)+'\nTOTAL DEDUCTIONS: '+fp(p.totalDeductions)
-  +'\n\nNET PAY: ₱'+fp(p.netPay)+'\n'+(e.payslipNote?'\nNote: '+e.payslipNote+'\n':'')+'\nPrepared by: '+setup.prep+'     Approved by: '+setup.appr;
+  +'\n\nNET PAY: ₱'+fp(p.netPay)+'\n'+(e.payslipNote?'\nNote: '+e.payslipNote+'\n':'')+'\nPrepared by: '+setup.prep+(setup.prepPos?' ('+setup.prepPos+')':'')+'     Approved by: '+setup.appr+(setup.apprPos?' ('+setup.apprPos+')':'');
 }
 function renderSendList(){
   var per=v('send-per'),k=attKey(per),pdate=v('att-pdate');
