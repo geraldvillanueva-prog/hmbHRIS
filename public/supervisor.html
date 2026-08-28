@@ -91,6 +91,13 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);min-height:100v
 
 /* PANEL */
 .panel{background:var(--card);border:1px solid var(--border);border-radius:12px;max-width:720px;width:100%;padding:1.5rem;margin-bottom:1rem;box-shadow:0 2px 10px rgba(10,22,40,0.05)}
+.evr-dropzone{border:1.5px dashed var(--border);border-radius:8px;padding:18px;text-align:center;cursor:pointer;background:#fafbfc;transition:border-color .15s,background .15s}
+.evr-dropzone:hover{border-color:var(--blue);background:#f0f6ff}
+.evr-dropzone.filled{border-color:var(--green);background:#f1f8f2;border-style:solid}
+.evr-dz-icon{font-size:22px;margin-bottom:4px}
+.evr-dz-text{font-size:13px;color:var(--text)}
+.evr-dz-link{color:var(--blue);font-weight:600}
+.evr-dz-sub{font-size:11px;color:var(--muted);margin-top:2px}
 .panel.wide{max-width:900px}
 .panel-title{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:1rem;display:flex;align-items:center;gap:8px;justify-content:space-between}
 .panel-title-left{display:flex;align-items:center;gap:8px}
@@ -815,28 +822,47 @@ input:focus,select:focus,textarea:focus{
 
 <!-- ════════ TAB: FILE EVR ════════ -->
 <div class="tab-content" id="tab-evr">
-  <div class="panel" style="max-width:640px">
+  <div class="panel" style="max-width:560px">
     <div class="panel-title"><div class="panel-title-left">📋 File EVR (Employee Violation Report)</div></div>
-    <div style="font-size:12.5px;color:var(--muted);margin:-6px 0 16px">Submit an EVR against a member of your team for HR to review. Both attachments are required before this can be submitted.</div>
+    <div style="background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:8px;padding:11px 16px;font-size:12.5px;margin-bottom:16px">
+      Submit an EVR against a member of your team for HR to review. Both attachments are required before this can be submitted.
+    </div>
+    <div class="alert alert-err" id="evr-err" style="display:none;background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:8px;padding:11px 16px;font-size:12.5px;margin-bottom:14px"></div>
 
-    <div class="f"><label>Employee <span style="color:var(--red)">*</span></label>
-      <select id="evr-emp"><option value="">-- Select employee --</option></select>
-    </div>
-    <div class="f"><label>Date <span style="color:var(--red)">*</span></label>
-      <input id="evr-date" type="date">
-    </div>
-    <div class="f"><label>EVR Form <span style="color:var(--red)">*</span></label>
-      <input id="evr-form-file" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-      <div style="font-size:11px;color:var(--muted);margin-top:3px">Note: EVR Form</div>
-    </div>
-    <div class="f"><label>Supporting Documents <span style="color:var(--red)">*</span></label>
-      <input id="evr-supp-file" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-      <div style="font-size:11px;color:var(--muted);margin-top:3px">Note: Supporting Documents</div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Employee <span style="color:var(--red)">*</span></label>
+      <select id="evr-emp" style="font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;width:100%;font-family:'IBM Plex Sans',sans-serif">
+        <option value="">-- Select employee --</option>
+      </select>
     </div>
 
-    <div id="evr-err" style="display:none;background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:10px 14px;font-size:13px;margin:10px 0"></div>
-    <button class="btn bp" onclick="submitEvr()" id="evr-submit-btn">📤 Submit EVR</button>
-    <span class="ok-msg" id="evr-ok">Submitted!</span>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:18px;max-width:220px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Date <span style="color:var(--red)">*</span></label>
+      <input type="date" id="evr-date" style="font-size:13px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);width:100%;font-family:'IBM Plex Sans',sans-serif">
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">EVR Form <span style="color:var(--red)">*</span></label>
+      <div class="evr-dropzone" onclick="document.getElementById('evr-form-file').click()" id="evr-form-zone">
+        <div class="evr-dz-icon">📄</div>
+        <div class="evr-dz-text"><span class="evr-dz-link">Click to upload</span> the EVR Form</div>
+        <div class="evr-dz-sub">PDF, DOC, or image — required</div>
+      </div>
+      <input type="file" id="evr-form-file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display:none" onchange="evrShowFile('evr-form-file','evr-form-zone')">
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:18px">
+      <label style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Supporting Documents <span style="color:var(--red)">*</span></label>
+      <div class="evr-dropzone" onclick="document.getElementById('evr-supp-file').click()" id="evr-supp-zone">
+        <div class="evr-dz-icon">📎</div>
+        <div class="evr-dz-text"><span class="evr-dz-link">Click to upload</span> Supporting Documents</div>
+        <div class="evr-dz-sub">PDF, DOC, or image — required</div>
+      </div>
+      <input type="file" id="evr-supp-file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display:none" onchange="evrShowFile('evr-supp-file','evr-supp-zone')">
+    </div>
+
+    <button class="btn bp" onclick="submitEvr()" id="evr-submit-btn" style="width:100%;justify-content:center;padding:11px">📤 Submit EVR</button>
+    <span class="ok-msg" id="evr-ok" style="display:block;text-align:center;margin-top:8px">✅ Submitted!</span>
   </div>
 
   <div class="panel wide">
@@ -1114,6 +1140,20 @@ async function init(){
 }
 
 // ── TABS ───────────────────────────────────────────────────────────────────────
+function evrResetZone(zoneId,icon,label){
+  var zone=document.getElementById(zoneId);
+  if(!zone)return;
+  zone.classList.remove('filled');
+  zone.innerHTML='<div class="evr-dz-icon">'+icon+'</div><div class="evr-dz-text"><span class="evr-dz-link">Click to upload</span> '+label+'</div><div class="evr-dz-sub">PDF, DOC, or image — required</div>';
+}
+function evrShowFile(inputId,zoneId){
+  var input=document.getElementById(inputId);
+  var zone=document.getElementById(zoneId);
+  var file=input.files[0];
+  if(!file){zone.classList.remove('filled');return;}
+  zone.classList.add('filled');
+  zone.innerHTML='<div class="evr-dz-icon">✅</div><div class="evr-dz-text">'+file.name+'</div><div class="evr-dz-sub">Click to change file</div>';
+}
 function flash(id){
   var el=document.getElementById(id);if(!el)return;
   el.style.display='inline';
@@ -1389,6 +1429,8 @@ async function submitEvr(){
     document.getElementById('evr-date').value='';
     document.getElementById('evr-form-file').value='';
     document.getElementById('evr-supp-file').value='';
+    evrResetZone('evr-form-zone','📄','the EVR Form');
+    evrResetZone('evr-supp-zone','📎','Supporting Documents');
     await loadEvrList();
   }catch(e){
     errEl.textContent='Network error — please try again.';

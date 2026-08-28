@@ -2129,7 +2129,7 @@ function goSec(name,el){
   if(name==='leave')renderLeaveTracker();
   if(name==='201')render201();
   if(name==='performance')renderPerfList();
-  if(name==='disciplinary'){loadEvrAdminList();renderDiscList();}
+  if(name==='disciplinary'){loadEvrAdminList();renderDiscList();populateDiscEmpSupervisorsOnly();}
   if(name==='attendance')renderAttRecords();
   if(name==='reports'){}
   if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();}
@@ -2227,8 +2227,24 @@ function populatePeriodSelects(){
     if(!alreadyHasData)attSel.options[attSel.options.length-1].selected=true;
   }
 }
+// "Add Record" (manual HR filing) is specifically for filing against
+// supervisors — regular staff already get filed against via the EVR flow
+// supervisors themselves submit in supervisor.html. So unlike every other
+// employee dropdown in this app, this one is deliberately restricted rather
+// than showing everyone.
+async function populateDiscEmpSupervisorsOnly(){
+  if(!supervisorUserIds.length)await mgmtLoadSupervisorIds();
+  var sel=document.getElementById('disc-emp');
+  if(!sel)return;
+  var cur=sel.value;
+  var supEmpIds=supervisorUserIds.map(Number);
+  var list=employees.filter(e=>e.active!==0&&supEmpIds.includes(e.id));
+  sel.innerHTML='<option value="">-- Select supervisor --</option>'
+    +list.map(e=>'<option value="'+e.id+'"'+(e.id==cur?' selected':'')+'>'+e.name+'</option>').join('');
+  if(!list.length)sel.innerHTML='<option value="">No supervisors found</option>';
+}
 function populateAllSelects(){
-  var sels=['lv-emp','lv-filter-emp','disc-emp','disc-filter-emp','perf-emp','perf-filter-emp','hist-emp','att-emp-sel','off-emp','off-search-emp'];
+  var sels=['lv-emp','lv-filter-emp','disc-filter-emp','perf-emp','perf-filter-emp','hist-emp','att-emp-sel','off-emp','off-search-emp'];
   sels.forEach(id=>{
     var sel=document.getElementById(id);if(!sel)return;
     var cur=sel.value;
