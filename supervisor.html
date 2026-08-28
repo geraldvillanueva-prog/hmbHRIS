@@ -536,16 +536,6 @@ input:focus,select:focus,textarea:focus{
 
 /* lightbox */
 .ann-lightbox{display:none;position:fixed;inset:0;background:rgba(10,22,40,0.88);z-index:2000;align-items:center;justify-content:center;padding:30px;cursor:zoom-out;animation:annLightboxIn .18s ease}
-.pa-modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,22,40,0.55);z-index:1500;align-items:center;justify-content:center;padding:20px}
-.pa-modal-overlay.open{display:flex}
-.pa-modal-box{background:var(--card);border-radius:14px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(10,22,40,.3)}
-.pa-modal-title{display:flex;align-items:center;justify-content:space-between;font-size:17px;font-weight:700;color:var(--navy);margin-bottom:4px}
-.pa-modal-close{background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1}
-.pa-modal-sub{font-size:12.5px;color:var(--muted);margin-bottom:16px}
-.pa-entry{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
-.pa-entry:last-child{border-bottom:none}
-.pa-entry .pa-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--blue));color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
-.pa-entry .pa-name{font-size:13.5px;font-weight:600;color:var(--text)}
 .ann-lightbox.show{display:flex}
 .ann-lightbox img{max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5);cursor:default;animation:annLightboxZoom .2s cubic-bezier(.2,.8,.2,1)}
 .ann-lightbox-close{position:absolute;top:18px;right:22px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.3);color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;transition:background .15s}
@@ -649,6 +639,7 @@ input:focus,select:focus,textarea:focus{
   <button class="tab-btn" onclick="goTab('leaves',this)">🌴 Leave Approvals <span class="tab-notif" id="pending-count" style="display:none">0</span></button>
   <button class="tab-btn" onclick="goTab('leavefile',this)">📝 File My Leave</button>
   <button class="tab-btn" onclick="goTab('team',this)">👥 My Team</button>
+  <button class="tab-btn" onclick="goTab('evr',this)">📋 File EVR</button>
   <button class="tab-btn" onclick="goTab('timeinout',this)">🕐 My Time In/Out</button>
   <button class="tab-btn" onclick="goTab('payslips',this)">💰 My Payslips</button>
   <button class="tab-btn" onclick="goTab('account',this)">🔐 My Account</button>
@@ -674,7 +665,7 @@ input:focus,select:focus,textarea:focus{
         <button class="ann-filter-btn" data-type="general" onclick="supAnnFilter(\'general\',this)">📣 General<span class="ann-count" id="sup-cnt-general">0</span></button>
         <button class="ann-filter-btn" data-type="event" onclick="supAnnFilter(\'event\',this)">📅 Events<span class="ann-count" id="sup-cnt-event">0</span></button>
         <button class="ann-filter-btn" data-type="birthday" onclick="supAnnFilter('birthday',this)">🎂 Birthdays<span class="ann-count" id="sup-cnt-birthday">0</span></button>
-        <button class="ann-filter-btn" onclick="openPerfectAttendanceModal()">🎯 Perfect Attendance</button>
+        <button class="ann-filter-btn" data-type="perfect_attendance" onclick="supAnnFilter('perfect_attendance',this)">🎯 Perfect Attendance<span class="ann-count" id="sup-cnt-perfect_attendance">0</span></button>
         <button class="ann-filter-btn" data-type="best_employee" onclick="supAnnFilter('best_employee',this)">⭐ Best Employee<span class="ann-count" id="sup-cnt-best_employee">0</span></button>
         <button class="ann-filter-btn" data-type="early_bird" onclick="supAnnFilter(\'early_bird\',this)">🐦 Early Bird<span class="ann-count" id="sup-cnt-early_bird">0</span></button>
       </div>
@@ -819,6 +810,38 @@ input:focus,select:focus,textarea:focus{
   <div class="panel wide">
     <div class="panel-title"><div class="panel-title-left">📋 Team Leave Summary</div></div>
     <div id="team-leave-wrap"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
+<!-- ════════ TAB: FILE EVR ════════ -->
+<div class="tab-content" id="tab-evr">
+  <div class="panel" style="max-width:640px">
+    <div class="panel-title"><div class="panel-title-left">📋 File EVR (Employee Violation Report)</div></div>
+    <div style="font-size:12.5px;color:var(--muted);margin:-6px 0 16px">Submit an EVR against a member of your team for HR to review. Both attachments are required before this can be submitted.</div>
+
+    <div class="f"><label>Employee <span style="color:var(--red)">*</span></label>
+      <select id="evr-emp"><option value="">-- Select employee --</option></select>
+    </div>
+    <div class="f"><label>Date <span style="color:var(--red)">*</span></label>
+      <input id="evr-date" type="date">
+    </div>
+    <div class="f"><label>EVR Form <span style="color:var(--red)">*</span></label>
+      <input id="evr-form-file" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">Note: EVR Form</div>
+    </div>
+    <div class="f"><label>Supporting Documents <span style="color:var(--red)">*</span></label>
+      <input id="evr-supp-file" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">Note: Supporting Documents</div>
+    </div>
+
+    <div id="evr-err" style="display:none;background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:10px 14px;font-size:13px;margin:10px 0"></div>
+    <button class="btn bp" onclick="submitEvr()" id="evr-submit-btn">📤 Submit EVR</button>
+    <span class="ok-msg" id="evr-ok">Submitted!</span>
+  </div>
+
+  <div class="panel wide">
+    <div class="panel-title"><div class="panel-title-left">📄 My Filed EVRs</div></div>
+    <div id="evr-list-wrap"><div class="empty">Loading…</div></div>
   </div>
 </div>
 
@@ -1091,6 +1114,11 @@ async function init(){
 }
 
 // ── TABS ───────────────────────────────────────────────────────────────────────
+function flash(id){
+  var el=document.getElementById(id);if(!el)return;
+  el.style.display='inline';
+  setTimeout(function(){el.style.display='none';},2200);
+}
 function goTab(name,el){
   // Progress bar
   var pb=document.getElementById('progress-bar');
@@ -1110,6 +1138,7 @@ function goTab(name,el){
   void tc.offsetWidth;
   tc.classList.add('tab-enter');
   if(name==='team')loadTeam();
+  if(name==='evr')loadEvrTab();
   if(name==='payslips')loadPayslips();
   if(name==='leavefile'){supLoadMyLeaves();supLoadBalance();}
   if(name==='mydetails')loadMyDetails();
@@ -1290,6 +1319,83 @@ function showActionMsg(msg,ok){
 }
 
 // ── MY TEAM ────────────────────────────────────────────────────────────────────
+// ── FILE EVR ──────────────────────────────────────────────────────────────
+var _evrSubsLoaded=false;
+async function loadEvrTab(){
+  if(!_evrSubsLoaded){
+    _evrSubsLoaded=true;
+    var res=await fetch('/api/my/subordinates');
+    var subs=await res.json();
+    var sel=document.getElementById('evr-emp');
+    sel.innerHTML='<option value="">-- Select employee --</option>'
+      +subs.map(function(e){return'<option value="'+e.id+'">'+e.name+'</option>';}).join('');
+  }
+  loadEvrList();
+}
+async function loadEvrList(){
+  var w=document.getElementById('evr-list-wrap');
+  w.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    var res=await fetch('/api/evr-submissions');
+    var list=await res.json();
+    if(!list.length){w.innerHTML='<div class="empty">You haven\'t filed any EVRs yet.</div>';return;}
+    w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Date</th><th>EVR Form</th><th>Supporting Docs</th><th>Status</th><th>Filed</th></tr></thead><tbody>'
+      +list.map(function(r){
+        var statusColor=r.status==='Pending Review'?'#ef6c00':(r.status==='Reviewed'?'#2e7d32':'#607d8b');
+        return'<tr>'
+          +'<td><strong>'+r.empName+'</strong></td>'
+          +'<td style="font-size:12px">'+r.date+'</td>'
+          +'<td><a href="/uploads/'+r.evrForm.filename+'" target="_blank" rel="noopener">📎 View</a></td>'
+          +'<td><a href="/uploads/'+r.supportingDoc.filename+'" target="_blank" rel="noopener">📎 View</a></td>'
+          +'<td><span style="color:'+statusColor+';font-weight:700;font-size:11.5px">'+r.status+'</span></td>'
+          +'<td style="font-size:11px;color:var(--muted)">'+(r.createdAt?r.createdAt.slice(0,10):'')+'</td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div>';
+  }catch(e){
+    w.innerHTML='<div class="empty">Could not load your filed EVRs right now.</div>';
+  }
+}
+async function submitEvr(){
+  var errEl=document.getElementById('evr-err');
+  errEl.style.display='none';
+  var empId=document.getElementById('evr-emp').value;
+  var date=document.getElementById('evr-date').value;
+  var evrFile=document.getElementById('evr-form-file').files[0];
+  var suppFile=document.getElementById('evr-supp-file').files[0];
+  if(!empId||!date||!evrFile||!suppFile){
+    errEl.textContent='Please select an employee, a date, and attach both the EVR Form and Supporting Documents — all fields are required.';
+    errEl.style.display='block';
+    return;
+  }
+  var btn=document.getElementById('evr-submit-btn');
+  btn.disabled=true;
+  var fd=new FormData();
+  fd.append('employee_id',empId);
+  fd.append('incident_date',date);
+  fd.append('evrForm',evrFile);
+  fd.append('supportingDoc',suppFile);
+  try{
+    var res=await fetch('/api/evr-submissions',{method:'POST',body:fd});
+    var r=await res.json();
+    if(!r.success){
+      errEl.textContent=r.error||'Could not submit this EVR — please try again.';
+      errEl.style.display='block';
+      btn.disabled=false;
+      return;
+    }
+    flash('evr-ok');
+    document.getElementById('evr-emp').value='';
+    document.getElementById('evr-date').value='';
+    document.getElementById('evr-form-file').value='';
+    document.getElementById('evr-supp-file').value='';
+    await loadEvrList();
+  }catch(e){
+    errEl.textContent='Network error — please try again.';
+    errEl.style.display='block';
+  }
+  btn.disabled=false;
+}
 async function loadTeam(){
   var res=await fetch('/api/my/subordinates');
   var subs=await res.json();
@@ -2420,8 +2526,8 @@ function showPunchToast(msg){
 var supAnnRecords=[];
 var supAnnActiveType='';
 var supAnnSortDir='new';
-const SUP_ANN_ICONS={birthday:'🎂',award:'🏆',best_employee:'⭐',early_bird:'🐦',general:'📣',event:'📅'};
-const SUP_ANN_LABELS={birthday:'Birthday',award:'Award',best_employee:'Best Employee',early_bird:'Early Bird',general:'General',event:'Event'};
+const SUP_ANN_ICONS={birthday:'🎂',award:'🏆',best_employee:'⭐',early_bird:'🐦',general:'📣',event:'📅',perfect_attendance:'🎯'};
+const SUP_ANN_LABELS={birthday:'Birthday',award:'Award',best_employee:'Best Employee',early_bird:'Early Bird',general:'General',event:'Event',perfect_attendance:'Perfect Attendance'};
 
 async function loadSupAnnouncements(){
   try{
@@ -2603,38 +2709,6 @@ function closeAnnLightbox(e){
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAnnLightbox();});
 
 // ── PERFECT ATTENDANCE LEADERBOARD ──────────────────────────────────────────
-function paInitials(name){
-  if(!name)return'?';
-  var parts=name.replace(',',' ').trim().split(/\s+/).filter(Boolean);
-  return((parts[0]||'')[0]||'')+((parts[1]||'')[0]||'');
-}
-async function openPerfectAttendanceModal(){
-  var modal=document.getElementById('pa-modal');
-  var body=document.getElementById('pa-modal-body');
-  var periodLabel=document.getElementById('pa-modal-period');
-  modal.classList.add('open');
-  body.innerHTML='<div style="font-size:13px;color:var(--muted)">Loading…</div>';
-  var now=new Date();
-  var period=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  periodLabel.textContent=now.toLocaleDateString('en-PH',{month:'long',year:'numeric'});
-  try{
-    var res=await fetch('/api/perfect-attendance?period='+period,{credentials:'same-origin'});
-    var list=await res.json();
-    if(!list||!list.length){
-      body.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:16px 0">No one\'s been added to this month\'s list yet — check back later!</div>';
-      return;
-    }
-    body.innerHTML=list.map(function(r){
-      return'<div class="pa-entry"><div class="pa-avatar">'+paInitials(r.empName)+'</div><div class="pa-name">'+r.empName+'</div></div>';
-    }).join('');
-  }catch(e){
-    body.innerHTML='<div style="font-size:13px;color:var(--muted)">Could not load the list right now. Please try again later.</div>';
-  }
-}
-function closePerfectAttendanceModal(){
-  document.getElementById('pa-modal').classList.remove('open');
-}
-
 function toggleAnnBody(btn){
   var body=btn.previousElementSibling;
   var collapsed=body.classList.toggle('clamped');
@@ -2904,17 +2978,6 @@ var _celAmbientStarted=false;
 <div id="ann-lightbox" class="ann-lightbox" onclick="closeAnnLightbox(event)">
   <button class="ann-lightbox-close" onclick="closeAnnLightbox(event)">✕</button>
   <img id="ann-lightbox-img" src="" alt="">
-</div>
-
-<div class="pa-modal-overlay" id="pa-modal" onclick="if(event.target.id==='pa-modal')closePerfectAttendanceModal()">
-  <div class="pa-modal-box">
-    <div class="pa-modal-title">
-      <span>🎯 Perfect Attendance</span>
-      <button class="pa-modal-close" onclick="closePerfectAttendanceModal()">✕</button>
-    </div>
-    <div class="pa-modal-sub" id="pa-modal-period">This month</div>
-    <div id="pa-modal-body"><div style="font-size:13px;color:var(--muted)">Loading…</div></div>
-  </div>
 </div>
 
 <div id="cel-idle-corner" class="cel-idle-corner">

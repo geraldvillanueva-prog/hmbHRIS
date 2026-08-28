@@ -118,14 +118,6 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
-  CREATE TABLE IF NOT EXISTS perfect_attendance (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    period TEXT NOT NULL,
-    employee_id INTEGER NOT NULL,
-    employee_name TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
-  );
-
   CREATE TABLE IF NOT EXISTS benefit_types (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -221,6 +213,20 @@ db.exec(`
     sanction TEXT,
     status TEXT DEFAULT 'Open',
     details TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS evr_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    filed_by_user_id INTEGER NOT NULL,
+    incident_date TEXT NOT NULL,
+    evr_form_filename TEXT NOT NULL,
+    evr_form_original_name TEXT,
+    supporting_doc_filename TEXT NOT NULL,
+    supporting_doc_original_name TEXT,
+    status TEXT DEFAULT 'Pending Review',
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
   );
@@ -595,34 +601,6 @@ app.get('/api/benefit-types', requireAuth, (req, res) => {
   res.json(rows.map(mapBenefitType));
 });
 
-// ==================== PERFECT ATTENDANCE LEADERBOARD ====================
-// HR reviews Time Logs (where the shift/leave/holiday-aware late & undertime
-// logic already lives) and adds qualifying employees here per period. Kept
-// deliberately simple — a confirmed list per month, not an auto-detector —
-// since accurately computing "zero lates/undertime/absences all month" needs
-// the same engine already built into admin.html's Time Logs page.
-function mapPerfectAttendance(r){
-  return { id: r.id, period: r.period, empId: r.employee_id, empName: r.employee_name, createdAt: r.created_at };
-}
-app.get('/api/perfect-attendance', requireAuth, (req, res) => {
-  const period = req.query.period;
-  const rows = period
-    ? db.prepare('SELECT * FROM perfect_attendance WHERE period=? ORDER BY employee_name').all(period)
-    : db.prepare('SELECT * FROM perfect_attendance ORDER BY period DESC, employee_name').all();
-  res.json(rows.map(mapPerfectAttendance));
-});
-app.post('/api/perfect-attendance', requireAdmin, (req, res) => {
-  const { period, empId, empName } = req.body;
-  if (!period || !empId) return res.status(400).json({ success: false, error: 'period and empId are required.' });
-  const existing = db.prepare('SELECT id FROM perfect_attendance WHERE period=? AND employee_id=?').get(period, empId);
-  if (existing) return res.json({ success: false, error: 'Already on the list for this period.' });
-  const r = db.prepare('INSERT INTO perfect_attendance (period, employee_id, employee_name) VALUES (?,?,?)').run(period, empId, empName||'');
-  res.json({ success: true, id: r.lastInsertRowid });
-});
-app.delete('/api/perfect-attendance/:id', requireAdmin, (req, res) => {
-  db.prepare('DELETE FROM perfect_attendance WHERE id=?').run(req.params.id);
-  res.json({ success: true });
-});
 app.post('/api/benefit-types', requireAdmin, (req, res) => {
   const b = req.body;
   if (!b.name) return res.status(400).json({ success: false, error: 'Benefit Name is required.' });
@@ -1220,6 +1198,71 @@ app.put('/api/disciplinary/:id', requireAdmin, (req, res) => {
 
 app.delete('/api/disciplinary/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM disc_records WHERE id=?').run(req.params.id);
+  res.json({ success: true });
+});
+
+// ─── EVR (Employee Violation Report) SUBMISSIONS ────────────────────────────
+// Filed by supervisors against their own subordinates only — a raw submission
+// (date + two required attachments) for HR/Admin to review, not a finished
+// disciplinary record. Admin can turn a reviewed EVR into an actual
+// disc_records entry separately; this just captures the initial filing.
+function mapEvr(r){
+  return {
+    id: r.id, empId: r.employee_id, empName: r.emp_name, filedBy: r.filed_by_name,
+    date: r.incident_date, status: r.status, createdAt: r.created_at,
+    evrForm: { filename: r.evr_form_filename, originalName: r.evr_form_original_name },
+    supportingDoc: { filename: r.supporting_doc_filename, originalName: r.supporting_doc_original_name }
+  };
+}
+app.get('/api/evr-submissions', requireAdminOrSupervisor, (req, res) => {
+  let rows;
+  if (req.session.user.role === 'admin') {
+    rows = db.prepare(`
+      SELECT ev.*, e.name as emp_name, u.username as filed_by_name
+      FROM evr_submissions ev
+      JOIN employees e ON ev.employee_id = e.id
+      JOIN users u ON ev.filed_by_user_id = u.id
+      ORDER BY ev.created_at DESC
+    `).all();
+  } else {
+    rows = db.prepare(`
+      SELECT ev.*, e.name as emp_name, u.username as filed_by_name
+      FROM evr_submissions ev
+      JOIN employees e ON ev.employee_id = e.id
+      JOIN users u ON ev.filed_by_user_id = u.id
+      WHERE ev.filed_by_user_id = ?
+      ORDER BY ev.created_at DESC
+    `).all(req.session.user.id);
+  }
+  res.json(rows.map(mapEvr));
+});
+app.post('/api/evr-submissions', requireAdminOrSupervisor, upload.fields([
+  { name: 'evrForm', maxCount: 1 },
+  { name: 'supportingDoc', maxCount: 1 }
+]), (req, res) => {
+  const { employee_id, incident_date } = req.body;
+  if (!employee_id || !incident_date) return res.status(400).json({ success: false, error: 'Employee and date are required.' });
+  const evrFile = req.files && req.files.evrForm && req.files.evrForm[0];
+  const suppFile = req.files && req.files.supportingDoc && req.files.supportingDoc[0];
+  if (!evrFile || !suppFile) return res.status(400).json({ success: false, error: 'Both the EVR Form and Supporting Documents attachments are required.' });
+  // Supervisors may only file against their own subordinates — checked here,
+  // not just hidden in the dropdown, since the dropdown alone doesn't stop a
+  // direct API request.
+  if (req.session.user.role === 'supervisor') {
+    const isSub = db.prepare('SELECT id FROM supervisor_subordinates WHERE supervisor_user_id=? AND employee_id=?').get(req.session.user.id, employee_id);
+    if (!isSub) return res.status(403).json({ success: false, error: 'You can only file an EVR against your own team members.' });
+  }
+  const r = db.prepare(`INSERT INTO evr_submissions
+    (employee_id, filed_by_user_id, incident_date, evr_form_filename, evr_form_original_name, supporting_doc_filename, supporting_doc_original_name)
+    VALUES (?,?,?,?,?,?,?)`).run(
+    employee_id, req.session.user.id, incident_date,
+    evrFile.filename, evrFile.originalname,
+    suppFile.filename, suppFile.originalname
+  );
+  res.json({ success: true, id: r.lastInsertRowid });
+});
+app.put('/api/evr-submissions/:id', requireAdmin, (req, res) => {
+  db.prepare('UPDATE evr_submissions SET status=? WHERE id=?').run(req.body.status, req.params.id);
   res.json({ success: true });
 });
 

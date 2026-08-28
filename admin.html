@@ -92,6 +92,7 @@ tr:hover td{background:#fafcff}
 .badge-green{background:#e8f5e9;color:var(--green)}
 .badge-red{background:#ffebee;color:var(--red)}
 .applicants-nav-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:auto;font-family:'IBM Plex Mono',monospace}
+.tab-notif{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:6px;font-family:'IBM Plex Mono',monospace}
 .badge-orange{background:#fff3e0;color:var(--orange)}
 .badge-gray{background:#f0f4f8;color:var(--muted)}
 .badge-yellow{background:#fffde7;color:var(--yellow)}
@@ -873,12 +874,29 @@ tr:hover td{background:#fafcff}
   <!-- DISCIPLINARY -->
   <div id="sec-disciplinary" class="sec">
     <div class="page-title">Disciplinary Records</div>
-    <div class="page-sub">Track and manage employee disciplinary actions</div>
+    <div class="page-sub">Review EVR filings from supervisors, and track disciplinary actions</div>
     <div class="inner-tabs">
-      <button class="itab on" onclick="goITab('disc','add',this)">Add Record</button>
+      <button class="itab on" onclick="goITab('disc','evr',this)">EVR Submissions<span id="evr-pending-badge" class="tab-notif" style="display:none">0</span></button>
+      <button class="itab" onclick="goITab('disc','add',this)">Add Record</button>
       <button class="itab" onclick="goITab('disc','list',this)">Records</button>
     </div>
-    <div id="disc-itab-add" class="itab-sec on">
+
+    <div id="disc-itab-evr" class="itab-sec on">
+      <div class="row no-print" style="margin-bottom:10px">
+        <div class="f" style="max-width:220px"><label>Filter by employee</label>
+          <select id="evr-filter-emp" onchange="renderEvrAdminList()"><option value="">All</option></select>
+        </div>
+        <div class="f" style="max-width:180px"><label>Filter by status</label>
+          <select id="evr-filter-status" onchange="renderEvrAdminList()">
+            <option value="">All</option><option>Pending Review</option><option>Reviewed</option><option>Rejected</option>
+          </select>
+        </div>
+        <button class="btn bg no-print" style="align-self:flex-end" onclick="loadEvrAdminList()">🔄 Refresh</button>
+      </div>
+      <div id="evr-admin-list-wrap"><div class="empty">Loading…</div></div>
+    </div>
+
+    <div id="disc-itab-add" class="itab-sec">
       <div class="card">
         <div class="card-title">⚠️ New Disciplinary Record</div>
         <div class="row">
@@ -938,6 +956,55 @@ tr:hover td{background:#fafcff}
         <button class="btn bg no-print" style="align-self:flex-end" onclick="exportDiscCSV()">⬇ Export CSV</button>
       </div>
       <div id="disc-list-wrap"><div class="empty">No disciplinary records yet.</div></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="evr-review-modal" onclick="if(event.target.id==='evr-review-modal')closeEvrReviewModal()">
+    <div class="modal-box" style="max-width:560px">
+      <div class="modal-title">
+        ⚠️ Review EVR
+        <button class="modal-close" onclick="closeEvrReviewModal()">✕</button>
+      </div>
+      <input type="hidden" id="evrrev-id">
+      <div id="evrrev-summary" style="background:#f7f9fc;border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:12.5px;margin-bottom:14px"></div>
+      <div class="page-sub" style="margin:-6px 0 10px">Approving creates a disciplinary record with these details. Rejecting closes the EVR without creating one.</div>
+      <div class="row">
+        <div class="f"><label>Type of offense</label>
+          <select id="evrrev-type">
+            <option>Tardiness</option>
+            <option>Absence Without Leave (AWOL)</option>
+            <option>Insubordination</option>
+            <option>Misconduct</option>
+            <option>Negligence</option>
+            <option>Violation of Company Policy</option>
+            <option>Others</option>
+          </select>
+        </div>
+        <div class="f"><label>Offense level</label>
+          <select id="evrrev-level"><option>1st Offense</option><option>2nd Offense</option><option>3rd Offense</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="f"><label>Sanction</label>
+          <select id="evrrev-sanction">
+            <option>Verbal Warning</option>
+            <option>Written Warning</option>
+            <option>Suspension (1 day)</option>
+            <option>Suspension (3 days)</option>
+            <option>Suspension (5 days)</option>
+            <option>Suspension (30 days)</option>
+            <option>Dismissal</option>
+            <option>Others</option>
+          </select>
+        </div>
+        <div class="f"><label>Status</label><select id="evrrev-status"><option>Open</option><option>Resolved</option></select></div>
+      </div>
+      <div class="f"><label>Details / Description</label><textarea id="evrrev-details"></textarea></div>
+      <div id="evrrev-err" style="display:none;background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn br" onclick="rejectEvr()">✕ Reject</button>
+        <button class="btn bp" onclick="approveEvr()">✅ Approve &amp; Create Record</button>
+      </div>
     </div>
   </div>
 
@@ -2062,7 +2129,7 @@ function goSec(name,el){
   if(name==='leave')renderLeaveTracker();
   if(name==='201')render201();
   if(name==='performance')renderPerfList();
-  if(name==='disciplinary')renderDiscList();
+  if(name==='disciplinary'){loadEvrAdminList();renderDiscList();}
   if(name==='attendance')renderAttRecords();
   if(name==='reports'){}
   if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();}
@@ -2619,6 +2686,115 @@ function exportPerfCSV(){
 }
 
 // ==================== DISCIPLINARY ====================
+// ── EVR SUBMISSIONS (admin review queue) ─────────────────────────────────
+var evrSubmissions=[];
+async function loadEvrAdminList(){
+  var w=document.getElementById('evr-admin-list-wrap');
+  if(w)w.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    evrSubmissions=await api('GET','/api/evr-submissions')||[];
+    populateEvrEmpFilter();
+    renderEvrAdminList();
+    updateEvrPendingBadge();
+  }catch(e){
+    if(w)w.innerHTML='<div class="empty">Could not load EVR submissions.</div>';
+  }
+}
+function populateEvrEmpFilter(){
+  var sel=document.getElementById('evr-filter-emp');
+  if(!sel)return;
+  var cur=sel.value;
+  var names=[...new Set(evrSubmissions.map(r=>r.empName))].sort();
+  sel.innerHTML='<option value="">All</option>'+names.map(n=>'<option'+(n===cur?' selected':'')+'>'+n+'</option>').join('');
+}
+function updateEvrPendingBadge(){
+  var badge=document.getElementById('evr-pending-badge');
+  if(!badge)return;
+  var count=evrSubmissions.filter(r=>r.status==='Pending Review').length;
+  if(count>0){badge.textContent=count;badge.style.display='inline-flex';}
+  else{badge.style.display='none';}
+}
+function renderEvrAdminList(){
+  var w=document.getElementById('evr-admin-list-wrap');
+  if(!w)return;
+  var empName=v('evr-filter-emp'),status=v('evr-filter-status');
+  var list=evrSubmissions.filter(r=>{
+    if(empName&&r.empName!==empName)return false;
+    if(status&&r.status!==status)return false;
+    return true;
+  });
+  if(!list.length){w.innerHTML='<div class="empty">No EVR submissions match these filters.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Filed By</th><th>Date</th><th>EVR Form</th><th>Supporting Docs</th><th>Status</th><th></th></tr></thead><tbody>'
+    +list.map(function(r){
+      var statusBadge=r.status==='Pending Review'?'<span class="badge badge-red">Pending Review</span>'
+        :r.status==='Reviewed'?'<span class="badge badge-green">Reviewed</span>'
+        :'<span class="badge" style="background:#eceff1;color:#607d8b">Rejected</span>';
+      var actionCell=r.status==='Pending Review'
+        ?'<button class="btn bs bp" style="font-size:11px" onclick="openEvrReviewModal('+r.id+')">Review</button>'
+        :'<span style="color:var(--muted);font-size:11px">—</span>';
+      return'<tr>'
+        +'<td><strong>'+r.empName+'</strong></td>'
+        +'<td style="font-size:12px">'+r.filedBy+'</td>'
+        +'<td style="font-size:12px">'+fmtDate(r.date)+'</td>'
+        +'<td><a href="/uploads/'+r.evrForm.filename+'" target="_blank" rel="noopener">📎 View</a></td>'
+        +'<td><a href="/uploads/'+r.supportingDoc.filename+'" target="_blank" rel="noopener">📎 View</a></td>'
+        +'<td>'+statusBadge+'</td>'
+        +'<td>'+actionCell+'</td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table></div>';
+}
+function openEvrReviewModal(id){
+  var r=evrSubmissions.find(x=>x.id===id);
+  if(!r)return;
+  document.getElementById('evrrev-id').value=r.id;
+  document.getElementById('evrrev-err').style.display='none';
+  document.getElementById('evrrev-summary').innerHTML=
+    '<strong>'+r.empName+'</strong> · Filed by '+r.filedBy+' on '+fmtDate(r.createdAt?r.createdAt.slice(0,10):'')
+    +'<br>Incident date: '+fmtDate(r.date)
+    +'<br><a href="/uploads/'+r.evrForm.filename+'" target="_blank" rel="noopener">📎 View EVR Form</a>'
+    +' &nbsp;·&nbsp; <a href="/uploads/'+r.supportingDoc.filename+'" target="_blank" rel="noopener">📎 View Supporting Documents</a>';
+  document.getElementById('evrrev-type').value='Tardiness';
+  document.getElementById('evrrev-level').value='1st Offense';
+  document.getElementById('evrrev-sanction').value='Verbal Warning';
+  document.getElementById('evrrev-status').value='Open';
+  document.getElementById('evrrev-details').value='';
+  document.getElementById('evr-review-modal').classList.add('open');
+}
+function closeEvrReviewModal(){
+  document.getElementById('evr-review-modal').classList.remove('open');
+}
+async function approveEvr(){
+  var id=parseInt(v('evrrev-id'));
+  var r=evrSubmissions.find(x=>x.id===id);
+  if(!r)return;
+  var rec={
+    empId:r.empId, date:r.date,
+    type:v('evrrev-type'), level:v('evrrev-level'), sanction:v('evrrev-sanction'),
+    status:v('evrrev-status'), details:v('evrrev-details')
+  };
+  try{
+    var dr=await api('POST','/api/disciplinary',rec);
+    if(!dr.success){document.getElementById('evrrev-err').textContent='Could not create the disciplinary record.';document.getElementById('evrrev-err').style.display='block';return;}
+    rec.id=dr.id;discRecords.push(rec);
+    await api('PUT','/api/evr-submissions/'+id,{status:'Reviewed'});
+    r.status='Reviewed';
+    closeEvrReviewModal();
+    renderEvrAdminList();renderDiscList();updateEvrPendingBadge();renderDashboard();showSaveIndicator();
+  }catch(e){
+    document.getElementById('evrrev-err').textContent='Something went wrong — please try again.';
+    document.getElementById('evrrev-err').style.display='block';
+  }
+}
+async function rejectEvr(){
+  var id=parseInt(v('evrrev-id'));
+  if(!confirm('Reject this EVR? No disciplinary record will be created.'))return;
+  var r=evrSubmissions.find(x=>x.id===id);
+  await api('PUT','/api/evr-submissions/'+id,{status:'Rejected'});
+  if(r)r.status='Rejected';
+  closeEvrReviewModal();
+  renderEvrAdminList();updateEvrPendingBadge();showSaveIndicator();
+}
 async function addDisc(){
   var empId=parseInt(v('disc-emp'));
   if(!empId){alert('Select an employee.');return;}
