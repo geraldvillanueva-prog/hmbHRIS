@@ -1236,6 +1236,29 @@ app.get('/api/evr-submissions', requireAdminOrSupervisor, (req, res) => {
   }
   res.json(rows.map(mapEvr));
 });
+// ─── FILE UPLOAD SETUP ────────────────────────────────────────────────────────
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `ann_${Date.now()}_${Math.random().toString(36).slice(2,8)}${ext}`);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per file
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp|pdf|doc|docx|xls|xlsx|txt/i;
+    const ext = allowed.test(path.extname(file.originalname));
+    const mime = allowed.test(file.mimetype);
+    if (ext || mime) return cb(null, true);
+    cb(new Error('File type not allowed'));
+  }
+});
+
 app.post('/api/evr-submissions', requireAdminOrSupervisor, upload.fields([
   { name: 'evrForm', maxCount: 1 },
   { name: 'supportingDoc', maxCount: 1 }
@@ -1456,29 +1479,6 @@ app.get('/api/timelogs/live', requireAdminOrSupervisor, (req, res) => {
     };
   });
   res.json(result);
-});
-
-// ─── FILE UPLOAD SETUP ────────────────────────────────────────────────────────
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `ann_${Date.now()}_${Math.random().toString(36).slice(2,8)}${ext}`);
-  }
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per file
-  fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp|pdf|doc|docx|xls|xlsx|txt/i;
-    const ext = allowed.test(path.extname(file.originalname));
-    const mime = allowed.test(file.mimetype);
-    if (ext || mime) return cb(null, true);
-    cb(new Error('File type not allowed'));
-  }
 });
 
 // Serve uploaded files
