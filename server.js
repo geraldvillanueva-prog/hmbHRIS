@@ -37,7 +37,10 @@ const upload = multer({
 });
 // Serve uploaded files (requireAuth is defined further down, but function
 // declarations are hoisted, so referencing it here is safe)
-app.use('/uploads', requireAuth, express.static(uploadsDir));
+// (the actual /uploads route registration is placed further down, right
+// after session middleware is set up — see near app.use(sessionParser) —
+// since requireAuth depends on req.session, which doesn't exist yet this
+// early in the file)
 
 // ─── HTTP + WEBSOCKET SERVER SETUP ───────────────────────────────────────────
 const server = http.createServer(app);
@@ -385,6 +388,10 @@ const sessionParser = session({
   cookie: { maxAge: 8 * 60 * 60 * 1000 } // 8 hours
 });
 app.use(sessionParser);
+// Serve uploaded files — must come after sessionParser above, since
+// requireAuth (used here) reads req.session.user, which only exists once
+// session middleware has run.
+app.use('/uploads', requireAuth, express.static(uploadsDir));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── WEBSOCKET CONNECTION HANDLER ────────────────────────────────────────────
