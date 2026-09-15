@@ -2124,31 +2124,30 @@ async function saveToStorage(){
 }
 async function loadFromStorage(){
   try{
-    // allSettled rather than all: a role like hr_intern legitimately gets a
-    // 403 from admin-only endpoints (attendance/performance/disciplinary/
-    // payslips) — that shouldn't wipe out data from the OTHER endpoints
-    // (employees/leave/settings/shifts) that they're perfectly allowed to
-    // see. Each result is unwrapped below, falling back to a safe empty
-    // default only for the ones that actually failed.
-    var results=await Promise.allSettled([
-      api('GET','/api/employees'),
-      api('GET','/api/attendance'),
-      api('GET','/api/leave'),
-      api('GET','/api/performance'),
-      api('GET','/api/disciplinary'),
-      api('GET','/api/payslips'),
-      api('GET','/api/settings'),
-      api('GET','/api/shifts')
-    ]);
-    function unwrap(r,fallback){return r.status==='fulfilled'?r.value:fallback;}
-    var emps=unwrap(results[0],[]);
-    var att=unwrap(results[1],{});
-    var leaves=unwrap(results[2],[]);
-    var perfs=unwrap(results[3],[]);
-    var discs=unwrap(results[4],[]);
-    var slips=unwrap(results[5],[]);
-    var cfg=unwrap(results[6],null);
-    var shiftData=unwrap(results[7],[]);
+    // hr_intern only needs data for the two sections it's allowed to see
+    // (Time Logs + Leave Management) — Attendance, Performance,
+    // Disciplinary, and Payslips are admin-only and simply aren't
+    // requested at all for that role, rather than being requested and
+    // then having their failure caught.
+    var isHrIntern=currentUserRole==='hr_intern';
+    var tasks={
+      employees: api('GET','/api/employees'),
+      leaves:    api('GET','/api/leave'),
+      settings:  api('GET','/api/settings'),
+      shifts:    api('GET','/api/shifts')
+    };
+    if(!isHrIntern){
+      tasks.attendance   = api('GET','/api/attendance');
+      tasks.performance  = api('GET','/api/performance');
+      tasks.disciplinary = api('GET','/api/disciplinary');
+      tasks.payslips     = api('GET','/api/payslips');
+    }
+    var keys=Object.keys(tasks);
+    var settled=await Promise.allSettled(keys.map(k=>tasks[k]));
+    var out={};
+    keys.forEach((k,i)=>{out[k]=settled[i].status==='fulfilled'?settled[i].value:null;});
+    var emps=out.employees, att=out.attendance, leaves=out.leaves, perfs=out.performance,
+        discs=out.disciplinary, slips=out.payslips, cfg=out.settings, shiftData=out.shifts;
     employees=(emps||[]).map(normalizeEmp);
     attendance=att||{};
     leaveRecords=leaves||[];
