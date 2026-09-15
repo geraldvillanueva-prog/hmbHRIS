@@ -1101,7 +1101,7 @@ async function init(){
     var res=await fetch('/api/me');
     var data=await res.json();
     if(!data||!data.id){window.location.href='/';return;}
-    if(data.role==='admin'){window.location.href='/admin.html';return;}
+    if(data.role==='admin'||data.role==='hr_intern'){window.location.href='/admin.html';return;}
     if(data.role==='employee'){window.location.href='/employee.html';return;}
     user=data;
     document.getElementById('sup-name-display').textContent=data.username;
@@ -2599,7 +2599,7 @@ function supAnnSort(dir,btn){
 function supAnnUpdateStatsAndCounts(){
   var total=supAnnRecords.length;
   var now=Date.now(),weekMs=7*24*60*60*1000;
-  var week=supAnnRecords.filter(a=>now-new Date(a.created_at).getTime()<=weekMs).length;
+  var week=supAnnRecords.filter(a=>now-parseUtcTimestamp(a.created_at).getTime()<=weekMs).length;
   var pinned=supAnnRecords.filter(a=>a.pinned).length;
   var elT=document.getElementById('sup-ann-stat-total');if(elT)elT.textContent=total;
   var elW=document.getElementById('sup-ann-stat-week');if(elW)elW.textContent=week;
@@ -2627,8 +2627,8 @@ function renderSupAnn(){
     return true;
   });
   var sortFn=supAnnSortDir==='old'
-    ?(a,b)=>new Date(a.created_at)-new Date(b.created_at)
-    :(a,b)=>new Date(b.created_at)-new Date(a.created_at);
+    ?(a,b)=>parseUtcTimestamp(a.created_at)-parseUtcTimestamp(b.created_at)
+    :(a,b)=>parseUtcTimestamp(b.created_at)-parseUtcTimestamp(a.created_at);
   var pinned=filtered.filter(a=>a.pinned).sort(sortFn);
   var rest=filtered.filter(a=>!a.pinned).sort(sortFn);
 
@@ -2725,9 +2725,23 @@ function supAnnCard(a,idx){
 function supEscH(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function supFmtDate(d){try{return new Date(d).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});}catch(e){return d||'';}}
 
+// SQLite's datetime('now') returns UTC strings like "2026-08-28 10:00:00" —
+// no 'T' separator, no timezone marker. JavaScript's Date constructor treats
+// a string like that as LOCAL time when parsed directly, not UTC, which
+// silently shifts every timestamp by the browser's UTC offset (8 hours early
+// for Philippine Time). This normalizes it to an explicit UTC string first.
+function parseUtcTimestamp(d){
+  if(!d)return null;
+  var s=String(d).trim();
+  if(/[Zz]$/.test(s)||/[+\-]\d{2}:?\d{2}$/.test(s))return new Date(s);
+  if(/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/.test(s)){
+    return new Date(s.replace(' ','T')+(s.indexOf('Z')===-1?'Z':''));
+  }
+  return new Date(s);
+}
 function fmtSupAnnRelative(d){
   try{
-    var then=new Date(d).getTime(), now=Date.now(), diff=Math.max(0,now-then);
+    var then=parseUtcTimestamp(d).getTime(), now=Date.now(), diff=Math.max(0,now-then);
     var min=Math.floor(diff/60000), hr=Math.floor(diff/3600000), day=Math.floor(diff/86400000);
     if(min<1)return'Just now';
     if(min<60)return min+'m ago';
@@ -2961,7 +2975,7 @@ function celCheckAnnouncementsForCelebration(records){
     var seen=JSON.parse(localStorage.getItem(seenKey)||'[]');
     var worthy=records.filter(function(a){return a.type==='award'||a.type==='best_employee';});
     if(worthy.length){
-      worthy.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});
+      worthy.sort(function(a,b){return parseUtcTimestamp(b.created_at)-parseUtcTimestamp(a.created_at);});
       var latest=worthy[0];
       if(seen.indexOf(latest.id)===-1){
         seen.push(latest.id);
@@ -2975,7 +2989,7 @@ function celCheckAnnouncementsForCelebration(records){
     var bdaySeen=JSON.parse(localStorage.getItem(bdaySeenKey)||'[]');
     var bdays=records.filter(function(a){return a.type==='birthday';});
     if(!bdays.length)return;
-    bdays.sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});
+    bdays.sort(function(a,b){return parseUtcTimestamp(b.created_at)-parseUtcTimestamp(a.created_at);});
     var latestBday=bdays[0];
     if(bdaySeen.indexOf(latestBday.id)!==-1)return;
     bdaySeen.push(latestBday.id);
