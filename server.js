@@ -11,6 +11,34 @@ const multer = require('multer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ─── FILE UPLOAD SETUP ────────────────────────────────────────────────────────
+// Declared early, before any route in the file, since several routes
+// (announcement attachments, EVR submissions) depend on `upload`.
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `ann_${Date.now()}_${Math.random().toString(36).slice(2,8)}${ext}`);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per file
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp|pdf|doc|docx|xls|xlsx|txt/i;
+    const ext = allowed.test(path.extname(file.originalname));
+    const mime = allowed.test(file.mimetype);
+    if (ext || mime) return cb(null, true);
+    cb(new Error('File type not allowed'));
+  }
+});
+// Serve uploaded files (requireAuth is defined further down, but function
+// declarations are hoisted, so referencing it here is safe)
+app.use('/uploads', requireAuth, express.static(uploadsDir));
+
 // ─── HTTP + WEBSOCKET SERVER SETUP ───────────────────────────────────────────
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
@@ -1464,30 +1492,9 @@ app.get('/api/timelogs/live', requireAdminOrSupervisor, (req, res) => {
 });
 
 // ─── FILE UPLOAD SETUP ────────────────────────────────────────────────────────
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `ann_${Date.now()}_${Math.random().toString(36).slice(2,8)}${ext}`);
-  }
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per file
-  fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp|pdf|doc|docx|xls|xlsx|txt/i;
-    const ext = allowed.test(path.extname(file.originalname));
-    const mime = allowed.test(file.mimetype);
-    if (ext || mime) return cb(null, true);
-    cb(new Error('File type not allowed'));
-  }
-});
-
-// Serve uploaded files
-app.use('/uploads', requireAuth, express.static(uploadsDir));
+// (moved to the top of the file — see right after the initial requires —
+// since routes earlier in the file, like EVR submissions, also need `upload`
+// before this point used to declare it)
 
 // ─── ANNOUNCEMENTS ROUTES ─────────────────────────────────────────────────────
 
