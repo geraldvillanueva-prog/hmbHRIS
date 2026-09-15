@@ -100,6 +100,7 @@ db.exec(`
     end_of_contract TEXT,
     annual_evaluation TEXT,
     payslip_note TEXT,
+    include_in_payroll INTEGER DEFAULT 1,
     shift_day_overrides TEXT,
     smb REAL DEFAULT 0,
     sss REAL DEFAULT 0,
@@ -636,11 +637,11 @@ app.put('/api/benefit-types/:id', requireAdmin, (req, res) => {
 
 app.post('/api/employees', requireAdmin, (req, res) => {
   const e = req.body;
-  const r = db.prepare(`INSERT INTO employees (name,surname,given_name,middle_name,pos,dept,type,start,bank,email,mobile,emergency,address,address_permanent,address_current,tin,sss_no,philhealth_no,pagibig_no,dob,civil_status,gender,smoker,religion,immediate_superior,end_of_contract,annual_evaluation,payslip_note,shift_day_overrides,smb,sss,phic,hdmf,mpl,dm,load,wht,vl_bal,sl_bal)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+  const r = db.prepare(`INSERT INTO employees (name,surname,given_name,middle_name,pos,dept,type,start,bank,email,mobile,emergency,address,address_permanent,address_current,tin,sss_no,philhealth_no,pagibig_no,dob,civil_status,gender,smoker,religion,immediate_superior,end_of_contract,annual_evaluation,payslip_note,shift_day_overrides,include_in_payroll,smb,sss,phic,hdmf,mpl,dm,load,wht,vl_bal,sl_bal)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     e.name,e.surname||'',e.givenName||'',e.middleName||'',e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',
     e.addressPermanent||'',e.addressCurrent||'',e.tin||'',e.sssNo||'',e.philhealthNo||'',e.pagibigNo||'',e.dob||'',e.civilStatus||'',e.gender||'',e.smoker||'',e.religion||'',
-    e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',e.payslipNote||'',e.shiftDayOverrides||e.shift_day_overrides||'',
+    e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',e.payslipNote||'',e.shiftDayOverrides||e.shift_day_overrides||'',(e.includeInPayroll===false||e.includeInPayroll===0)?0:1,
     +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0
   );
   res.json({ success: true, id: r.lastInsertRowid });
@@ -657,12 +658,12 @@ app.put('/api/employees/:id', requireAdmin, (req, res) => {
   const locWfhDays = (locPolicy === 'wfh' && e.locWfhDays) ? e.locWfhDays : null;
   db.prepare(`UPDATE employees SET name=?,surname=?,given_name=?,middle_name=?,pos=?,dept=?,type=?,start=?,bank=?,email=?,mobile=?,emergency=?,address=?,
     address_permanent=?,address_current=?,tin=?,sss_no=?,philhealth_no=?,pagibig_no=?,dob=?,civil_status=?,gender=?,smoker=?,religion=?,
-    immediate_superior=?,end_of_contract=?,annual_evaluation=?,payslip_note=?,shift_day_overrides=?,
+    immediate_superior=?,end_of_contract=?,annual_evaluation=?,payslip_note=?,shift_day_overrides=?,include_in_payroll=?,
     smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,vl_bal=?,sl_bal=?,shift_id=?,
     loc_policy=?,loc_lat=?,loc_lng=?,loc_radius=?,loc_wfh_days=? WHERE id=?`).run(
     e.name,e.surname||'',e.givenName||'',e.middleName||'',e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',
     e.addressPermanent||'',e.addressCurrent||'',e.tin||'',e.sssNo||'',e.philhealthNo||'',e.pagibigNo||'',e.dob||'',e.civilStatus||'',e.gender||'',e.smoker||'',e.religion||'',
-    e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',e.payslipNote||'',e.shiftDayOverrides||e.shift_day_overrides||'',
+    e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',e.payslipNote||'',e.shiftDayOverrides||e.shift_day_overrides||'',(e.includeInPayroll===false||e.includeInPayroll===0)?0:1,
     +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0, shiftId,
     locPolicy, locLat, locLng, locRadius, locWfhDays, req.params.id
   );
@@ -720,7 +721,8 @@ function mapEmployee(e) {
     smoker: e.smoker || '', religion: e.religion || '',
     immediateSuperior: e.immediate_superior || '', endOfContract: e.end_of_contract || '', annualEvaluation: e.annual_evaluation || '',
     payslipNote: e.payslip_note || '',
-    shiftDayOverrides: e.shift_day_overrides || '', shift_day_overrides: e.shift_day_overrides || ''
+    shiftDayOverrides: e.shift_day_overrides || '', shift_day_overrides: e.shift_day_overrides || '',
+    includeInPayroll: e.include_in_payroll!==0
   };
 }
 
@@ -817,6 +819,7 @@ try { db.exec(`ALTER TABLE employees ADD COLUMN immediate_superior TEXT`); } cat
 try { db.exec(`ALTER TABLE employees ADD COLUMN end_of_contract TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE employees ADD COLUMN annual_evaluation TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE employees ADD COLUMN payslip_note TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE employees ADD COLUMN include_in_payroll INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE employees ADD COLUMN shift_day_overrides TEXT`); } catch(e) {}
 
 // Migrate time_logs table — add GPS columns for audit trail
@@ -884,7 +887,7 @@ app.get('/api/admin/fix-gerald-timelogs', (req, res) => {
 // Get logs — admin gets all with filters, employees/supervisors get their own
 app.get('/api/timelogs', requireAuth, (req, res) => {
   let rows;
-  if (req.session.user.role === 'admin') {
+  if (['admin','hr_intern'].includes(req.session.user.role)) {
     const { employee_id, from, to } = req.query;
     let q = 'SELECT t.*, e.name as emp_name FROM time_logs t JOIN employees e ON t.employee_id=e.id WHERE 1=1';
     const params = [];
@@ -1067,8 +1070,10 @@ app.get('/api/timelogs/status', requireAuth, (req, res) => {
 // ─── LEAVE ────────────────────────────────────────────────────────────────────
 app.get('/api/leave', requireAuth, (req, res) => {
   const role = req.session.user.role;
-  // Admin & Management: all leaves
-  if (role === 'admin' || role === 'management') {
+  // Admin, Management, HR Intern: all leaves (HR Intern is read-only — enforced
+  // by requireAdmin/requireAdminOrSupervisor on every mutation route below,
+  // not by anything client-side)
+  if (['admin','management','hr_intern'].includes(role)) {
     const rows = db.prepare('SELECT l.*, e.name as emp_name FROM leave_records l JOIN employees e ON l.employee_id=e.id ORDER BY l.filed_at DESC').all();
     return res.json(rows.map(r => ({ id: r.id, empId: r.employee_id, empName: r.emp_name, type: r.type, from: r.from_date, to: r.to_date, days: r.days, reason: r.reason, status: r.status, pay: r.pay, halfDay: !!r.half_day, filedAt: r.filed_at })));
   }
@@ -1236,29 +1241,6 @@ app.get('/api/evr-submissions', requireAdminOrSupervisor, (req, res) => {
   }
   res.json(rows.map(mapEvr));
 });
-// ─── FILE UPLOAD SETUP ────────────────────────────────────────────────────────
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `ann_${Date.now()}_${Math.random().toString(36).slice(2,8)}${ext}`);
-  }
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per file
-  fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp|pdf|doc|docx|xls|xlsx|txt/i;
-    const ext = allowed.test(path.extname(file.originalname));
-    const mime = allowed.test(file.mimetype);
-    if (ext || mime) return cb(null, true);
-    cb(new Error('File type not allowed'));
-  }
-});
-
 app.post('/api/evr-submissions', requireAdminOrSupervisor, upload.fields([
   { name: 'evrForm', maxCount: 1 },
   { name: 'supportingDoc', maxCount: 1 }
@@ -1479,6 +1461,29 @@ app.get('/api/timelogs/live', requireAdminOrSupervisor, (req, res) => {
     };
   });
   res.json(result);
+});
+
+// ─── FILE UPLOAD SETUP ────────────────────────────────────────────────────────
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `ann_${Date.now()}_${Math.random().toString(36).slice(2,8)}${ext}`);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per file
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp|pdf|doc|docx|xls|xlsx|txt/i;
+    const ext = allowed.test(path.extname(file.originalname));
+    const mime = allowed.test(file.mimetype);
+    if (ext || mime) return cb(null, true);
+    cb(new Error('File type not allowed'));
+  }
 });
 
 // Serve uploaded files

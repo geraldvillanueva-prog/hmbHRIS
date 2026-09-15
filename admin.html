@@ -232,6 +232,7 @@ tr:hover td{background:#fafcff}
   <div id="nav-send" class="nav-item" onclick="goSec('send',this)"><span class="nav-icon">📧</span>Send Pay Slips</div>
   <div id="nav-commission" class="nav-item" onclick="goSec('commission',this)"><span class="nav-icon">💵</span>Weekly Commission</div>
   <div id="nav-history" class="nav-item" onclick="goSec('history',this)"><span class="nav-icon">🗂</span>Slip History</div>
+  <div id="nav-2316" class="nav-item" onclick="goSec('bir2316',this)"><span class="nav-icon">📄</span>BIR Form 2316</div>
   <div class="sidebar-section">Communications</div>
   <div id="nav-announcements" class="nav-item" onclick="goSec('announcements',this)"><span class="nav-icon">📢</span>Announcements</div>
   <div class="sidebar-section">Performance</div>
@@ -439,12 +440,18 @@ tr:hover td{background:#fafcff}
       </div>
       <div class="row">
         <div class="f"><label>Employment type</label>
-          <select id="etype">
-            <option>Regular</option><option>Probationary</option><option>Contractual</option><option>Part-time</option>
+          <select id="etype" onchange="onAddEtypeChange()">
+            <option>Regular</option><option>Probationary</option><option>Contractual</option><option>Part-time</option><option>Intern</option>
           </select>
         </div>
         <div class="f"><label>Start date</label><input id="estart" type="date"></div>
         <div class="f"><label>Bank account</label><input id="ebank" placeholder=""></div>
+      </div>
+      <div class="f" style="margin-bottom:10px">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer">
+          <input type="checkbox" id="eincludepayroll" checked style="width:auto">
+          Include in Payroll <span style="font-weight:400;color:var(--muted);font-size:11px">— when off, this person is excluded from all payroll modules. Time Logs and Leave filing are unaffected.</span>
+        </label>
       </div>
       <div class="row">
         <div class="f"><label>Personal email</label><input id="eemail" type="email" placeholder=""></div>
@@ -556,16 +563,22 @@ tr:hover td{background:#fafcff}
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="f"><label>Immediate Superior</label><input id="edit-esuperior"></div>
           <div class="f"><label>Employment Status</label>
-            <select id="edit-etype">
-              <option>Regular</option><option>Probationary</option><option>Contractual</option><option>Part-time</option>
+            <select id="edit-etype" onchange="onEditEtypeChange()">
+              <option>Regular</option><option>Probationary</option><option>Contractual</option><option>Part-time</option><option>Intern</option>
             </select>
           </div>
           <div class="f"><label>Date Started</label><input id="edit-estart" type="date"></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:6px">
           <div class="f"><label>End of Contract <span class="opt" style="font-weight:400;color:var(--muted)">(if applicable)</span></label><input id="edit-eendcontract" type="date"></div>
           <div class="f"><label>Annual Evaluation Date</label><input id="edit-eannualeval" type="date"></div>
           <div class="f"><label>Bank Account</label><input id="edit-ebank"></div>
+        </div>
+        <div class="f" style="margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer">
+            <input type="checkbox" id="edit-eincludepayroll" style="width:auto">
+            Include in Payroll <span style="font-weight:400;color:var(--muted);font-size:11px">— when off, this person is excluded from Payroll Encoding, Payroll Summary, Send Pay Slips, Slip History, and BIR Form 2316. Time Logs and Leave filing are unaffected.</span>
+          </label>
         </div>
 
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:14px 0 8px">Payroll Setup</div>
@@ -820,6 +833,28 @@ tr:hover td{background:#fafcff}
     </div>
     <div id="hist-metrics" class="metrics"></div>
     <div id="hist-wrap"><div class="empty">No pay slip history yet.</div></div>
+  </div>
+
+  <div id="sec-bir2316" class="sec">
+    <div class="page-title">📄 BIR Form 2316</div>
+    <div class="page-sub">Auto-generated Certificate of Compensation Payment/Tax Withheld, built from Pay Slip History already on file for the selected year.</div>
+
+    <div class="card no-print">
+      <div class="row" style="align-items:flex-end">
+        <div class="f" style="max-width:240px"><label>Employee</label>
+          <select id="bir-emp"><option value="">-- Select employee --</option></select>
+        </div>
+        <div class="f" style="max-width:140px"><label>Year</label>
+          <select id="bir-year"></select>
+        </div>
+        <button class="btn bp" onclick="generateBir2316()">📄 Generate</button>
+        <button class="btn bs bg" onclick="generateBir2316All()">📄 Generate All (this year)</button>
+        <button class="btn bs" onclick="printBir2316()" id="bir-print-btn" style="display:none">🖨 Print</button>
+      </div>
+      <div class="hint" style="margin-top:6px">This pulls Gross Compensation, mandatory contributions (SSS/PhilHealth/Pag-IBIG), De Minimis, and Tax Withheld directly from each sent pay slip for the year. 13th month pay isn't tracked in Pay Slip History — add it manually below if applicable before printing.</div>
+    </div>
+
+    <div id="bir2316-wrap"></div>
   </div>
 
   <!-- PERFORMANCE -->
@@ -1298,6 +1333,7 @@ tr:hover td{background:#fafcff}
             <option value="employee">Employee (Time In/Out + Leave Filing)</option>
             <option value="supervisor">Supervisor (Leave Approver)</option>
             <option value="management">Management (Payroll Review + Leave Approval)</option>
+            <option value="hr_intern">HR Intern (View-only: Time Logs + Leave Management)</option>
             <option value="admin">Admin (Full HRIS Access)</option>
           </select>
         </div>
@@ -1652,9 +1688,9 @@ async function checkAuth(){
   try{
     var r=await fetch('/api/me');
     var u=await r.json();
-    if(!u||!u.id||(u.role!=='admin'&&u.role!=='management')){window.location.href='/';return false;}
+    if(!u||!u.id||(u.role!=='admin'&&u.role!=='management'&&u.role!=='hr_intern')){window.location.href='/';return false;}
     currentUserRole = u.role;
-    var roleLabel = u.role==='management' ? '🏢 '+u.username+' (Management)' : '👤 '+u.username;
+    var roleLabel = u.role==='management' ? '🏢 '+u.username+' (Management)' : (u.role==='hr_intern' ? '🎓 '+u.username+' (HR Intern)' : '👤 '+u.username);
     document.getElementById('admin-username-display').textContent=roleLabel;
     applyRoleUI();
     return true;
@@ -1683,7 +1719,54 @@ function applyRoleUI(){
       });
     }
   }
-  // Admin: management nav stays hidden (already hidden by default)
+  else if(currentUserRole==='hr_intern'){
+    // View-only account: sees Employee Time Logs and Leave Management, and
+    // nothing else. This is a UI convenience only — the actual security
+    // boundary is server-side (every mutation route requires 'admin' or
+    // 'admin'/'supervisor' specifically, and 'hr_intern' is neither), so even
+    // if someone bypassed this hiding entirely, writes would still be
+    // rejected by the backend.
+    document.querySelectorAll('.nav-item').forEach(function(el){el.style.display='none';});
+    document.querySelectorAll('.sidebar-section').forEach(function(el){el.style.display='none';});
+    var tlNav=document.getElementById('nav-timelogs'); if(tlNav){tlNav.style.display='';tlNav.previousElementSibling.style.display='';}
+    var lvNav=document.getElementById('nav-leave'); if(lvNav){lvNav.style.display='';lvNav.previousElementSibling.style.display='';}
+    // Hide topbar Export/Import (data-mutating/bulk actions, not view-only)
+    var tb2=document.querySelector('.topbar-right');
+    if(tb2){
+      tb2.querySelectorAll('button').forEach(function(b){
+        if(b.textContent.includes('Export')||b.textContent.includes('Import'))b.style.display='none';
+      });
+    }
+    // Hide write-capable controls within the two visible sections once they
+    // render. A short delay lets the section's own render functions run
+    // first, since some of these buttons are (re)created dynamically.
+    setTimeout(hideHrInternWriteControls, 400);
+  }
+  // Admin: management/hr_intern-only nav stays hidden (already hidden by default)
+}
+function hideHrInternWriteControls(){
+  // Time Logs: hide Edit/File Punch action buttons and the offset/holiday
+  // management cards — viewing the log itself is fine, editing it isn't.
+  ['sec-timelogs'].forEach(function(secId){
+    var sec=document.getElementById(secId);
+    if(!sec)return;
+    sec.querySelectorAll('button').forEach(function(b){
+      var t=b.textContent||'';
+      if(/Edit|File Punch|Add Offset|Add Holiday|Delete|Save|Set Override|Check Offset Balance/i.test(t)){
+        b.style.display='none';
+      }
+    });
+  });
+  // Leave Management: hide Approve/Deny/File-for-employee controls
+  var lvSec=document.getElementById('sec-leave');
+  if(lvSec){
+    lvSec.querySelectorAll('button').forEach(function(b){
+      var t=b.textContent||'';
+      if(/Approve|Deny|File Leave|Save|Delete/i.test(t)){
+        b.style.display='none';
+      }
+    });
+  }
 }
 async function doLogout(){
   await fetch('/api/logout',{method:'POST'});
@@ -2125,6 +2208,7 @@ function goSec(name,el){
     else if(window._commWeekStart&&window._commWeekEnd){renderCommissionEntryGrid(window._commWeekStart,window._commWeekEnd);renderCommissionSendList(window._commWeekStart,window._commWeekEnd);}
   }
   if(name==='history'){populateHistFilters();renderHistory();}
+  if(name==='bir2316'){populateBir2316Selects();}
   if(name==='payroll-att')renderPayrollAttGrid();
   if(name==='leave')renderLeaveTracker();
   if(name==='201')render201();
@@ -2300,19 +2384,33 @@ function clearSig(who){
 }
 
 // ==================== EMPLOYEES ====================
+function onAddEtypeChange(){
+  if(v('etype')==='Intern'){
+    document.getElementById('eincludepayroll').checked=false;
+  }
+}
 async function addEmp(){
   var name=v('en');
   if(!name){alert('Full name is required.');return;}
   var _lp=v('eloc_policy')||'office',_ll=_lp==='wfh'?(parseFloat(v('eloc_lat'))||null):null,_lng2=_lp==='wfh'?(parseFloat(v('eloc_lng'))||null):null,_lr=parseInt(v('eloc_radius'))||300;
-  var emp={name,pos:v('epos'),dept:v('edept'),type:v('etype'),start:v('estart'),bank:v('ebank'),email:v('eemail'),mobile:v('emobile'),emergency:v('eemergency'),address:v('eaddress'),tin:v('etin'),smb:parseFloat(v('esmb'))||0,sss:parseFloat(v('esss'))||0,phic:parseFloat(v('ephic'))||0,hdmf:parseFloat(v('ehdmf'))||0,mpl:parseFloat(v('empl'))||0,dm:parseFloat(v('edm'))||0,load:parseFloat(v('eload'))||0,wht:parseFloat(v('ewht'))||0,vlBal:v('evl')===''?0:parseFloat(v('evl')),slBal:v('esl')===''?0:parseFloat(v('esl')),loc_policy:_lp,loc_lat:_ll,loc_lng:_lng2,loc_radius:_lr,locPolicy:_lp,locLat:_ll,locLng:_lng2,locRadius:_lr,payslipNote:v('epayslipNote')||''};
+  var emp={name,pos:v('epos'),dept:v('edept'),type:v('etype'),includeInPayroll:document.getElementById('eincludepayroll').checked,start:v('estart'),bank:v('ebank'),email:v('eemail'),mobile:v('emobile'),emergency:v('eemergency'),address:v('eaddress'),tin:v('etin'),smb:parseFloat(v('esmb'))||0,sss:parseFloat(v('esss'))||0,phic:parseFloat(v('ephic'))||0,hdmf:parseFloat(v('ehdmf'))||0,mpl:parseFloat(v('empl'))||0,dm:parseFloat(v('edm'))||0,load:parseFloat(v('eload'))||0,wht:parseFloat(v('ewht'))||0,vlBal:v('evl')===''?0:parseFloat(v('evl')),slBal:v('esl')===''?0:parseFloat(v('esl')),loc_policy:_lp,loc_lat:_ll,loc_lng:_lng2,loc_radius:_lr,locPolicy:_lp,locLat:_ll,locLng:_lng2,locRadius:_lr,payslipNote:v('epayslipNote')||''};
   var r=await api('POST','/api/employees',emp);
   if(r.success){
     ['en','epos','edept','estart','ebank','eemail','emobile','eemergency','eaddress','etin','esmb','esss','ephic','ehdmf','empl','edm','eload','ewht','epayslipNote'].forEach(id=>{var el=document.getElementById(id);if(el)el.value='';});
+    document.getElementById('eincludepayroll').checked=true;
     document.getElementById('evl').value='0';document.getElementById('esl').value='0';
     await reloadEmployees();renderEmpTable();renderDashboard();showSaveIndicator();
   }else{alert('Error saving employee.');}
 }
 async function removeEmp(id){if(!confirm('Remove this employee?'))return;await api('DELETE','/api/employees/'+id);await reloadEmployees();renderEmpTable();}
+// Nudges the Include in Payroll checkbox off when switching to Intern — a
+// sensible default, not a lock, so admin can still re-check it if a
+// particular intern is an exception.
+function onEditEtypeChange(){
+  if(v('edit-etype')==='Intern'){
+    document.getElementById('edit-eincludepayroll').checked=false;
+  }
+}
 function openEditEmp(id){
   var e=employees.find(x=>x.id===id);if(!e)return;
   document.getElementById('edit-emp-id').value=e.id;
@@ -2337,6 +2435,7 @@ function openEditEmp(id){
   document.getElementById('edit-emobile').value=e.mobile||'';
   document.getElementById('edit-esuperior').value=e.immediateSuperior||'';
   document.getElementById('edit-etype').value=e.type||'Regular';
+  document.getElementById('edit-eincludepayroll').checked=e.includeInPayroll!==false;
   document.getElementById('edit-estart').value=e.start||'';
   document.getElementById('edit-eendcontract').value=e.endOfContract||'';
   document.getElementById('edit-eannualeval').value=e.annualEvaluation||'';
@@ -2398,6 +2497,7 @@ async function saveEditEmp(){
     mobile:document.getElementById('edit-emobile').value,
     immediateSuperior:document.getElementById('edit-esuperior').value,
     type:document.getElementById('edit-etype').value,
+    includeInPayroll:document.getElementById('edit-eincludepayroll').checked,
     start:document.getElementById('edit-estart').value,
     endOfContract:document.getElementById('edit-eendcontract').value,
     annualEvaluation:document.getElementById('edit-eannualeval').value,
@@ -2903,8 +3003,8 @@ function autoComputeLeavePay(empId, per, dr){
 function renderPayrollAttGrid(){
   var per=v('att-per'),g=document.getElementById('att-grid');
   if(!employees.length){g.innerHTML='<div class="empty">Add employees first.</div>';return;}
-  var activeEmps=employees.filter(e=>e.active!==0);
-  if(!activeEmps.length){g.innerHTML='<div class="empty">No active employees. Resigned/deactivated employees are excluded from new payroll encoding.</div>';return;}
+  var activeEmps=employees.filter(e=>e.active!==0&&e.includeInPayroll!==false);
+  if(!activeEmps.length){g.innerHTML='<div class="empty">No active, payroll-included employees. Resigned/deactivated employees, and anyone with "Include in Payroll" off (e.g. interns), are excluded from payroll encoding.</div>';return;}
 
   // Shared period days input (one value for all)
   var firstAtt=getAtt(per,activeEmps[0].id);
@@ -3129,7 +3229,7 @@ function toggleCommissionOnly(empId){
 async function savePayrollAtt(){
   var per=v('att-per'),k=attKey(per);
   var records=Object.assign({},attendance[k]||{}); // preserve any existing entries (e.g. now-deactivated employees) not shown in the active-only grid
-  employees.filter(e=>e.active!==0).forEach(e=>{
+  employees.filter(e=>e.active!==0&&e.includeInPayroll!==false).forEach(e=>{
     var daysEl=document.getElementById('att_'+e.id+'_days');
     if(!daysEl)return; // not rendered in the grid (safety guard)
     function gv(f){var el=document.getElementById('att_'+e.id+'_'+f);return el?(parseFloat(el.value)||0):0;}
@@ -3157,7 +3257,7 @@ async function deletePayrollPeriod(){
 }
 function renderPayroll(){
   var per=v('pay-per'),k=attKey(per);
-  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.includeInPayroll!==false);
   var w=document.getElementById('pay-wrap'),m=document.getElementById('pay-metrics');
   if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';m.innerHTML='';return;}
   var tG=0,tD=0,tN=0;
@@ -3283,7 +3383,7 @@ function renderSendList(){
   var sendAllBtn=document.getElementById('send-all-btn');
   if(sendAllBtn){sendAllBtn.disabled=false;sendAllBtn.style.opacity='1';sendAllBtn.title='';}
 
-  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.includeInPayroll!==false);
   var w=document.getElementById('send-wrap');
   if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';return;}
   w.innerHTML=recs.map(e=>{
@@ -3445,7 +3545,7 @@ function applyCommissionPeriod(){
 }
 function renderCommissionEntryGrid(startStr,endStr){
   var w=document.getElementById('comm-entry-wrap');if(!w)return;
-  var activeEmps=employees.filter(e=>e.active!==0);
+  var activeEmps=employees.filter(e=>e.active!==0&&e.includeInPayroll!==false);
   if(!activeEmps.length){w.innerHTML='<div class="empty">No active employees found.</div>';return;}
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Commission Amount (₱)</th></tr></thead><tbody>'
   +activeEmps.map(function(e){
@@ -3458,7 +3558,7 @@ function renderCommissionEntryGrid(startStr,endStr){
 async function saveCommissionWeek(){
   var startStr=window._commWeekStart,endStr=window._commWeekEnd;
   if(!startStr||!endStr)return;
-  employees.filter(e=>e.active!==0).forEach(function(e){
+  employees.filter(e=>e.active!==0&&e.includeInPayroll!==false).forEach(function(e){
     var el=document.getElementById('commAmt_'+e.id);
     if(!el)return;
     var amt=parseFloat(el.value)||0;
@@ -3706,6 +3806,121 @@ function printModalSlip(){
   var win=window.open('','_blank','width=800,height=900');
   if(!win){alert('Please allow pop-ups for this site to print pay slips.');return;}
   win.document.write('<!DOCTYPE html><html><head><title>Pay Slip</title><style>'+SLIP_PRINT_CSS+'</style></head><body>'+content+'</body></html>');
+  win.document.close();
+  win.onload=function(){win.focus();win.print();};
+  setTimeout(function(){try{win.focus();win.print();}catch(e){}},600);
+}
+// ==================== BIR FORM 2316 ====================
+// Auto-generates a Certificate of Compensation Payment/Tax Withheld by
+// aggregating every sent pay slip on file for an employee within a given
+// year. Reports actual amounts already run through payroll (gross,
+// mandatory contributions, tax withheld) rather than independently
+// recomputing tax brackets — the latter has real nuances (multiple
+// employers, mid-year hires, substituted filing eligibility) that belong
+// with whoever prepares the actual BIR filing, not a client-side estimate.
+function extractYearFromPeriod(per){
+  var m=String(per||'').match(/(\d{4})\s*$/);
+  return m?parseInt(m[1]):null;
+}
+function populateBir2316Selects(){
+  var empSel=document.getElementById('bir-emp');
+  if(empSel){
+    var cur=empSel.value;
+    empSel.innerHTML='<option value="">-- Select employee --</option>'
+      +employees.filter(e=>e.active!==0).map(e=>'<option value="'+e.id+'"'+(e.id==cur?' selected':'')+'>'+e.name+'</option>').join('');
+  }
+  var yrSel=document.getElementById('bir-year');
+  if(yrSel){
+    var cur2=yrSel.value;
+    var years=[...new Set(payslipHistory.map(h=>extractYearFromPeriod(h.period)).filter(Boolean))].sort((a,b)=>b-a);
+    var thisYear=new Date().getFullYear();
+    if(!years.includes(thisYear))years.unshift(thisYear);
+    yrSel.innerHTML=years.map(y=>'<option'+(String(y)===cur2?' selected':'')+'>'+y+'</option>').join('');
+  }
+}
+function aggregateBir2316(empId,year){
+  var recs=payslipHistory.filter(h=>h.empId==empId&&extractYearFromPeriod(h.period)===year);
+  if(!recs.length)return null;
+  var emp=recs[recs.length-1].employeeSnapshot||employees.find(e=>e.id==empId)||{};
+  var gross=0,contrib=0,deminimis=0,taxWithheld=0,netTotal=0;
+  recs.forEach(function(h){
+    var snap=h.employeeSnapshot||{};
+    var p=calcPay(snap,h.attendance||{});
+    gross+=p.totalEarnings||0;
+    contrib+=p.totalContrib||0;
+    deminimis+=snap.dm||0;
+    taxWithheld+=snap.wht||0;
+    netTotal+=p.netPay||0;
+  });
+  gross=r2(gross);contrib=r2(contrib);deminimis=r2(deminimis);taxWithheld=r2(taxWithheld);netTotal=r2(netTotal);
+  var nonTaxable=r2(contrib+deminimis);
+  var taxable=r2(Math.max(0,gross-nonTaxable));
+  return{emp,periodsCount:recs.length,gross,contrib,deminimis,nonTaxable,taxable,taxWithheld,netTotal,year};
+}
+function bir2316Row(label,val,bold){
+  return'<tr><td style="padding:3px 6px'+(bold?';font-weight:700':'')+'">'+label+'</td><td style="padding:3px 6px;text-align:right'+(bold?';font-weight:700':'')+'">₱'+fp(val)+'</td></tr>';
+}
+function buildBir2316HTML(agg){
+  if(!agg)return'<div class="empty">No sent pay slips found for this employee in this year.</div>';
+  var e=agg.emp;
+  return'<div class="slip-wrap" style="max-width:680px">'
+    +'<div class="slip-company-hd">'+(setup.name||'HMB Management Consultancy Services')+'</div>'
+    +'<div style="text-align:center;font-weight:700;font-size:13px;margin-bottom:2px">CERTIFICATE OF COMPENSATION PAYMENT/TAX WITHHELD</div>'
+    +'<div style="text-align:center;font-size:10.5px;color:#555;margin-bottom:12px">BIR Form 2316 · For the Year '+agg.year+'</div>'
+    +'<div class="slip-info-grid" style="margin-bottom:12px">'
+    +'<div class="slip-info-row"><span class="sik">Employee:</span> '+(e.name||'')+'</div>'
+    +'<div class="slip-info-row"><span class="sik">TIN:</span> '+(e.tin||'—')+'</div>'
+    +'<div class="slip-info-row"><span class="sik">Position:</span> '+(e.pos||'')+'</div>'
+    +'<div class="slip-info-row"><span class="sik">Address:</span> '+(e.addressCurrent||e.addressPermanent||'—')+'</div>'
+    +'<div class="slip-info-row"><span class="sik">Employer:</span> '+(setup.name||'')+'</div>'
+    +'<div class="slip-info-row"><span class="sik">Employer TIN:</span> '+(setup.tin||'—')+'</div>'
+    +'</div>'
+    +'<table class="slip-tbl" style="width:100%;border-collapse:collapse;margin-bottom:6px">'
+    +'<tr><td colspan="2" style="background:#1565c0;color:#fff;font-weight:700;text-align:center;padding:4px 0">PART III-A — SUMMARY (based on '+agg.periodsCount+' pay slip(s) on file for '+agg.year+')</td></tr>'
+    +bir2316Row('Gross Compensation Income',agg.gross)
+    +bir2316Row('Less: Non-Taxable/Exempt Compensation',agg.nonTaxable)
+    +'<tr><td colspan="2" style="padding:2px 6px 2px 20px;font-size:9.5px;color:#666">— SSS/PhilHealth/Pag-IBIG Employee Contributions: ₱'+fp(agg.contrib)+'</td></tr>'
+    +'<tr><td colspan="2" style="padding:2px 6px 6px 20px;font-size:9.5px;color:#666">— De Minimis Benefits: ₱'+fp(agg.deminimis)+'</td></tr>'
+    +'<tr class="total-row">'+bir2316Row('Taxable Compensation Income',agg.taxable,true).replace('<tr>','').replace('</tr>','')+'</tr>'
+    +bir2316Row('Total Tax Withheld (per payroll records)',agg.taxWithheld,true)
+    +'</table>'
+    +'<div style="font-size:9px;color:#777;margin-top:8px;padding-top:6px;border-top:1px solid #ddd">'
+    +'13th month pay and other benefits are not tracked in Pay Slip History and are not included above — add separately if applicable. '
+    +'This summary reflects amounts already processed through payroll for the periods on file; it does not independently recompute annual tax due under BIR tax tables. Please have this reviewed by your accountant/CPA before filing or issuing to the employee.'
+    +'</div>'
+    +'<div class="slip-sigs">'
+    +'<div><div class="slip-sig-name">'+(setup.prep||'')+'</div>'+(setup.prepPos?'<div style="font-size:9.5px;color:#555">'+setup.prepPos+'</div>':'')+'<div style="color:#666;font-size:10px;text-transform:uppercase;margin-top:2px">PREPARED BY</div></div>'
+    +'<div><div class="slip-sig-name">'+(setup.appr||'')+'</div>'+(setup.apprPos?'<div style="font-size:9.5px;color:#555">'+setup.apprPos+'</div>':'')+'<div style="color:#666;font-size:10px;text-transform:uppercase;margin-top:2px">APPROVED BY</div></div>'
+    +'</div>'
+    +'</div>';
+}
+function generateBir2316(){
+  var empId=v('bir-emp'),year=parseInt(v('bir-year'));
+  var wrap=document.getElementById('bir2316-wrap');
+  if(!empId){alert('Select an employee first.');return;}
+  var agg=aggregateBir2316(parseInt(empId),year);
+  wrap.innerHTML=buildBir2316HTML(agg);
+  document.getElementById('bir-print-btn').style.display=agg?'inline-flex':'none';
+}
+function generateBir2316All(){
+  var year=parseInt(v('bir-year'));
+  var wrap=document.getElementById('bir2316-wrap');
+  var active=employees.filter(e=>e.active!==0);
+  var html='';
+  var any=false;
+  active.forEach(function(e){
+    var agg=aggregateBir2316(e.id,year);
+    if(agg){any=true;html+=buildBir2316HTML(agg);}
+  });
+  wrap.innerHTML=any?html:'<div class="empty">No sent pay slips found for any employee in '+year+'.</div>';
+  document.getElementById('bir-print-btn').style.display=any?'inline-flex':'none';
+}
+function printBir2316(){
+  var content=document.getElementById('bir2316-wrap').innerHTML;
+  if(!content){alert('Generate a certificate first.');return;}
+  var win=window.open('','_blank','width=800,height=900');
+  if(!win){alert('Please allow pop-ups for this site to print.');return;}
+  win.document.write('<!DOCTYPE html><html><head><title>BIR Form 2316</title><style>'+SLIP_PRINT_CSS+'</style></head><body>'+content+'</body></html>');
   win.document.close();
   win.onload=function(){win.focus();win.print();};
   setTimeout(function(){try{win.focus();win.print();}catch(e){}},600);
@@ -4890,7 +5105,7 @@ async function loadUsers(){
   var users=await api('GET','/api/users');
   var w=document.getElementById('users-wrap');
   if(!users||!users.length){w.innerHTML='<div class="empty">No users found.</div>';return;}
-  var roleColors={'admin':'badge-blue','supervisor':'badge-orange','employee':'badge-green','management':'badge-purple'};
+  var roleColors={'admin':'badge-blue','supervisor':'badge-orange','employee':'badge-green','management':'badge-purple','hr_intern':'badge-accent'};
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Username</th><th>Role</th><th>Linked Employee</th><th>Created</th><th></th></tr></thead><tbody>'
   +users.map(u=>{
     var emp=u.employee_id?employees.find(e=>e.id==u.employee_id):null;
