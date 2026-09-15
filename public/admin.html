@@ -1158,8 +1158,15 @@ tr:hover td{background:#fafcff}
         <div class="f" style="max-width:200px"><label>Employee</label>
           <select id="tl-emp-filter"><option value="">All employees</option></select>
         </div>
-        <div class="f" style="max-width:150px"><label>From date</label><input id="tl-from" type="date"></div>
-        <div class="f" style="max-width:150px"><label>To date</label><input id="tl-to" type="date"></div>
+        <div class="f" style="max-width:150px"><label>Month</label><input id="tl-cutoff-month" type="month" onchange="updateTlCutoffDates()"></div>
+        <div class="f" style="max-width:170px"><label>Cutoff</label>
+          <select id="tl-cutoff-period" onchange="updateTlCutoffDates()">
+            <option value="1">1st – 15th</option>
+            <option value="2">16th – End of Month</option>
+          </select>
+        </div>
+        <input type="hidden" id="tl-from">
+        <input type="hidden" id="tl-to">
         <button class="btn bp" style="align-self:flex-end" onclick="loadTimeLogs()">View</button>
         <button class="btn bg no-print" style="align-self:flex-end" onclick="exportTimeLogsCSV()">⬇ CSV</button>
       </div>
@@ -2117,7 +2124,13 @@ async function saveToStorage(){
 }
 async function loadFromStorage(){
   try{
-    var [emps,att,leaves,perfs,discs,slips,cfg,shiftData]=await Promise.all([
+    // allSettled rather than all: a role like hr_intern legitimately gets a
+    // 403 from admin-only endpoints (attendance/performance/disciplinary/
+    // payslips) — that shouldn't wipe out data from the OTHER endpoints
+    // (employees/leave/settings/shifts) that they're perfectly allowed to
+    // see. Each result is unwrapped below, falling back to a safe empty
+    // default only for the ones that actually failed.
+    var results=await Promise.allSettled([
       api('GET','/api/employees'),
       api('GET','/api/attendance'),
       api('GET','/api/leave'),
@@ -2127,6 +2140,15 @@ async function loadFromStorage(){
       api('GET','/api/settings'),
       api('GET','/api/shifts')
     ]);
+    function unwrap(r,fallback){return r.status==='fulfilled'?r.value:fallback;}
+    var emps=unwrap(results[0],[]);
+    var att=unwrap(results[1],{});
+    var leaves=unwrap(results[2],[]);
+    var perfs=unwrap(results[3],[]);
+    var discs=unwrap(results[4],[]);
+    var slips=unwrap(results[5],[]);
+    var cfg=unwrap(results[6],null);
+    var shiftData=unwrap(results[7],[]);
     employees=(emps||[]).map(normalizeEmp);
     attendance=att||{};
     leaveRecords=leaves||[];
@@ -2216,7 +2238,16 @@ function goSec(name,el){
   if(name==='disciplinary'){loadEvrAdminList();renderDiscList();populateDiscEmpSupervisorsOnly();}
   if(name==='attendance')renderAttRecords();
   if(name==='reports'){}
-  if(name==='timelogs'){populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();}
+  if(name==='timelogs'){
+    populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();
+    var mSel=document.getElementById('tl-cutoff-month');
+    if(mSel&&!mSel.value){
+      var today=new Date();
+      mSel.value=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
+      document.getElementById('tl-cutoff-period').value=today.getDate()<=15?'1':'2';
+      updateTlCutoffDates();
+    }
+  }
   if(name==='users'){populateTlEmpFilter();loadUsers();}
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();renderShiftDayOverrideList();}
   if(name==='location'){renderLocationTable();}
@@ -4445,6 +4476,27 @@ function buildTimeLogRowsWithStatus(empScope,from,to,actualRows){
     }
   });
   return result;
+}
+// Computes the actual from/to dates for a cutoff period (1st-15th or
+// 16th-end of month) given a "YYYY-MM" month string, and pushes them into
+// the hidden tl-from/tl-to fields that loadTimeLogs() already reads from —
+// so the rest of the Time Logs code didn't need to change at all.
+function updateTlCutoffDates(){
+  var monthStr=v('tl-cutoff-month'),period=v('tl-cutoff-period');
+  if(!monthStr)return;
+  var parts=monthStr.split('-');
+  var y=parseInt(parts[0],10),m=parseInt(parts[1],10);
+  var from,to;
+  if(period==='1'){
+    from=monthStr+'-01';
+    to=monthStr+'-15';
+  }else{
+    var lastDay=new Date(y,m,0).getDate(); // day 0 of next month = last day of this month
+    from=monthStr+'-16';
+    to=monthStr+'-'+String(lastDay).padStart(2,'0');
+  }
+  document.getElementById('tl-from').value=from;
+  document.getElementById('tl-to').value=to;
 }
 async function loadTimeLogs(){
   var empId=v('tl-emp-filter'),from=v('tl-from'),to=v('tl-to');
