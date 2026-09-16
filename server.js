@@ -435,6 +435,13 @@ function requireAdminOrSupervisor(req, res, next) {
   if (!req.session.user || !['admin','supervisor'].includes(req.session.user.role)) return res.status(403).json({ error: 'Not authorized' });
   next();
 }
+// HR Intern accounts are otherwise view-only, but are specifically allowed
+// to edit Employee Time Logs (per explicit request) — used only on the
+// timelog edit/file-punch routes below, nowhere else.
+function requireAdminOrHrIntern(req, res, next) {
+  if (!req.session.user || !['admin','hr_intern'].includes(req.session.user.role)) return res.status(403).json({ error: 'Not authorized' });
+  next();
+}
 
 // ─── AUTH ROUTES ──────────────────────────────────────────────────────────────
 app.post('/api/login', (req, res) => {
@@ -941,7 +948,7 @@ app.get('/api/timelogs', requireAuth, (req, res) => {
 
 // EDIT an existing time log record (admin only) — used by the "Edit" action
 // on the Employee Time Logs page in admin.html to correct a punch.
-app.patch('/api/timelogs/:id', requireAdmin, (req, res) => {
+app.patch('/api/timelogs/:id', requireAdminOrHrIntern, (req, res) => {
   const row = db.prepare('SELECT * FROM time_logs WHERE id=?').get(req.params.id);
   if (!row) return res.status(404).json({ success: false, error: 'Time log record not found.' });
   const { time_in = null, lunch_out = null, lunch_in = null, merienda_out = null, merienda_in = null, time_out = null } = req.body;
@@ -955,7 +962,7 @@ app.patch('/api/timelogs/:id', requireAdmin, (req, res) => {
 // If a row already exists for this employee/date it's updated instead of
 // duplicated (time_logs has no unique constraint on employee_id+log_date,
 // since normal punching can legitimately create more than one row per day).
-app.post('/api/timelogs', requireAdmin, (req, res) => {
+app.post('/api/timelogs', requireAdminOrHrIntern, (req, res) => {
   const { employee_id, log_date, time_in = null, lunch_out = null, lunch_in = null, merienda_out = null, merienda_in = null, time_out = null } = req.body;
   if (!employee_id || !log_date) return res.status(400).json({ success: false, error: 'employee_id and log_date are required.' });
   const emp = db.prepare('SELECT id FROM employees WHERE id=?').get(employee_id);
