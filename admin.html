@@ -1727,16 +1727,21 @@ function applyRoleUI(){
     }
   }
   else if(currentUserRole==='hr_intern'){
-    // View-only account: sees Employee Time Logs and Leave Management, and
-    // nothing else. This is a UI convenience only — the actual security
-    // boundary is server-side (every mutation route requires 'admin' or
-    // 'admin'/'supervisor' specifically, and 'hr_intern' is neither), so even
-    // if someone bypassed this hiding entirely, writes would still be
-    // rejected by the backend.
+    // Sees Employee Time Logs, Leave Management, Announcements, Shift
+    // Management, and Location Policies. Time Logs is fully editable per
+    // explicit request (enforced server-side via requireAdminOrHrIntern on
+    // those two routes specifically); the other sections stay view-only —
+    // their write-capable buttons are hidden below, and their mutation
+    // routes still require plain 'admin', so hr_intern can't post
+    // announcements, edit shifts, or change location policies even if the
+    // hiding were bypassed.
     document.querySelectorAll('.nav-item').forEach(function(el){el.style.display='none';});
     document.querySelectorAll('.sidebar-section').forEach(function(el){el.style.display='none';});
     var tlNav=document.getElementById('nav-timelogs'); if(tlNav){tlNav.style.display='';tlNav.previousElementSibling.style.display='';}
     var lvNav=document.getElementById('nav-leave'); if(lvNav){lvNav.style.display='';lvNav.previousElementSibling.style.display='';}
+    var annNav=document.getElementById('nav-announcements'); if(annNav){annNav.style.display='';annNav.previousElementSibling.style.display='';}
+    var shNav=document.getElementById('nav-shifts'); if(shNav){shNav.style.display='';shNav.previousElementSibling.style.display='';}
+    var locNav=document.getElementById('nav-location'); if(locNav)locNav.style.display='';
     // Hide topbar Export/Import (data-mutating/bulk actions, not view-only)
     var tb2=document.querySelector('.topbar-right');
     if(tb2){
@@ -1744,7 +1749,7 @@ function applyRoleUI(){
         if(b.textContent.includes('Export')||b.textContent.includes('Import'))b.style.display='none';
       });
     }
-    // Hide write-capable controls within the two visible sections once they
+    // Hide write-capable controls within the view-only sections once they
     // render. A short delay lets the section's own render functions run
     // first, since some of these buttons are (re)created dynamically.
     setTimeout(hideHrInternWriteControls, 400);
@@ -1752,14 +1757,15 @@ function applyRoleUI(){
   // Admin: management/hr_intern-only nav stays hidden (already hidden by default)
 }
 function hideHrInternWriteControls(){
-  // Time Logs: hide Edit/File Punch action buttons and the offset/holiday
-  // management cards — viewing the log itself is fine, editing it isn't.
-  ['sec-timelogs'].forEach(function(secId){
+  // Time Logs is intentionally NOT in this list — hr_intern can edit it.
+  // Announcements/Shift Management/Location Policies stay view-only: hide
+  // any button that looks write-capable within those three sections.
+  ['sec-announcements','sec-shifts','sec-location'].forEach(function(secId){
     var sec=document.getElementById(secId);
     if(!sec)return;
     sec.querySelectorAll('button').forEach(function(b){
       var t=b.textContent||'';
-      if(/Edit|File Punch|Add Offset|Add Holiday|Delete|Save|Set Override|Check Offset Balance/i.test(t)){
+      if(/Post|Save|Delete|Add|Edit|Remove|Set/i.test(t)){
         b.style.display='none';
       }
     });
