@@ -91,6 +91,17 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);min-height:100v
 
 /* PANEL */
 .panel{background:var(--card);border:1px solid var(--border);border-radius:12px;max-width:720px;width:100%;padding:1.5rem;margin-bottom:1rem;box-shadow:0 2px 10px rgba(10,22,40,0.05)}
+.alarm-overlay{display:none;position:fixed;inset:0;background:rgba(10,22,40,0.6);z-index:3000;align-items:center;justify-content:center;padding:20px}
+.alarm-overlay.show{display:flex;animation:alarmFadeIn .2s ease}
+@keyframes alarmFadeIn{from{opacity:0}to{opacity:1}}
+.alarm-box{background:#fff;border-radius:16px;max-width:380px;width:100%;padding:32px 28px;text-align:center;box-shadow:0 20px 60px rgba(10,22,40,.35);animation:alarmPop .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes alarmPop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+.alarm-icon{font-size:52px;margin-bottom:10px;animation:alarmBounce 1s ease infinite}
+@keyframes alarmBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.alarm-title{font-size:19px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.alarm-sub{font-size:13.5px;color:var(--muted);margin-bottom:20px}
+.alarm-dismiss{background:var(--blue);color:#fff;border:none;border-radius:8px;padding:11px 28px;font-size:14px;font-weight:600;cursor:pointer}
+.alarm-dismiss:hover{background:#0d47a1}
 .evr-dropzone{border:1.5px dashed var(--border);border-radius:8px;padding:18px;text-align:center;cursor:pointer;background:#fafbfc;transition:border-color .15s,background .15s}
 .evr-dropzone:hover{border-color:var(--blue);background:#f0f6ff}
 .evr-dropzone.filled{border-color:var(--green);background:#f1f8f2;border-style:solid}
@@ -1095,6 +1106,78 @@ function pad(n){return n<10?'0'+n:n;}
 setInterval(updateClock,1000);
 updateClock();
 
+// ── TIME ALARMS: Lunch Out/In, Merienda Out/In ──────────────────────────────
+// Fires at fixed clock times regardless of which tab is focused. A normal
+// in-page popup would be invisible if the person is on another tab, so the
+// actual cross-tab alert is a browser Notification (OS-level, shows even
+// when this tab isn't active) — the in-page popup + sound are a reinforcing
+// layer for whenever this tab *does* happen to be the one they're looking at.
+var TIME_ALARMS=[
+  {hh:12,mm:0, key:'lunchout',  icon:'🍽️', title:'Lunch Out Time!',    sub:"It's 12:00 PM — don't forget to punch out for lunch."},
+  {hh:13,mm:0, key:'lunchin',   icon:'🍽️', title:'Lunch In Time!',     sub:"It's 1:00 PM — time to punch back in from lunch."},
+  {hh:15,mm:30,key:'merout',    icon:'☕', title:'Merienda Out Time!', sub:"It's 3:30 PM — don't forget to punch out for merienda."},
+  {hh:16,mm:0, key:'merin',     icon:'☕', title:'Merienda In Time!',  sub:"It's 4:00 PM — time to punch back in from merienda."}
+];
+var _alarmAudioCtx=null;
+function playAlarmSound(){
+  try{
+    if(!_alarmAudioCtx)_alarmAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    var ctx=_alarmAudioCtx;
+    if(ctx.state==='suspended')ctx.resume();
+    [0,0.35,0.7].forEach(function(delay,i){
+      var t=ctx.currentTime+delay;
+      var osc=ctx.createOscillator();
+      var gain=ctx.createGain();
+      osc.type='sine';
+      osc.frequency.value=i%2===0?880:660;
+      gain.gain.setValueAtTime(0.0001,t);
+      gain.gain.exponentialRampToValueAtTime(0.3,t+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,t+0.28);
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.start(t);osc.stop(t+0.3);
+    });
+  }catch(e){/* Web Audio unsupported or blocked — sound is a nice-to-have, not required */}
+}
+function alarmStorageKey(alarmKey){
+  var today=new Date().toISOString().slice(0,10);
+  return 'hmb_sup_alarm_'+alarmKey+'_'+today;
+}
+function showTimeAlarm(alarm){
+  playAlarmSound();
+  if(window.Notification&&Notification.permission==='granted'){
+    try{
+      var n=new Notification(alarm.icon+' '+alarm.title,{body:alarm.sub,tag:'hmb-time-alarm-'+alarm.key,requireInteraction:true});
+      n.onclick=function(){window.focus();n.close();};
+    }catch(e){/* some browsers restrict Notification from background tabs — ignore */}
+  }
+  document.getElementById('alarm-icon').textContent=alarm.icon;
+  document.getElementById('alarm-title').textContent=alarm.title;
+  document.getElementById('alarm-sub').textContent=alarm.sub;
+  document.getElementById('alarm-overlay').classList.add('show');
+}
+function dismissTimeAlarm(){
+  document.getElementById('alarm-overlay').classList.remove('show');
+}
+function checkTimeAlarms(){
+  var now=new Date();
+  var hh=now.getHours(),mm=now.getMinutes();
+  TIME_ALARMS.forEach(function(alarm){
+    if(hh===alarm.hh&&mm===alarm.mm){
+      var key=alarmStorageKey(alarm.key);
+      if(localStorage.getItem(key))return;
+      localStorage.setItem(key,'1');
+      showTimeAlarm(alarm);
+    }
+  });
+}
+function startTimeAlarms(){
+  if(window.Notification&&Notification.permission==='default'){
+    Notification.requestPermission();
+  }
+  checkTimeAlarms();
+  setInterval(checkTimeAlarms,20000);
+}
+
 // ── INIT ───────────────────────────────────────────────────────────────────────
 async function init(){
   try{
@@ -1120,7 +1203,7 @@ async function init(){
     supComputeDays();
     await loadOfficeCoords();
     renderWfhBanner();
-    if(data.employee_id) startGpsWatch();
+    if(data.employee_id){ startGpsWatch(); startTimeAlarms(); }
     await loadLeaves();
     if(data.employee_id){await loadStatus();await loadHistory();}
   }catch(e){
@@ -3034,6 +3117,15 @@ var _celAmbientStarted=false;
 <div id="ann-lightbox" class="ann-lightbox" onclick="closeAnnLightbox(event)">
   <button class="ann-lightbox-close" onclick="closeAnnLightbox(event)">✕</button>
   <img id="ann-lightbox-img" src="" alt="">
+</div>
+
+<div class="alarm-overlay" id="alarm-overlay">
+  <div class="alarm-box">
+    <div class="alarm-icon" id="alarm-icon">⏰</div>
+    <div class="alarm-title" id="alarm-title">Lunch Out Time!</div>
+    <div class="alarm-sub" id="alarm-sub">It's 12:00 PM — don't forget to punch out for lunch.</div>
+    <button class="alarm-dismiss" onclick="dismissTimeAlarm()">Got it</button>
+  </div>
 </div>
 
 <div id="cel-idle-corner" class="cel-idle-corner">
