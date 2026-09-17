@@ -4649,6 +4649,10 @@ function tlLunchInCell(r){
       }
     }
   }
+  // Went out for lunch but never punched back in
+  if(r.lunch_out&&!r.lunch_in){
+    return'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;color:var(--red);font-weight:700">⚠️ No Lunch In</td>';
+  }
   return tlCell(r.lunch_in,'#0277bd');
 }
 // ==================== EDIT TIME LOG ====================
