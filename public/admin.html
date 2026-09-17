@@ -4609,8 +4609,8 @@ async function loadTimeLogs(){
     +'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:12px">'+fmtDate(r.log_date)+'</td>'
     +'<td><span class="badge badge-blue" style="font-size:10px">'+shift.name+'<br><span style="font-weight:400;font-size:9px">'+shift.start+' – '+shift.end+'</span></span></td>'
     +tlCell(r.time_in,'var(--green)')
-    +tlCell(r.lunch_out,'var(--orange)')
-    +tlCell(r.lunch_in,'#0277bd')
+    +tlLunchOutCell(r)
+    +tlLunchInCell(r)
     +tlCell(r.merienda_out,'var(--orange)')
     +tlCell(r.merienda_in,'#0277bd')
     +tlCell(r.time_out,'var(--muted)')
@@ -4624,6 +4624,32 @@ async function loadTimeLogs(){
 }
 function tlCell(val,color){
   return '<td style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:'+(val?color:'#dce3ec')+';font-weight:'+(val?'700':'400')+'">'+(val||'—')+'</td>';
+}
+// Lunch Out cell: flags a missing lunch-out on an otherwise-present day —
+// only shown when there's a time_in, so absent/rest-day/leave rows (which
+// take a different branch above and never reach here) aren't affected.
+function tlLunchOutCell(r){
+  if(!r.lunch_out&&r.time_in){
+    return'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;color:var(--red);font-weight:700">⚠️ No Lunch Out</td>';
+  }
+  return tlCell(r.lunch_out,'var(--orange)');
+}
+// Lunch In cell: flags a late return from lunch — more than 60 minutes
+// between lunch_out and lunch_in. Handles the same after-midnight edge case
+// used elsewhere (lunch spanning midnight is not realistic here, but the
+// normalization is cheap and keeps this consistent with the rest of the file).
+function tlLunchInCell(r){
+  if(r.lunch_out&&r.lunch_in){
+    var outMin=parseTimeStrToMinutes(r.lunch_out),inMin=parseTimeStrToMinutes(r.lunch_in);
+    if(outMin!=null&&inMin!=null){
+      if(inMin<outMin)inMin+=24*60;
+      var lunchDuration=inMin-outMin;
+      if(lunchDuration>60){
+        return'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;color:var(--red);font-weight:700">'+r.lunch_in+'<br>⚠️ Late Lunch In ('+(lunchDuration-60)+'m over)</td>';
+      }
+    }
+  }
+  return tlCell(r.lunch_in,'#0277bd');
 }
 // ==================== EDIT TIME LOG ====================
 // The server stores punch times as 12-hour strings with seconds, e.g.
