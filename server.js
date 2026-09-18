@@ -503,6 +503,12 @@ app.post('/api/users', requireAdmin, (req, res) => {
   const hash = bcrypt.hashSync(password, 10);
   try {
     db.prepare('INSERT INTO users (username, password, role, employee_id) VALUES (?, ?, ?, ?)').run(username, hash, role || 'employee', employee_id || null);
+    // HR Intern accounts are never part of payroll — enforced here rather
+    // than relying on someone remembering to toggle the "Include in
+    // Payroll" checkbox by hand whenever one of these accounts is created.
+    if (role === 'hr_intern' && employee_id) {
+      db.prepare('UPDATE employees SET include_in_payroll=0 WHERE id=?').run(employee_id);
+    }
     res.json({ success: true });
   } catch (e) {
     res.json({ success: false, error: 'Username already exists' });
