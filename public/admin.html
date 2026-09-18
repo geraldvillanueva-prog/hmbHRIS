@@ -3332,7 +3332,7 @@ async function deletePayrollPeriod(){
 }
 function renderPayroll(){
   var per=v('pay-per'),k=attKey(per);
-  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.includeInPayroll!==false);
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.active!==0&&e.includeInPayroll!==false);
   var w=document.getElementById('pay-wrap'),m=document.getElementById('pay-metrics');
   if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';m.innerHTML='';return;}
   var tG=0,tD=0,tN=0;
@@ -3349,7 +3349,7 @@ function renderPayroll(){
 function exportPayrollCSV(){
   var per=v('pay-per'),k=attKey(per);
   var rows=[['Name','Position','Days Worked','Basic Pay','Total Earnings','Total Deductions','Net Pay']];
-  employees.filter(e=>attendance[k]&&attendance[k][e.id]).forEach(e=>{var a=attendance[k][e.id],p=calcPay(e,a);rows.push([e.name,e.pos||'',a.days,p.basicPay.toFixed(2),p.totalEarnings.toFixed(2),p.totalDeductions.toFixed(2),p.netPay.toFixed(2)]);});
+  employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.active!==0).forEach(e=>{var a=attendance[k][e.id],p=calcPay(e,a);rows.push([e.name,e.pos||'',a.days,p.basicPay.toFixed(2),p.totalEarnings.toFixed(2),p.totalDeductions.toFixed(2),p.netPay.toFixed(2)]);});
   downloadCSV('HMB_Payroll_'+per.replace(/[^a-zA-Z0-9]/g,'_')+'.csv',rows);
 }
 function exportPayrollCSVRpt(){var per=v('rpt-pay-per');document.getElementById('pay-per').value=per;exportPayrollCSV();}
@@ -3458,7 +3458,7 @@ function renderSendList(){
   var sendAllBtn=document.getElementById('send-all-btn');
   if(sendAllBtn){sendAllBtn.disabled=false;sendAllBtn.style.opacity='1';sendAllBtn.title='';}
 
-  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.includeInPayroll!==false);
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.active!==0&&e.includeInPayroll!==false);
   var w=document.getElementById('send-wrap');
   if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';return;}
   w.innerHTML=recs.map(e=>{
@@ -3573,7 +3573,7 @@ async function sendCommission(empId,per,pdate){
 }
 async function sendAll(){
   var per=v('send-per'),k=attKey(per),pdate=v('att-pdate');
-  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.email);
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.active!==0&&e.email);
   if(!recs.length){showSendMsg('No employees with email for this period.',false);return;}
   for(var i=0;i<recs.length;i++)await sendOne(recs[i].id,per,pdate);
   showSendMsg('Pay slips sent to '+recs.length+' employee(s).',true);
@@ -5336,7 +5336,7 @@ function mgmtRenderPayroll(){
   var metricsEl=document.getElementById('mgmt-pay-metrics');
   var wrapEl=document.getElementById('mgmt-pay-wrap');
   if(!metricsEl||!wrapEl)return;
-  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.active!==0);
   if(!recs.length){wrapEl.innerHTML='<div class="empty">No payroll data for this period.</div>';metricsEl.innerHTML='';return;}
   var totE=0,totD=0,totN=0;
   recs.forEach(e=>{var p=calcPay(e,attendance[k][e.id]);totE+=p.totalEarnings;totD+=p.totalDeductions;totN+=p.netPay;});
@@ -5387,7 +5387,7 @@ function mgmtRenderSlips(){
     ?'<div class="infobox" style="background:#e8f5e9;color:#1b5e20;border-left-color:#2e7d32;margin-bottom:12px">✅ <strong>Approved.</strong> HR Admin is now unlocked to send payslips for this period.</div>'
     :'<div class="warnbox" style="margin-bottom:12px">🔒 <strong>Not yet approved.</strong> Click <strong>Approve Only</strong> to unlock HR Admin, or <strong>Approve & Send All</strong> to approve and send immediately.</div>';}
 
-  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.active!==0);
   if(!recs.length){w.innerHTML='<div class="empty">No attendance saved for this period.</div>';return;}
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
    +'<th>Employee</th><th>Position</th><th>Email</th><th>Net Pay</th><th>Sent Status</th><th>Commission Status</th><th>Action</th>'
@@ -5423,7 +5423,7 @@ function mgmtShowSlipMsg(msg,ok){
 async function mgmtApproveOnly(){
   var perEl=document.getElementById('mgmt-per');if(!perEl)return;
   var per=perEl.value,k=attKey(per);
-  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]);
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.active!==0);
   if(!recs.length){mgmtShowSlipMsg('No attendance data found for this period.',false);return;}
   if(!confirm('Approve payslip sending for "'+per+'"?\n\nHR Admin will be unlocked to send payslips for this period.'))return;
   payslipApprovals[k]=true;
@@ -5511,7 +5511,7 @@ async function mgmtSendCommission(empId,per,pdate){
 async function mgmtApproveAllSlips(){
   var perEl=document.getElementById('mgmt-per');if(!perEl)return;
   var per=perEl.value,k=attKey(per),pdate=v('att-pdate');
-  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.email);
+  var recs=employees.filter(e=>attendance[k]&&attendance[k][e.id]&&e.active!==0&&e.email);
   if(!recs.length){mgmtShowSlipMsg('No employees with attendance and email for this period.',false);return;}
   if(!confirm('Approve and send payslips for ALL '+recs.length+' employee(s) for "'+per+'"?\n\nHR Admin will also be unlocked for this period.'))return;
   payslipApprovals[k]=true;
