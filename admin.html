@@ -2720,6 +2720,22 @@ function exportAttCSV(){
 }
 
 // ==================== LEAVE ====================
+// Adjusts an employee's VL/SL balance and actually saves it — the bug this
+// fixes: several call sites below used to mutate e.vlBal/e.slBal in memory
+// only, or not at all, so approving a leave never reliably persisted the
+// deduction (and denying/deleting a previously-approved one never restored
+// it). sign: -1 to deduct (on approval), +1 to restore (on deny/delete of
+// something that was previously approved).
+async function adjustLeaveBalance(empId,type,days,sign){
+  var e=employees.find(x=>x.id===empId);
+  if(!e||!days)return;
+  var isVL=type.includes('VL')||type.includes('Vacation');
+  var isSL=type.includes('SL')||type.includes('Sick');
+  if(!isVL&&!isSL)return; // other leave types (e.g. unpaid/emergency) don't draw against VL/SL
+  if(isVL)e.vlBal=Math.max(0,(e.vlBal||0)+sign*days);
+  else e.slBal=Math.max(0,(e.slBal||0)+sign*days);
+  await api('PUT','/api/employees/'+empId,e);
+}
 async function saveLeaveForm(){
   var empId=parseInt(v('lv-emp'));
   if(!empId){alert('Select an employee.');return;}
@@ -2742,10 +2758,8 @@ async function saveLeaveForm(){
   if(r.success){
     rec.id=r.id;rec.filedAt=new Date().toISOString();
     leaveRecords.push(rec);
-    // Update local balance
     if(rec.status==='Approved'&&rec.pay==='With Pay'){
-      var e=employees.find(x=>x.id===empId);
-      if(e){if(rec.type.includes('VL')||rec.type.includes('Vacation'))e.vlBal=Math.max(0,(e.vlBal||0)-days);else if(rec.type.includes('SL')||rec.type.includes('Sick'))e.slBal=Math.max(0,(e.slBal||0)-days);}
+      await adjustLeaveBalance(empId,rec.type,days,-1);
     }
     document.getElementById('lv-to').disabled=false;
     flash('lv-ok');renderLeaveTracker();renderDashboard();showSaveIndicator();
@@ -2786,11 +2800,31 @@ function cancelLeaveEdit(){
   document.getElementById('lv-cancel-btn').style.display='none';
 }
 async function updateLeaveStatus(id,status){
+  var rec=leaveRecords.find(l=>l.id==id);
+  var oldStatus=rec?rec.status:null;
   await api('PUT','/api/leave/'+id,{status});
-  var rec=leaveRecords.find(l=>l.id==id);if(rec)rec.status=status;
+  if(rec)rec.status=status;
+  // Only balance-affecting transitions: becoming Approved deducts; leaving
+  // Approved (to Denied/Pending) restores. Only applies to With Pay leaves
+  // that draw against VL/SL — see adjustLeaveBalance.
+  if(rec&&rec.pay==='With Pay'){
+    if(oldStatus!=='Approved'&&status==='Approved')await adjustLeaveBalance(rec.empId,rec.type,rec.days,-1);
+    else if(oldStatus==='Approved'&&status!=='Approved')await adjustLeaveBalance(rec.empId,rec.type,rec.days,1);
+  }
   renderLeaveTracker();showSaveIndicator();
 }
-async function deleteLeave(id){if(!confirm('Delete this leave record?'))return;await api('DELETE','/api/leave/'+id);leaveRecords=leaveRecords.filter(l=>l.id!=id);renderLeaveTracker();}
+async function deleteLeave(id){
+  if(!confirm('Delete this leave record?'))return;
+  var rec=leaveRecords.find(l=>l.id==id);
+  await api('DELETE','/api/leave/'+id);
+  leaveRecords=leaveRecords.filter(l=>l.id!=id);
+  // Deleting an approved, paid leave should give the days back — otherwise
+  // the balance stays permanently short for a record that no longer exists.
+  if(rec&&rec.status==='Approved'&&rec.pay==='With Pay'){
+    await adjustLeaveBalance(rec.empId,rec.type,rec.days,1);
+  }
+  renderLeaveTracker();
+}
 function renderLeaveTracker(){
   var empId=v('lv-filter-emp'),status=v('lv-filter-status'),w=document.getElementById('leave-tracker-wrap');
   if(!w)return;
@@ -5531,8 +5565,14 @@ async function mgmtRenderLeaves(){
 }
 
 async function mgmtUpdateLeave(id,status){
+  var rec=leaveRecords.find(l=>l.id==id);
+  var oldStatus=rec?rec.status:null;
   await api('PUT','/api/leave/'+id,{status});
-  var rec=leaveRecords.find(l=>l.id==id);if(rec)rec.status=status;
+  if(rec)rec.status=status;
+  if(rec&&rec.pay==='With Pay'){
+    if(oldStatus!=='Approved'&&status==='Approved')await adjustLeaveBalance(rec.empId,rec.type,rec.days,-1);
+    else if(oldStatus==='Approved'&&status!=='Approved')await adjustLeaveBalance(rec.empId,rec.type,rec.days,1);
+  }
   mgmtRenderLeaves();
   mgmtRenderMetrics();
 }
