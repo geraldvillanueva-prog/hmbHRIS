@@ -712,6 +712,24 @@ app.put('/api/employees/:id', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
+// Narrow, location-policy-only update — used by HR Intern accounts, who are
+// allowed to edit Location Policies specifically but should NOT gain access
+// to the full employee-update route above (which also touches salary, TIN,
+// bank account, and every other employee field). Admin can use this too;
+// it's simply a smaller surface for the one thing HR Intern is allowed to
+// change here.
+app.put('/api/employees/:id/location-policy', requireAdminOrHrIntern, (req, res) => {
+  const e = req.body;
+  const locPolicy = e.locPolicy || 'office';
+  const locLat    = (e.locLat  !== undefined && e.locLat  !== '') ? parseFloat(e.locLat)  : null;
+  const locLng    = (e.locLng  !== undefined && e.locLng  !== '') ? parseFloat(e.locLng)  : null;
+  const locRadius = e.locRadius ? parseInt(e.locRadius) : 300;
+  const locWfhDays = (locPolicy === 'wfh' && e.locWfhDays) ? e.locWfhDays : null;
+  db.prepare(`UPDATE employees SET loc_policy=?,loc_lat=?,loc_lng=?,loc_radius=?,loc_wfh_days=? WHERE id=?`)
+    .run(locPolicy, locLat, locLng, locRadius, locWfhDays, req.params.id);
+  res.json({ success: true });
+});
+
 app.delete('/api/employees/:id', requireAdmin, (req, res) => {
   db.prepare('UPDATE employees SET active = 0 WHERE id = ?').run(req.params.id);
   res.json({ success: true });
