@@ -1728,13 +1728,14 @@ function applyRoleUI(){
   }
   else if(currentUserRole==='hr_intern'){
     // Sees Employee Time Logs, Leave Management, Announcements, Shift
-    // Management, and Location Policies. Time Logs is fully editable per
-    // explicit request (enforced server-side via requireAdminOrHrIntern on
-    // those two routes specifically); the other sections stay view-only —
-    // their write-capable buttons are hidden below, and their mutation
-    // routes still require plain 'admin', so hr_intern can't post
-    // announcements, edit shifts, or change location policies even if the
-    // hiding were bypassed.
+    // Management, and Location Policies. Time Logs and Location Policies
+    // are fully editable per explicit request (Location Policies via its
+    // own narrow /api/employees/:id/location-policy route, which only
+    // touches location fields — not the full employee-update route, which
+    // also covers salary/TIN/bank details this role shouldn't be able to
+    // reach). Announcements and Shift Management stay view-only — their
+    // write-capable buttons are hidden below, and their mutation routes
+    // still require plain 'admin'.
     document.querySelectorAll('.nav-item').forEach(function(el){el.style.display='none';});
     document.querySelectorAll('.sidebar-section').forEach(function(el){el.style.display='none';});
     var tlNav=document.getElementById('nav-timelogs'); if(tlNav){tlNav.style.display='';tlNav.previousElementSibling.style.display='';}
@@ -1760,7 +1761,7 @@ function hideHrInternWriteControls(){
   // Time Logs is intentionally NOT in this list — hr_intern can edit it.
   // Announcements/Shift Management/Location Policies stay view-only: hide
   // any button that looks write-capable within those three sections.
-  ['sec-announcements','sec-shifts','sec-location'].forEach(function(secId){
+  ['sec-announcements','sec-shifts'].forEach(function(secId){
     var sec=document.getElementById(secId);
     if(!sec)return;
     sec.querySelectorAll('button').forEach(function(b){
@@ -2079,7 +2080,7 @@ async function saveLocPolicy(){
   e.loc_radius   = radius;
   e.loc_wfh_days = wfhDays;
   e.locWfhDays   = wfhDays; // camelCase for server
-  await api('PUT','/api/employees/'+empId, {...e, locPolicy:pol, locLat:e.loc_lat, locLng:e.loc_lng, locRadius:radius, locWfhDays:wfhDays});
+  await api('PUT','/api/employees/'+empId+'/location-policy', {locPolicy:pol, locLat:e.loc_lat, locLng:e.loc_lng, locRadius:radius, locWfhDays:wfhDays});
   flash('loc-edit-ok');showSaveIndicator();
   closeLocEdit();
   renderLocationTable();
