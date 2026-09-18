@@ -1771,12 +1771,16 @@ function hideHrInternWriteControls(){
       }
     });
   });
-  // Leave Management: hide Approve/Deny/File-for-employee controls
+  // Leave Management: File Leave and Leave Tracker are now fully available
+  // to hr_intern (filing is enforced server-side via requireAdminOrHrIntern
+  // on POST /api/leave). Only Approve/Deny/Save/Delete stay hidden — those
+  // still require plain 'admin'/'management' on the backend either way.
   var lvSec=document.getElementById('sec-leave');
   if(lvSec){
     lvSec.querySelectorAll('button').forEach(function(b){
+      if(b.classList.contains('itab'))return; // never hide tab navigation
       var t=b.textContent||'';
-      if(/Approve|Deny|File Leave|Save|Delete/i.test(t)){
+      if(/Approve|Deny|Save|Delete/i.test(t)){
         b.style.display='none';
       }
     });
