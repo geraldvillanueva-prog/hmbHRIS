@@ -1183,7 +1183,7 @@ app.get('/api/leave/balance', requireAuth, (req, res) => {
 });
 
 
-app.post('/api/leave', requireAdmin, (req, res) => {
+app.post('/api/leave', requireAdminOrHrIntern, (req, res) => {
   const l = req.body;
   const halfDay = l.halfDay ? 1 : 0;
   const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay, half_day) VALUES (?,?,?,?,?,?,?,?,?)').run(l.empId, l.type, l.from, l.to, +l.days||0, l.reason||'', l.status||'Pending', l.pay||'With Pay', halfDay);
