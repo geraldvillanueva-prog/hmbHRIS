@@ -1556,7 +1556,7 @@ app.get('/api/announcements', requireAuth, (req, res) => {
 });
 
 // POST create announcement (with optional file attachments)
-app.post('/api/announcements', requireAdmin, upload.array('attachments', 10), (req, res) => {
+app.post('/api/announcements', requireAdminOrHrIntern, upload.array('attachments', 10), (req, res) => {
   const { type, title, body, target_employee_id, month, year, pinned } = req.body;
   if (!title) return res.status(400).json({ error: 'Title required' });
   const ins = db.prepare(`
