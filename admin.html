@@ -1761,7 +1761,7 @@ function hideHrInternWriteControls(){
   // Time Logs is intentionally NOT in this list — hr_intern can edit it.
   // Announcements/Shift Management/Location Policies stay view-only: hide
   // any button that looks write-capable within those three sections.
-  ['sec-announcements','sec-shifts'].forEach(function(secId){
+  ['sec-shifts'].forEach(function(secId){
     var sec=document.getElementById(secId);
     if(!sec)return;
     sec.querySelectorAll('button').forEach(function(b){
