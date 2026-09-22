@@ -1159,6 +1159,11 @@ app.post('/api/leave/file', requireAuth, (req, res) => {
   const pay = (l.pay === 'Without Pay') ? 'Without Pay' : 'With Pay'; // default to With Pay for safety
   const halfDay = l.halfDay ? 1 : 0;
   const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay, half_day) VALUES (?,?,?,?,?,?,?,?,?)').run(empId, l.type, l.from, l.to, +l.days||0, l.reason||'', 'Pending', pay, halfDay);
+  // Filing deducts immediately (status starts Pending, which holds a
+  // deduction) — approval later doesn't deduct again, see PUT /api/leave/:id.
+  if (pay === 'With Pay') {
+    adjustEmployeeLeaveBalance(empId, l.type, +l.days||0, -1);
+  }
   res.json({ success: true, id: r.lastInsertRowid });
 });
 
@@ -1170,6 +1175,10 @@ app.delete('/api/leave/mine/:id', requireAuth, (req, res) => {
   if (!rec) return res.json({ success: false, error: 'Record not found' });
   if (rec.status !== 'Pending') return res.json({ success: false, error: 'Only pending leaves can be cancelled' });
   db.prepare('DELETE FROM leave_records WHERE id=?').run(req.params.id);
+  // Pending always holds a deduction, so cancelling always restores it.
+  if (rec.pay === 'With Pay') {
+    adjustEmployeeLeaveBalance(empId, rec.type, rec.days, 1);
+  }
   res.json({ success: true });
 });
 
@@ -1186,17 +1195,31 @@ app.get('/api/leave/balance', requireAuth, (req, res) => {
 app.post('/api/leave', requireAdminOrHrIntern, (req, res) => {
   const l = req.body;
   const halfDay = l.halfDay ? 1 : 0;
-  const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay, half_day) VALUES (?,?,?,?,?,?,?,?,?)').run(l.empId, l.type, l.from, l.to, +l.days||0, l.reason||'', l.status||'Pending', l.pay||'With Pay', halfDay);
-  // Deduct balance if approved
-  if (l.status === 'Approved' && l.pay === 'With Pay') {
-    const e = db.prepare('SELECT * FROM employees WHERE id=?').get(l.empId);
-    if (e) {
-      if (l.type.includes('VL') || l.type.includes('Vacation')) db.prepare('UPDATE employees SET vl_bal=MAX(0,vl_bal-?) WHERE id=?').run(+l.days, l.empId);
-      else if (l.type.includes('SL') || l.type.includes('Sick')) db.prepare('UPDATE employees SET sl_bal=MAX(0,sl_bal-?) WHERE id=?').run(+l.days, l.empId);
-    }
+  const status = l.status || 'Pending';
+  const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay, half_day) VALUES (?,?,?,?,?,?,?,?,?)').run(l.empId, l.type, l.from, l.to, +l.days||0, l.reason||'', status, l.pay||'With Pay', halfDay);
+  // Deducts immediately on filing (any non-Denied starting status), not just
+  // on approval — approval no longer double-deducts, since it's handled as
+  // a same-status-group transition in PUT /api/leave/:id below.
+  if (l.pay === 'With Pay' && leaveHoldsBalance(status)) {
+    adjustEmployeeLeaveBalance(l.empId, l.type, +l.days||0, -1);
   }
   res.json({ success: true, id: r.lastInsertRowid });
 });
+
+// Single source of truth for leave-balance changes. A leave record "holds" a
+// deduction in every status except Denied (Pending and Approved both hold —
+// filing deducts immediately, and approval is just a confirmation, not a
+// second deduction). delta: -1 to deduct, +1 to restore.
+function adjustEmployeeLeaveBalance(employeeId, type, days, delta) {
+  if (!days) return;
+  const isVL = type && (type.includes('VL') || type.includes('Vacation'));
+  const isSL = type && (type.includes('SL') || type.includes('Sick'));
+  if (!isVL && !isSL) return; // other leave types don't draw against VL/SL
+  const col = isVL ? 'vl_bal' : 'sl_bal';
+  db.prepare(`UPDATE employees SET ${col}=MAX(0,${col}+?) WHERE id=?`).run(delta * days, employeeId);
+}
+// Whether a given status currently "holds" a deduction against the balance.
+function leaveHoldsBalance(status) { return status !== 'Denied'; }
 
 app.put('/api/leave/:id', requireAdminOrManagement, (req, res) => {
   const rec = db.prepare('SELECT * FROM leave_records WHERE id=?').get(req.params.id);
@@ -1220,16 +1243,29 @@ app.put('/api/leave/:id', requireAdminOrManagement, (req, res) => {
   const halfDay  = b.halfDay  !== undefined ? (b.halfDay?1:0) : rec.half_day;
   db.prepare('UPDATE leave_records SET status=?, type=?, from_date=?, to_date=?, days=?, reason=?, pay=?, half_day=? WHERE id=?')
     .run(status, type, fromDate, toDate, days, reason, pay, halfDay, req.params.id);
-  // Deduct balance if approved
-  if (status === 'Approved' && pay === 'With Pay') {
-    if (type.includes('VL') || type.includes('Vacation')) db.prepare('UPDATE employees SET vl_bal=MAX(0,vl_bal-?) WHERE id=?').run(days, rec.employee_id);
-    else if (type.includes('SL') || type.includes('Sick')) db.prepare('UPDATE employees SET sl_bal=MAX(0,sl_bal-?) WHERE id=?').run(days, rec.employee_id);
+  // Restore what the OLD record was holding (if any), then deduct what the
+  // NEW record should hold (if any). This single pattern correctly handles
+  // every case: Pending->Approved (both hold, restore+deduct nets to zero
+  // net change since type/days are usually unchanged), Approved->Denied
+  // (was holding, now isn't -> net restore), and edits to days/type on a
+  // leave that stays in a holding status (restore old amount, deduct new
+  // amount -> net adjustment by the difference).
+  if (rec.pay === 'With Pay' && leaveHoldsBalance(rec.status)) {
+    adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, 1);
+  }
+  if (pay === 'With Pay' && leaveHoldsBalance(status)) {
+    adjustEmployeeLeaveBalance(rec.employee_id, type, days, -1);
   }
   res.json({ success: true });
 });
 
 app.delete('/api/leave/:id', requireAdmin, (req, res) => {
+  const rec = db.prepare('SELECT * FROM leave_records WHERE id=?').get(req.params.id);
   db.prepare('DELETE FROM leave_records WHERE id=?').run(req.params.id);
+  // Give back whatever this record was holding, if anything.
+  if (rec && rec.pay === 'With Pay' && leaveHoldsBalance(rec.status)) {
+    adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, 1);
+  }
   res.json({ success: true });
 });
 

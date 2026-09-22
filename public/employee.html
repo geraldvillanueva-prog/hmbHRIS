@@ -1528,32 +1528,41 @@ var TIME_ALARMS=[
   {hh:16,mm:0, key:'merin',     icon:'☕', title:'Merienda In Time!',  sub:"It's 4:00 PM — time to punch back in from merienda."}
 ];
 var _alarmAudioCtx=null;
+function playAlarmBeepPair(ctx){
+  var t=ctx.currentTime;
+  [0,0.18].forEach(function(offset,i){
+    var start=t+offset;
+    var osc=ctx.createOscillator();
+    var gain=ctx.createGain();
+    osc.type='square';
+    osc.frequency.value=i===0?987:784; // B5 / G5 — a bright, clear alarm-style interval
+    gain.gain.setValueAtTime(0.0001,start);
+    gain.gain.exponentialRampToValueAtTime(0.22,start+0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001,start+0.15);
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.start(start);osc.stop(start+0.16);
+  });
+}
+var _alarmSoundInterval=null;
 function playAlarmSound(){
   try{
     if(!_alarmAudioCtx)_alarmAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
     var ctx=_alarmAudioCtx;
     if(ctx.state==='suspended')ctx.resume();
     // Original alarm-clock-style pattern: two alternating tones in quick
-    // beep-beep-pause cycles, repeated for a full 20 seconds so it has
-    // enough presence to actually be noticed, even briefly away from the desk.
-    var cycleLen=0.5; // seconds per beep-beep-pause cycle
-    var totalDuration=20;
-    var cycles=Math.floor(totalDuration/cycleLen);
-    for(var c=0;c<cycles;c++){
-      var cycleStart=ctx.currentTime+c*cycleLen;
-      [0,0.18].forEach(function(offset,i){
-        var t=cycleStart+offset;
-        var osc=ctx.createOscillator();
-        var gain=ctx.createGain();
-        osc.type='square';
-        osc.frequency.value=i===0?987:784; // B5 / G5 — a bright, clear alarm-style interval
-        gain.gain.setValueAtTime(0.0001,t);
-        gain.gain.exponentialRampToValueAtTime(0.22,t+0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001,t+0.15);
-        osc.connect(gain);gain.connect(ctx.destination);
-        osc.start(t);osc.stop(t+0.16);
-      });
-    }
+    // beep-beep-pause cycles. Driven by setInterval (one cycle played "live"
+    // every 500ms) rather than scheduling all 40 cycles far in advance up
+    // front — more reliably audible for the full duration across browsers.
+    if(_alarmSoundInterval)clearInterval(_alarmSoundInterval); // don't stack if triggered twice
+    var elapsedCycles=0;
+    var totalCycles=40; // 40 * 500ms = 20 seconds
+    playAlarmBeepPair(ctx); // first cycle immediately
+    elapsedCycles++;
+    _alarmSoundInterval=setInterval(function(){
+      if(elapsedCycles>=totalCycles){clearInterval(_alarmSoundInterval);_alarmSoundInterval=null;return;}
+      playAlarmBeepPair(ctx);
+      elapsedCycles++;
+    },500);
   }catch(e){/* Web Audio unsupported or blocked — sound is a nice-to-have, not required */}
 }
 function alarmStorageKey(alarmKey){
@@ -1624,13 +1633,14 @@ async function fileLeave(){
     document.getElementById('lv-to').value=today;
     computeDays();
     await loadMyLeaves();
+    await loadBalance(); // server deducts the balance immediately on filing now — reflect that right away
   }else{showLeaveMsg('❌ '+(data.error||'Failed to submit.'),false);}
 }
 async function cancelLeave(id){
   if(!confirm('Cancel this leave request?'))return;
   var res=await fetch('/api/leave/mine/'+id,{method:'DELETE'});
   var data=await res.json();
-  if(data.success){showLeaveMsg('Leave request cancelled.',true);await loadMyLeaves();}
+  if(data.success){showLeaveMsg('Leave request cancelled.',true);await loadMyLeaves();await loadBalance();}
   else{showLeaveMsg('❌ '+(data.error||'Could not cancel.'),false);}
 }
 async function loadMyLeaves(){
