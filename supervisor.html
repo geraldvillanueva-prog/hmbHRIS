@@ -654,6 +654,7 @@ input:focus,select:focus,textarea:focus{
 <div class="tab-nav">
   <button class="tab-btn on" onclick="goTab('dashboard',this)">📢 Dashboard</button>
   <button class="tab-btn" onclick="goTab('mydetails',this)">🪪 My Details</button>
+  <button class="tab-btn" onclick="goTab('teamdisc',this)">⚠️ Team Disciplinary Records</button>
   <button class="tab-btn" onclick="goTab('leaves',this)">🌴 Leave Approvals <span class="tab-notif" id="pending-count" style="display:none">0</span></button>
   <button class="tab-btn" onclick="goTab('leavefile',this)">📝 File My Leave</button>
   <button class="tab-btn" onclick="goTab('team',this)">👥 My Team</button>
@@ -1018,6 +1019,14 @@ input:focus,select:focus,textarea:focus{
   </div>
 </div>
 
+<div class="tab-content" id="tab-teamdisc">
+  <div class="panel wide">
+    <div class="panel-title"><div class="panel-title-left">⚠️ Team Disciplinary Records</div></div>
+    <div style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px">Disciplinary record history for your team, for monitoring — these are HR-reviewed outcomes, separate from the EVRs you file yourself under "File EVR."</div>
+    <div id="teamdisc-wrap"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
 <script>
 var user = null;
 var allLeaves = [];
@@ -1283,6 +1292,7 @@ function goTab(name,el){
   if(name==='payslips')loadPayslips();
   if(name==='leavefile'){supLoadMyLeaves();supLoadBalance();}
   if(name==='mydetails')loadMyDetails();
+  if(name==='teamdisc')loadTeamDisc();
 
   setTimeout(setupScrollReveal, 50);
 }
@@ -1989,6 +1999,31 @@ async function loadMyDetails(){
   }catch(err){
     console.error(err);
     w.innerHTML='<div class="empty">Could not load your details right now. Please try again later.</div>';
+  }
+}
+// ── TEAM DISCIPLINARY RECORDS (view-only, for monitoring) ───────────────────
+async function loadTeamDisc(){
+  var w=document.getElementById('teamdisc-wrap');
+  w.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    var res=await fetch('/api/disciplinary/team',{credentials:'same-origin'});
+    var rows=await res.json();
+    if(!rows.length){w.innerHTML='<div class="empty">No disciplinary records on file for your team.</div>';return;}
+    w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Date</th><th>Type of Violation</th><th>Offense Level</th><th>Sanction</th><th>Status</th></tr></thead><tbody>'
+      +rows.map(function(r){
+        return'<tr>'
+          +'<td><strong>'+r.empName+'</strong></td>'
+          +'<td style="font-size:12px">'+fmtDate(r.date)+'</td>'
+          +'<td>'+(r.type||'—')+'</td>'
+          +'<td>'+(r.level||'—')+'</td>'
+          +'<td>'+(r.sanction||'—')+'</td>'
+          +'<td>'+(r.status||'—')+'</td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div>';
+  }catch(err){
+    console.error(err);
+    w.innerHTML='<div class="empty">Could not load team disciplinary records right now. Please try again later.</div>';
   }
 }
 

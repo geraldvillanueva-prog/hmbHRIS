@@ -937,26 +937,27 @@ tr:hover td{background:#fafcff}
         <div class="row">
           <div class="f"><label>Employee</label><select id="disc-emp"><option value="">-- Select --</option></select></div>
           <div class="f"><label>Incident date</label><input id="disc-date" type="date"></div>
-          <div class="f"><label>Type of offense</label>
+          <div class="f"><label>Type of violation</label>
             <select id="disc-type">
-              <option>Tardiness</option>
-              <option>Absence Without Leave (AWOL)</option>
-              <option>Insubordination</option>
-              <option>Misconduct</option>
-              <option>Negligence</option>
-              <option>Violation of Company Policy</option>
-              <option>Others</option>
+              <option>Attendance/Time Keeping</option>
+              <option>Attendance/Timekeeping</option>
+              <option>Conduct/Behavior</option>
+              <option>Dishonesty</option>
+              <option>Health, Safety & Security</option>
+              <option>Job Performance</option>
+              <option>No confirm violations</option>
             </select>
           </div>
         </div>
         <div class="row">
           <div class="f"><label>Offense level</label>
             <select id="disc-level">
-              <option>1st Offense</option><option>2nd Offense</option><option>3rd Offense</option>
+              <option>1st Offense</option><option>2nd Offense</option><option>3rd Offense</option><option>4th Offense</option><option>5th Offense</option>
             </select>
           </div>
           <div class="f"><label>Sanction</label>
             <select id="disc-sanction">
+              <option>Counseling</option>
               <option>Verbal Warning</option>
               <option>Written Warning</option>
               <option>Suspension (1 day)</option>
@@ -972,7 +973,7 @@ tr:hover td{background:#fafcff}
           </div>
         </div>
         <div class="row">
-          <div class="f"><label>Details / Description</label><textarea id="disc-details" placeholder=""></textarea></div>
+          <div class="f"><label>Performance Improvement Plan (PIP)</label><textarea id="disc-details" placeholder=""></textarea></div>
         </div>
         <button class="btn bp" onclick="addDisc()">Save Record</button>
         <span class="ok-msg" id="disc-ok">Saved!</span>
@@ -1004,24 +1005,25 @@ tr:hover td{background:#fafcff}
       <div id="evrrev-summary" style="background:#f7f9fc;border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:12.5px;margin-bottom:14px"></div>
       <div class="page-sub" style="margin:-6px 0 10px">Approving creates a disciplinary record with these details. Rejecting closes the EVR without creating one.</div>
       <div class="row">
-        <div class="f"><label>Type of offense</label>
+        <div class="f"><label>Type of violation</label>
           <select id="evrrev-type">
-            <option>Tardiness</option>
-            <option>Absence Without Leave (AWOL)</option>
-            <option>Insubordination</option>
-            <option>Misconduct</option>
-            <option>Negligence</option>
-            <option>Violation of Company Policy</option>
-            <option>Others</option>
+            <option>Attendance/Time Keeping</option>
+            <option>Attendance/Timekeeping</option>
+            <option>Conduct/Behavior</option>
+            <option>Dishonesty</option>
+            <option>Health, Safety & Security</option>
+            <option>Job Performance</option>
+            <option>No confirm violations</option>
           </select>
         </div>
         <div class="f"><label>Offense level</label>
-          <select id="evrrev-level"><option>1st Offense</option><option>2nd Offense</option><option>3rd Offense</option></select>
+          <select id="evrrev-level"><option>1st Offense</option><option>2nd Offense</option><option>3rd Offense</option><option>4th Offense</option><option>5th Offense</option></select>
         </div>
       </div>
       <div class="row">
         <div class="f"><label>Sanction</label>
           <select id="evrrev-sanction">
+            <option>Counseling</option>
             <option>Verbal Warning</option>
             <option>Written Warning</option>
             <option>Suspension (1 day)</option>
@@ -1034,7 +1036,7 @@ tr:hover td{background:#fafcff}
         </div>
         <div class="f"><label>Status</label><select id="evrrev-status"><option>Open</option><option>Resolved</option></select></div>
       </div>
-      <div class="f"><label>Details / Description</label><textarea id="evrrev-details"></textarea></div>
+      <div class="f"><label>Performance Improvement Plan (PIP)</label><textarea id="evrrev-details"></textarea></div>
       <div id="evrrev-err" style="display:none;background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:10px"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button class="btn br" onclick="rejectEvr()">✕ Reject</button>
@@ -2356,12 +2358,18 @@ async function populateDiscEmpSupervisorsOnly(){
 }
 function populateAllSelects(){
   var sels=['lv-emp','lv-filter-emp','disc-filter-emp','perf-emp','perf-filter-emp','hist-emp','att-emp-sel','off-emp','off-search-emp'];
+  // Deactivated employees are excluded from Leave entirely (per explicit
+  // request) — both the filing dropdown (already active-only) and this
+  // tracker filter. Other filter dropdowns (disciplinary/performance/
+  // history/attendance/offset) intentionally still show everyone, since
+  // looking up a former employee's past records there is still useful.
+  var activeOnlyEvenAsFilter=['lv-filter-emp'];
   sels.forEach(id=>{
     var sel=document.getElementById(id);if(!sel)return;
     var cur=sel.value;
     var isFilter=id.includes('filter')||id==='hist-emp'||id==='att-emp-sel'||id==='off-search-emp';
     sel.innerHTML=(isFilter?'<option value="">All</option>':'<option value="">-- Select --</option>');
-    var list=isFilter?employees:employees.filter(e=>e.active!==0);
+    var list=(isFilter&&!activeOnlyEvenAsFilter.includes(id))?employees:employees.filter(e=>e.active!==0);
     list.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name+(e.active===0?' (Inactive)':'');if(e.id==cur)o.selected=true;sel.appendChild(o);});
   });
   var sel201=document.getElementById('sel-201');if(sel201){var c=sel201.value;sel201.innerHTML='<option value="">-- Select employee --</option>';employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name+(e.active===0?' (Inactive)':'');if(e.id==c)o.selected=true;sel201.appendChild(o);});}
@@ -2892,7 +2900,7 @@ function renderEvrAdminList(){
     return true;
   });
   if(!list.length){w.innerHTML='<div class="empty">No EVR submissions match these filters.</div>';return;}
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Filed By</th><th>Date</th><th>EVR Form</th><th>Supporting Docs</th><th>Status</th><th></th></tr></thead><tbody>'
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Filed By</th><th>Date</th><th>EVR Form</th><th>Supporting Docs</th><th>Status</th><th></th><th></th></tr></thead><tbody>'
     +list.map(function(r){
       var statusBadge=r.status==='Pending Review'?'<span class="badge badge-red">Pending Review</span>'
         :r.status==='Reviewed'?'<span class="badge badge-green">Reviewed</span>'
@@ -2908,9 +2916,18 @@ function renderEvrAdminList(){
         +'<td><a href="/uploads/'+r.supportingDoc.filename+'" target="_blank" rel="noopener">📎 View</a></td>'
         +'<td>'+statusBadge+'</td>'
         +'<td>'+actionCell+'</td>'
+        +'<td><button class="btn bs br" style="font-size:11px" onclick="deleteEvrSubmission('+r.id+')">🗑 Delete</button></td>'
         +'</tr>';
     }).join('')
     +'</tbody></table></div>';
+}
+async function deleteEvrSubmission(id){
+  if(!confirm('Delete this EVR submission? This cannot be undone.'))return;
+  await api('DELETE','/api/evr-submissions/'+id);
+  evrSubmissions=evrSubmissions.filter(r=>r.id!==id);
+  renderEvrAdminList();
+  updateEvrPendingBadge();
+  showSaveIndicator();
 }
 function openEvrReviewModal(id){
   var r=evrSubmissions.find(x=>x.id===id);
@@ -2922,9 +2939,9 @@ function openEvrReviewModal(id){
     +'<br>Incident date: '+fmtDate(r.date)
     +'<br><a href="/uploads/'+r.evrForm.filename+'" target="_blank" rel="noopener">📎 View EVR Form</a>'
     +' &nbsp;·&nbsp; <a href="/uploads/'+r.supportingDoc.filename+'" target="_blank" rel="noopener">📎 View Supporting Documents</a>';
-  document.getElementById('evrrev-type').value='Tardiness';
+  document.getElementById('evrrev-type').value='Attendance/Time Keeping';
   document.getElementById('evrrev-level').value='1st Offense';
-  document.getElementById('evrrev-sanction').value='Verbal Warning';
+  document.getElementById('evrrev-sanction').value='Counseling';
   document.getElementById('evrrev-status').value='Open';
   document.getElementById('evrrev-details').value='';
   document.getElementById('evr-review-modal').classList.add('open');
@@ -3172,7 +3189,11 @@ function renderPayrollAttGrid(){
     +'<td style="padding:8px 10px;position:sticky;left:0;background:#f0f4f8;border-right:2px solid var(--border)">TOTALS</td>'
     +'<td colspan="2"></td>'
     +'<td id="tot_days" style="padding:8px 6px;text-align:center"></td>'
-    +'<td colspan="11"></td>'
+    +'<td colspan="6"></td>'
+    +'<td id="tot_add" style="padding:8px 6px;text-align:right;color:var(--green)"></td>'
+    +'<td colspan="2"></td>'
+    +'<td id="tot_ded" style="padding:8px 6px;text-align:right;color:var(--red)"></td>'
+    +'<td colspan="1"></td>'
     +'<td id="tot_net" style="padding:8px 8px;text-align:right;color:var(--green)"></td>'
     +'</tr>';
 
@@ -5251,7 +5272,7 @@ function populateTlEmpFilter(){
   var sel=document.getElementById('tl-emp-filter');if(!sel)return;
   var cur=sel.value;
   sel.innerHTML='<option value="">All employees</option>';
-  employees.forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name;if(e.id==cur)o.selected=true;sel.appendChild(o);});
+  employees.filter(e=>e.active!==0).forEach(e=>{var o=document.createElement('option');o.value=e.id;o.textContent=e.name;if(e.id==cur)o.selected=true;sel.appendChild(o);});
   // also populate ua-emp
   var sel2=document.getElementById('ua-emp');if(!sel2)return;
   var cur2=sel2.value;
