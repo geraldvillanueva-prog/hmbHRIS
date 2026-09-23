@@ -1277,24 +1277,15 @@ tr:hover td{background:#fafcff}
 
     <div class="card">
       <div class="card-title" style="justify-content:space-between;display:flex;align-items:center">
-        <span>🔗 Database Connection</span>
-        <span id="appl-conn-status" style="font-size:11px;font-weight:600;color:var(--muted)">Not connected</span>
-      </div>
-      <div class="row">
-        <div class="f"><label>Supabase Project URL <span style="color:var(--red)">*</span></label>
-          <input id="appl-supabase-url" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-family:'IBM Plex Mono',monospace;font-size:12px">
-        </div>
-        <div class="f"><label>Supabase Anon / Public Key <span style="color:var(--red)">*</span></label>
-          <input id="appl-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="font-family:'IBM Plex Mono',monospace;font-size:12px">
-        </div>
+        <span>🔗 Applicant Database</span>
+        <span id="appl-conn-status" style="font-size:11px;font-weight:600;color:var(--green)">Connected</span>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
-        <button class="btn bp" onclick="applSaveConfig()">💾 Save &amp; Connect</button>
         <button class="btn bs" onclick="applLoadList()" style="background:#e8f5e9;color:var(--green);border-color:#a5d6a7">🔄 Refresh</button>
-        <span id="appl-conn-ok" class="ok-msg">Connected!</span>
+        <span id="appl-conn-ok" class="ok-msg">Refreshed!</span>
         <span id="appl-conn-err" style="font-size:12px;color:var(--red);display:none"></span>
       </div>
-      <div class="hint" style="margin-top:8px">This must be the exact same Supabase project (URL + key) the HMB careers site itself is configured with — otherwise this list will always be empty even though applications are still being saved somewhere.</div>
+      <div class="hint" style="margin-top:8px">Applicants now come from your own HRIS database — resumes and photos are stored on Google Drive. No separate connection to configure.</div>
     </div>
 
     <div class="card" style="margin-bottom:10px">
@@ -2251,7 +2242,7 @@ function goSec(name,el){
   if(name==='location'){renderLocationTable();}
   if(name==='benefits'){loadBenefitTypes();}
   if(name==='management'){mgmtRenderMetrics();mgmtRenderPayroll();mgmtRenderSlips();mgmtRenderLeaves();}
-  if(name==='applicants'){if(applConfig.url&&applConfig.key&&!applApplicants.length){applLoadList();}else{renderApplicantsList();applRenderKpi();}}
+  if(name==='applicants'){if(!applApplicants.length){applLoadList();}else{renderApplicantsList();applRenderKpi();}}
 }
 function goITab(group,name,el){
   var parent=el.closest('.sec');
@@ -5937,14 +5928,10 @@ async function applyImportedPayroll() {
 
 
 // ==================== APPLICANTS (RECRUITMENT) ====================
-// Default connection — same project the public careers site is configured
-// with. Hardcoded here so the Applicants list works out of the box for
-// every admin user, not just whoever happens to have entered these once
-// into their own browser's localStorage. The "Save & Connect" fields still
-// let you override this (e.g. if you ever switch Supabase projects).
-var APPL_DEFAULT_URL = 'https://cvbjrjodlkgdnupbmncb.supabase.co';
-var APPL_DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2Ympyam9kbGtnZG51cGJtbmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzM1ODgsImV4cCI6MjEwMTk0OTU4OH0.GQguBHqswLLdw7zoUdwnOJtBDIFdHUhDCH6dUPoHf68';
-var applConfig = {url:APPL_DEFAULT_URL, key:APPL_DEFAULT_KEY};
+// Applicants now come straight from your own HRIS database (backed by
+// Google Drive for resumes/photos) — no external project URL/key needed,
+// since the same admin session that's already authenticated for everything
+// else in this app is what authorizes these requests too.
 var applApplicants = [];
 var APPL_STATUSES = ['New Applicant','Screening','Interview','For Approval','Job Offer','Hired','Rejected'];
 var APPL_STATUS_COLORS = {
@@ -5953,80 +5940,27 @@ var APPL_STATUS_COLORS = {
 };
 
 function applLoadConfig(){
-  applConfig = {url:APPL_DEFAULT_URL, key:APPL_DEFAULT_KEY};
-  try{
-    var raw = localStorage.getItem('hmb_appl_cfg');
-    if(raw){
-      var saved = JSON.parse(raw);
-      if(saved && saved.url && saved.key) applConfig = saved;
-    }
-  }catch(e){ /* keep the defaults if localStorage is corrupted somehow */ }
-  var u=document.getElementById('appl-supabase-url'); if(u) u.value = applConfig.url||'';
-  var k=document.getElementById('appl-supabase-key'); if(k) k.value = applConfig.key||'';
   applUpdateConnStatus();
-}
-function applSaveConfigLocal(){
-  localStorage.setItem('hmb_appl_cfg', JSON.stringify(applConfig));
 }
 function applUpdateConnStatus(){
   var el = document.getElementById('appl-conn-status');
   if(!el) return;
-  if(applConfig.url && applConfig.key){
-    el.textContent = 'Connected';
-    el.style.color = 'var(--green)';
-  }else{
-    el.textContent = 'Not connected';
-    el.style.color = 'var(--muted)';
-  }
-}
-async function applSaveConfig(){
-  var url = v('appl-supabase-url').trim().replace(/\/$/,'');
-  var key = v('appl-supabase-key').trim();
-  var errEl = document.getElementById('appl-conn-err');
-  errEl.style.display='none';
-  if(!url || !key){ errEl.textContent='Both fields are required.'; errEl.style.display='inline'; return; }
-  applConfig = {url:url, key:key};
-  applSaveConfigLocal();
-  applUpdateConnStatus();
-  await applLoadList();
+  el.textContent = 'Connected';
+  el.style.color = 'var(--green)';
 }
 async function applSupabaseGet(){
-  var url = applConfig.url+'/rest/v1/hmb_applicants?order=created_at.desc&limit=1000';
-  var r = await fetch(url, {
-    headers: { 'apikey': applConfig.key, 'Authorization': 'Bearer '+applConfig.key }
-  });
-  if(!r.ok){
-    var t = await r.text();
-    throw new Error('HTTP '+r.status+': '+t);
-  }
-  return r.json();
+  return api('GET','/api/careers/applicants');
 }
 async function applSupabasePatch(id, body){
-  var r = await fetch(applConfig.url+'/rest/v1/hmb_applicants?id=eq.'+id, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': applConfig.key, 'Authorization': 'Bearer '+applConfig.key,
-      'Prefer': 'return=minimal'
-    },
-    body: JSON.stringify(body)
-  });
-  if(!r.ok) throw new Error('HTTP '+r.status);
+  await api('PATCH','/api/careers/applicants/'+id, body);
 }
 async function applSupabaseDelete(id){
-  var r = await fetch(applConfig.url+'/rest/v1/hmb_applicants?id=eq.'+id, {
-    method: 'DELETE',
-    headers: { 'apikey': applConfig.key, 'Authorization': 'Bearer '+applConfig.key }
-  });
-  if(!r.ok) throw new Error('HTTP '+r.status);
+  await api('DELETE','/api/careers/applicants/'+id);
 }
 async function applLoadList(){
   var errEl = document.getElementById('appl-conn-err');
   var okEl = document.getElementById('appl-conn-ok');
   errEl.style.display='none';
-  if(!applConfig.url || !applConfig.key){
-    errEl.textContent='Enter your Supabase URL and key first.'; errEl.style.display='inline'; return;
-  }
   var w = document.getElementById('appl-list-wrap');
   if(w) w.innerHTML = '<div class="empty">Loading…</div>';
   try{
@@ -6039,7 +5973,7 @@ async function applLoadList(){
   }catch(e){
     errEl.textContent = 'Could not load applicants: '+e.message;
     errEl.style.display='inline';
-    if(w) w.innerHTML = '<div class="empty">Could not load applicants. Check your connection settings above.</div>';
+    if(w) w.innerHTML = '<div class="empty">Could not load applicants. Please try refreshing.</div>';
   }
 }
 function applPopulatePosFilter(){
