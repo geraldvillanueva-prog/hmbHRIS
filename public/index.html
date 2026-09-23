@@ -18,6 +18,13 @@ body{
   padding:1rem;overflow:hidden;
   background:linear-gradient(160deg,#c9e0ff 0%,#d9eeff 40%,#cef3ff 100%);
 }
+#bg-video{
+  position:fixed;top:50%;left:50%;min-width:100%;min-height:100%;
+  width:auto;height:auto;transform:translate(-50%,-50%);
+  object-fit:cover;z-index:-3;
+  filter:brightness(0.45) saturate(0.9);
+}
+.bg-dim-overlay{position:fixed;inset:0;background:rgba(6,14,26,0.38);z-index:-2;pointer-events:none}
 .blob{position:fixed;border-radius:50%;filter:blur(60px);opacity:0.35;animation:blobFloat 8s ease-in-out infinite alternate;pointer-events:none}
 .blob1{width:400px;height:400px;background:#a0c4ff;top:-100px;left:-100px;animation-delay:0s}
 .blob2{width:350px;height:350px;background:#bae6fd;bottom:-80px;right:-80px;animation-delay:3s}
@@ -79,6 +86,10 @@ input:focus{outline:none;border-color:var(--blue);background:rgba(255,255,255,0.
 </style>
 </head>
 <body>
+<video id="bg-video" autoplay muted loop playsinline>
+  <source src="/pulag-bg.mp4" type="video/mp4">
+</video>
+<div class="bg-dim-overlay"></div>
 <div class="blob blob1"></div>
 <div class="blob blob2"></div>
 <div class="blob blob3"></div>
