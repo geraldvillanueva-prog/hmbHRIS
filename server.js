@@ -74,13 +74,15 @@ async function uploadBufferToDrive(buffer, filename, mimeType) {
   const file = await drive.files.create({
     requestBody: { name: filename, parents: [GOOGLE_DRIVE_FOLDER_ID] },
     media: { mimeType, body: stream },
-    fields: 'id'
+    fields: 'id',
+    supportsAllDrives: true // required for the target folder to be a Shared Drive
   });
   const fileId = file.data.id;
   // Anyone with the link can view — needed since applicants aren't Google
   // accounts admin.html can otherwise grant access to individually.
   await drive.permissions.create({
-    fileId, requestBody: { role: 'reader', type: 'anyone' }
+    fileId, requestBody: { role: 'reader', type: 'anyone' },
+    supportsAllDrives: true
   });
   return `https://drive.google.com/uc?export=view&id=${fileId}`;
 }
