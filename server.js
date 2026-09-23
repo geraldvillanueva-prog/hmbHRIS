@@ -42,6 +42,79 @@ const upload = multer({
 // since requireAuth depends on req.session, which doesn't exist yet this
 // early in the file)
 
+// ─── GOOGLE DRIVE (careers page resume/photo storage) ────────────────────────
+// Replaces Supabase Storage for the public job-application form. Uses a
+// service account — see /google-drive-key.json (place the JSON key file
+// downloaded from Google Cloud Console here) — uploading into a folder that
+// lives in a REGULAR Google account's Drive (shared with the service
+// account as Editor), since a bare service account has no storage quota of
+// its own. Set the target folder's ID below once you've created and shared it.
+const { google } = require('googleapis');
+const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || 'PASTE_YOUR_FOLDER_ID_HERE';
+const GOOGLE_KEY_PATH = path.join(__dirname, 'google-drive-key.json');
+let driveClient = null;
+function getDriveClient() {
+  if (driveClient) return driveClient;
+  if (!fs.existsSync(GOOGLE_KEY_PATH)) {
+    throw new Error('google-drive-key.json not found — place your service account JSON key file at the project root.');
+  }
+  const auth = new google.auth.GoogleAuth({
+    keyFile: GOOGLE_KEY_PATH,
+    scopes: ['https://www.googleapis.com/auth/drive.file']
+  });
+  driveClient = google.drive({ version: 'v3', auth });
+  return driveClient;
+}
+// Uploads a buffer to the shared Drive folder, makes it link-viewable, and
+// returns a direct-view URL. Used for both resumes and applicant photos.
+async function uploadBufferToDrive(buffer, filename, mimeType) {
+  const drive = getDriveClient();
+  const { Readable } = require('stream');
+  const stream = Readable.from(buffer);
+  const file = await drive.files.create({
+    requestBody: { name: filename, parents: [GOOGLE_DRIVE_FOLDER_ID] },
+    media: { mimeType, body: stream },
+    fields: 'id'
+  });
+  const fileId = file.data.id;
+  // Anyone with the link can view — needed since applicants aren't Google
+  // accounts admin.html can otherwise grant access to individually.
+  await drive.permissions.create({
+    fileId, requestBody: { role: 'reader', type: 'anyone' }
+  });
+  return `https://drive.google.com/uc?export=view&id=${fileId}`;
+}
+// Memory storage (not disk) for careers uploads — files are forwarded
+// straight to Google Drive as buffers, never written to local disk.
+const careersUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp|pdf|doc|docx/i;
+    const ext = allowed.test(path.extname(file.originalname));
+    const mime = allowed.test(file.mimetype);
+    if (ext || mime) return cb(null, true);
+    cb(new Error('File type not allowed'));
+  }
+});
+// CORS — the careers page lives on GitHub Pages (a different origin than
+// this server), so the browser needs explicit permission to call this API.
+// Restricted to specific known origins rather than a wildcard.
+const CAREERS_ALLOWED_ORIGINS = [
+  'https://geraldvillanueva-prog.github.io',
+  'https://careers.hmbtaxfirm.com'
+];
+function careersCors(req, res, next) {
+  const origin = req.headers.origin;
+  if (origin && CAREERS_ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+}
+
 // ─── HTTP + WEBSOCKET SERVER SETUP ───────────────────────────────────────────
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
@@ -147,6 +220,35 @@ db.exec(`
     sep_type TEXT,
     sep_date TEXT,
     sep_reason TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS job_applicants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    applicant_code TEXT,
+    full_name TEXT,
+    first_name TEXT,
+    last_name TEXT,
+    headline TEXT,
+    address TEXT,
+    mobile_number TEXT,
+    email_address TEXT,
+    position_applied TEXT,
+    expected_salary REAL,
+    education TEXT,
+    experience TEXT,
+    summary TEXT,
+    cover_letter TEXT,
+    screening_answers TEXT,
+    resume_url TEXT,
+    photo_url TEXT,
+    status TEXT DEFAULT 'New Applicant',
+    source TEXT DEFAULT 'Application Form (Web)',
+    rejection_reason TEXT,
+    offer_salary REAL,
+    offer_start_date TEXT,
+    employee_id INTEGER,
+    employee_code TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -623,6 +725,88 @@ app.put('/api/my/leaves/:id', requireAdminOrSupervisor, (req, res) => {
 });
 
 // ─── EMPLOYEES ────────────────────────────────────────────────────────────────
+// ─── CAREERS PAGE (public job applications) ─────────────────────────────────
+// Replaces the old direct-to-Supabase flow. The public form now uploads
+// files and posts data here instead; this server uploads resumes/photos to
+// Google Drive and stores everything else in this SQLite database.
+function genApplicantCode() {
+  const yr = new Date().getFullYear();
+  const seq = String(Math.floor(Math.random() * 9000) + 1000);
+  return `APP-${yr}-${seq}`;
+}
+function mapApplicant(r) {
+  return {
+    id: r.id, applicant_code: r.applicant_code, full_name: r.full_name,
+    first_name: r.first_name, last_name: r.last_name, headline: r.headline,
+    address: r.address, mobile_number: r.mobile_number, email_address: r.email_address,
+    position_applied: r.position_applied, expected_salary: r.expected_salary,
+    education: JSON.parse(r.education || '[]'), experience: JSON.parse(r.experience || '[]'),
+    summary: r.summary, cover_letter: r.cover_letter,
+    screening_answers: JSON.parse(r.screening_answers || '{}'),
+    resume_url: r.resume_url, photo_url: r.photo_url,
+    status: r.status, source: r.source, rejection_reason: r.rejection_reason,
+    offer_salary: r.offer_salary, offer_start_date: r.offer_start_date,
+    employee_id: r.employee_id, employee_code: r.employee_code, created_at: r.created_at
+  };
+}
+app.options('/api/careers/apply', careersCors, (req, res) => res.sendStatus(204));
+app.post('/api/careers/apply', careersCors, careersUpload.fields([
+  { name: 'resume', maxCount: 1 },
+  { name: 'photo', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const b = req.body;
+    let resumeUrl = null, photoUrl = null;
+    const resumeFile = req.files && req.files.resume && req.files.resume[0];
+    const photoFile = req.files && req.files.photo && req.files.photo[0];
+    if (resumeFile) {
+      const fname = `${Date.now()}_${resumeFile.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+      resumeUrl = await uploadBufferToDrive(resumeFile.buffer, fname, resumeFile.mimetype);
+    }
+    if (photoFile) {
+      const fname = `${Date.now()}_${photoFile.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+      photoUrl = await uploadBufferToDrive(photoFile.buffer, fname, photoFile.mimetype);
+    }
+    const code = genApplicantCode();
+    const fullName = `${b.first_name || ''} ${b.last_name || ''}`.trim();
+    const r = db.prepare(`INSERT INTO job_applicants
+      (applicant_code, full_name, first_name, last_name, headline, address, mobile_number, email_address,
+       position_applied, expected_salary, education, experience, summary, cover_letter, screening_answers,
+       resume_url, photo_url, status, source)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+      code, fullName, b.first_name || '', b.last_name || '', b.headline || '', b.address || '',
+      b.mobile_number || '', b.email_address || '', b.position_applied || '', parseFloat(b.expected_salary) || 0,
+      b.education || '[]', b.experience || '[]', b.summary || '', b.cover_letter || '', b.screening_answers || '{}',
+      resumeUrl, photoUrl, 'New Applicant', 'Application Form (Web)'
+    );
+    const row = db.prepare('SELECT * FROM job_applicants WHERE id=?').get(r.lastInsertRowid);
+    res.json(mapApplicant(row));
+  } catch (e) {
+    console.error('Careers application error:', e);
+    res.status(500).json({ error: e.message || 'Could not process application.' });
+  }
+});
+app.get('/api/careers/applicants', requireAdmin, (req, res) => {
+  const rows = db.prepare('SELECT * FROM job_applicants ORDER BY created_at DESC LIMIT 1000').all();
+  res.json(rows.map(mapApplicant));
+});
+app.patch('/api/careers/applicants/:id', requireAdmin, (req, res) => {
+  const existing = db.prepare('SELECT * FROM job_applicants WHERE id=?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  const b = req.body;
+  const merged = { ...mapApplicant(existing), ...b };
+  db.prepare(`UPDATE job_applicants SET status=?, rejection_reason=?, offer_salary=?, offer_start_date=?,
+    employee_id=?, employee_code=? WHERE id=?`).run(
+    merged.status, merged.rejection_reason, merged.offer_salary, merged.offer_start_date,
+    merged.employee_id, merged.employee_code, req.params.id
+  );
+  res.json({ success: true });
+});
+app.delete('/api/careers/applicants/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM job_applicants WHERE id=?').run(req.params.id);
+  res.json({ success: true });
+});
+
 app.get('/api/employees', requireAuth, (req, res) => {
   const emps = db.prepare('SELECT * FROM employees WHERE active = 1 ORDER BY name').all();
   res.json(emps.map(mapEmployee));
