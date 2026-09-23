@@ -1292,6 +1292,31 @@ app.get('/api/disciplinary', requireAdmin, (req, res) => {
   res.json(rows.map(r => ({ id: r.id, empId: r.employee_id, empName: r.emp_name, date: r.incident_date, type: r.type, level: r.level, sanction: r.sanction, status: r.status, details: r.details, createdAt: r.created_at })));
 });
 
+// Employee self-service: view own disciplinary records
+app.get('/api/disciplinary/mine', requireAuth, (req, res) => {
+  const empId = req.session.user.employee_id;
+  if (!empId) return res.json([]);
+  const rows = db.prepare('SELECT d.*, e.name as emp_name FROM disc_records d JOIN employees e ON d.employee_id=e.id WHERE d.employee_id=? ORDER BY d.created_at DESC').all(empId);
+  res.json(rows.map(r => ({ id: r.id, empId: r.employee_id, empName: r.emp_name, date: r.incident_date, type: r.type, level: r.level, sanction: r.sanction, status: r.status, details: r.details, createdAt: r.created_at })));
+});
+
+// Supervisor: view disciplinary records for their own team (monitoring only)
+app.get('/api/disciplinary/team', requireAdminOrSupervisor, (req, res) => {
+  let empIds;
+  if (req.session.user.role === 'admin') {
+    empIds = db.prepare('SELECT id FROM employees WHERE active=1').all().map(e => e.id);
+  } else {
+    empIds = db.prepare('SELECT employee_id FROM supervisor_subordinates WHERE supervisor_user_id=?').all(req.session.user.id).map(r => r.employee_id);
+  }
+  if (!empIds.length) return res.json([]);
+  const placeholders = empIds.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT d.*, e.name as emp_name FROM disc_records d JOIN employees e ON d.employee_id=e.id
+    WHERE d.employee_id IN (${placeholders}) ORDER BY d.created_at DESC
+  `).all(...empIds);
+  res.json(rows.map(r => ({ id: r.id, empId: r.employee_id, empName: r.emp_name, date: r.incident_date, type: r.type, level: r.level, sanction: r.sanction, status: r.status, details: r.details, createdAt: r.created_at })));
+});
+
 app.post('/api/disciplinary', requireAdmin, (req, res) => {
   const d = req.body;
   const r = db.prepare('INSERT INTO disc_records (employee_id, incident_date, type, level, sanction, status, details) VALUES (?,?,?,?,?,?,?)').run(d.empId, d.date, d.type, d.level, d.sanction, d.status||'Open', d.details||'');
@@ -1370,6 +1395,10 @@ app.post('/api/evr-submissions', requireAdminOrSupervisor, upload.fields([
 });
 app.put('/api/evr-submissions/:id', requireAdmin, (req, res) => {
   db.prepare('UPDATE evr_submissions SET status=? WHERE id=?').run(req.body.status, req.params.id);
+  res.json({ success: true });
+});
+app.delete('/api/evr-submissions/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM evr_submissions WHERE id=?').run(req.params.id);
   res.json({ success: true });
 });
 

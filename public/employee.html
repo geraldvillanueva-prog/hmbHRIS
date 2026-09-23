@@ -645,6 +645,7 @@ input:focus,select:focus,textarea:focus{
 <div class="tab-nav">
   <button class="tab-btn on" onclick="goTab('dashboard',this)">📢 Dashboard</button>
   <button class="tab-btn" onclick="goTab('mydetails',this)">🪪 My Details</button>
+  <button class="tab-btn" onclick="goTab('mydisc',this)">⚠️ Disciplinary Records</button>
   <button class="tab-btn" onclick="goTab('timeinout',this)">🕐 Time In / Out</button>
   <button class="tab-btn" onclick="goTab('leavefile',this)">📝 File a Leave</button>
   <button class="tab-btn" onclick="goTab('leavebal',this)">🌴 Leave Balance</button>
@@ -916,6 +917,14 @@ input:focus,select:focus,textarea:focus{
   </div>
 </div>
 
+<div class="tab-content" id="tab-mydisc">
+  <div class="panel" style="max-width:760px">
+    <div class="panel-title">⚠️ Disciplinary Records</div>
+    <div class="page-sub" style="font-size:12.5px;color:var(--muted);margin:-6px 0 14px">Your own disciplinary record history on file with HR — for your awareness only. Contact HR with any questions about an entry here.</div>
+    <div id="mydisc-wrap"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
 <script>
 var user = null;
 var isIntern = false; // set once in init() by checking the linked employee record's type
@@ -966,6 +975,7 @@ function goTab(name,el){
   if(name==='leavebal'){loadBalance();loadLeaveAll();}
   if(name==='payslips')loadPayslips();
   if(name==='mydetails')loadMyDetails();
+  if(name==='mydisc')loadMyDisc();
 
   // Scroll reveal on tab switch
   setTimeout(setupScrollReveal, 50);
@@ -1776,6 +1786,31 @@ async function loadMyDetails(){
   }catch(err){
     console.error(err);
     w.innerHTML='<div class="empty">Could not load your details right now. Please try again later.</div>';
+  }
+}
+// ── DISCIPLINARY RECORDS (own history, view-only) ───────────────────────────
+async function loadMyDisc(){
+  var w=document.getElementById('mydisc-wrap');
+  w.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    var res=await fetch('/api/disciplinary/mine',{credentials:'same-origin'});
+    var rows=await res.json();
+    if(!rows.length){w.innerHTML='<div class="empty">You have no disciplinary records on file. 🎉</div>';return;}
+    w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Type of Violation</th><th>Offense Level</th><th>Sanction</th><th>Status</th><th>PIP</th></tr></thead><tbody>'
+      +rows.map(function(r){
+        return'<tr>'
+          +'<td style="font-size:12px">'+fmtDate(r.date)+'</td>'
+          +'<td>'+(r.type||'—')+'</td>'
+          +'<td>'+(r.level||'—')+'</td>'
+          +'<td>'+(r.sanction||'—')+'</td>'
+          +'<td>'+(r.status||'—')+'</td>'
+          +'<td style="font-size:12px;color:var(--muted)">'+(r.details||'—')+'</td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div>';
+  }catch(err){
+    console.error(err);
+    w.innerHTML='<div class="empty">Could not load your disciplinary records right now. Please try again later.</div>';
   }
 }
 
