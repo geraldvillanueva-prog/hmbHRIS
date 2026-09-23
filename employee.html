@@ -1796,7 +1796,7 @@ async function loadMyDisc(){
     var res=await fetch('/api/disciplinary/mine',{credentials:'same-origin'});
     var rows=await res.json();
     if(!rows.length){w.innerHTML='<div class="empty">You have no disciplinary records on file. 🎉</div>';return;}
-    w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Type of Violation</th><th>Offense Level</th><th>Sanction</th><th>Status</th><th>PIP</th></tr></thead><tbody>'
+    w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Type of Violation</th><th>Offense Level</th><th>Sanction</th><th>Status</th><th>Remarks</th></tr></thead><tbody>'
       +rows.map(function(r){
         return'<tr>'
           +'<td style="font-size:12px">'+fmtDate(r.date)+'</td>'
