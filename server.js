@@ -225,6 +225,30 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS onboarding_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    task TEXT NOT NULL,
+    is_done INTEGER DEFAULT 0,
+    done_at TEXT,
+    done_by TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS offboarding_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    task TEXT NOT NULL,
+    is_done INTEGER DEFAULT 0,
+    done_at TEXT,
+    done_by TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY(employee_id) REFERENCES employees(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS job_applicants (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     applicant_code TEXT,
@@ -808,6 +832,67 @@ app.delete('/api/careers/applicants/:id', requireAdmin, (req, res) => {
   db.prepare('DELETE FROM job_applicants WHERE id=?').run(req.params.id);
   res.json({ success: true });
 });
+
+// ─── ONBOARDING / OFFBOARDING CHECKLISTS ─────────────────────────────────────
+const ONBOARDING_DEFAULT_TASKS = [
+  'Employment contract signed',
+  '201 file documents collected (TIN, SSS, PhilHealth, Pag-IBIG)',
+  'Company email / HRIS account created',
+  'Equipment issued (laptop, etc.)',
+  'Payroll bank account confirmed',
+  'Company policies & orientation briefing completed',
+  'Introduced to supervisor and team',
+  'Workstation and system access set up'
+];
+const OFFBOARDING_DEFAULT_TASKS = [
+  'Resignation / termination letter on file',
+  'Equipment returned (laptop, ID, access cards)',
+  'Final pay and clearance computed',
+  'HRIS account access revoked',
+  'Exit interview conducted',
+  'Certificate of Employment (COE) issued',
+  'Handover of responsibilities completed',
+  'Final government forms filed (BIR 2316, etc.)'
+];
+function mapChecklistItem(r) {
+  return { id: r.id, empId: r.employee_id, task: r.task, isDone: !!r.is_done, doneAt: r.done_at, doneBy: r.done_by, sortOrder: r.sort_order };
+}
+function checklistRoutes(kind, table, defaults) {
+  app.post(`/api/${kind}/start`, requireAdminOrHrIntern, (req, res) => {
+    const empId = req.body.employeeId;
+    if (!empId) return res.json({ success: false, error: 'employeeId required' });
+    const existing = db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE employee_id=?`).get(empId);
+    if (existing.c > 0) return res.json({ success: true, alreadyStarted: true });
+    const insert = db.prepare(`INSERT INTO ${table} (employee_id, task, sort_order) VALUES (?,?,?)`);
+    defaults.forEach((task, i) => insert.run(empId, task, i));
+    res.json({ success: true });
+  });
+  app.get(`/api/${kind}`, requireAdminOrHrIntern, (req, res) => {
+    const rows = db.prepare(`
+      SELECT c.*, e.name as emp_name FROM ${table} c JOIN employees e ON c.employee_id=e.id
+      ORDER BY e.name, c.sort_order
+    `).all();
+    const byEmp = {};
+    rows.forEach(r => {
+      if (!byEmp[r.employee_id]) byEmp[r.employee_id] = { empId: r.employee_id, empName: r.emp_name, items: [] };
+      byEmp[r.employee_id].items.push(mapChecklistItem(r));
+    });
+    res.json(Object.values(byEmp));
+  });
+  app.patch(`/api/${kind}/:id`, requireAdminOrHrIntern, (req, res) => {
+    const isDone = req.body.isDone ? 1 : 0;
+    const doneAt = isDone ? new Date().toISOString() : null;
+    const doneBy = isDone ? (req.session.user.username || '') : null;
+    db.prepare(`UPDATE ${table} SET is_done=?, done_at=?, done_by=? WHERE id=?`).run(isDone, doneAt, doneBy, req.params.id);
+    res.json({ success: true });
+  });
+  app.delete(`/api/${kind}/employee/:employeeId`, requireAdmin, (req, res) => {
+    db.prepare(`DELETE FROM ${table} WHERE employee_id=?`).run(req.params.employeeId);
+    res.json({ success: true });
+  });
+}
+checklistRoutes('onboarding', 'onboarding_items', ONBOARDING_DEFAULT_TASKS);
+checklistRoutes('offboarding', 'offboarding_items', OFFBOARDING_DEFAULT_TASKS);
 
 app.get('/api/employees', requireAuth, (req, res) => {
   const emps = db.prepare('SELECT * FROM employees WHERE active = 1 ORDER BY name').all();
