@@ -245,6 +245,10 @@ tr:hover td{background:#fafcff}
   <div id="nav-timelogs" class="nav-item" onclick="goSec('timelogs',this)"><span class="nav-icon">🕒</span>Employee Time Logs</div>
   <div class="sidebar-section">Recruitment</div>
   <div id="nav-applicants" class="nav-item" onclick="goSec('applicants',this)"><span class="nav-icon">📋</span>Applicants<span id="applicants-nav-badge" class="applicants-nav-badge" style="display:none">0</span></div>
+  <div class="sidebar-section">Lifecycle</div>
+  <div id="nav-onboarding" class="nav-item" onclick="goSec('onboarding',this)"><span class="nav-icon">🚀</span>Onboarding</div>
+  <div id="nav-offboarding" class="nav-item" onclick="goSec('offboarding',this)"><span class="nav-icon">📤</span>Offboarding</div>
+  <div id="nav-orgchart" class="nav-item" onclick="goSec('orgchart',this)"><span class="nav-icon">🗂️</span>Org Chart</div>
   <div class="sidebar-section">Settings</div>
   <div id="nav-users" class="nav-item" onclick="goSec('users',this)"><span class="nav-icon">🔐</span>User Accounts</div>
   <div id="nav-shifts" class="nav-item" onclick="goSec('shifts',this)"><span class="nav-icon">🕰️</span>Shift Management</div>
@@ -1306,6 +1310,37 @@ tr:hover td{background:#fafcff}
     <div id="appl-list-wrap"><div class="empty">Connect to Supabase above, then click Refresh to load applicants.</div></div>
   </div>
 
+  <div id="sec-onboarding" class="sec">
+    <div class="card" style="margin-bottom:10px">
+      <div class="card-title">🚀 Start Onboarding</div>
+      <div style="display:flex;gap:10px;align-items:flex-end">
+        <div class="f" style="max-width:280px"><label>Employee</label><select id="onb-start-emp"><option value="">-- Select --</option></select></div>
+        <button class="btn bp" onclick="startChecklist('onboarding')">Start Checklist</button>
+        <span class="ok-msg" id="onb-start-ok">Started!</span>
+      </div>
+    </div>
+    <div id="onboarding-wrap"><div class="empty">Loading…</div></div>
+  </div>
+
+  <div id="sec-offboarding" class="sec">
+    <div class="card" style="margin-bottom:10px">
+      <div class="card-title">📤 Start Offboarding</div>
+      <div style="display:flex;gap:10px;align-items:flex-end">
+        <div class="f" style="max-width:280px"><label>Employee</label><select id="offb-start-emp"><option value="">-- Select --</option></select></div>
+        <button class="btn bp" onclick="startChecklist('offboarding')">Start Checklist</button>
+        <span class="ok-msg" id="offb-start-ok">Started!</span>
+      </div>
+      <div class="hint" style="margin-top:8px">Deactivating an employee (Employee Records → Deactivate) will offer to start this automatically — or start one manually here anytime.</div>
+    </div>
+    <div id="offboarding-wrap"><div class="empty">Loading…</div></div>
+  </div>
+
+  <div id="sec-orgchart" class="sec">
+    <div class="card-title" style="margin-bottom:10px">🗂️ Org Chart</div>
+    <div class="hint" style="margin-bottom:10px">Built from each employee's "Immediate Superior" field on their 201 file. Employees whose superior doesn't match anyone's name in the system appear as top-level.</div>
+    <div id="orgchart-wrap"><div class="empty">Loading…</div></div>
+  </div>
+
   <!-- USER ACCOUNTS -->
   <div id="sec-users" class="sec">
     <div class="page-title">User Accounts</div>
@@ -2243,6 +2278,9 @@ function goSec(name,el){
   if(name==='benefits'){loadBenefitTypes();}
   if(name==='management'){mgmtRenderMetrics();mgmtRenderPayroll();mgmtRenderSlips();mgmtRenderLeaves();}
   if(name==='applicants'){if(!applApplicants.length){applLoadList();}else{renderApplicantsList();applRenderKpi();}}
+  if(name==='onboarding'){populateChecklistStartSelect('onboarding');loadChecklist('onboarding');}
+  if(name==='offboarding'){populateChecklistStartSelect('offboarding');loadChecklist('offboarding');}
+  if(name==='orgchart'){renderOrgChart();}
 }
 function goITab(group,name,el){
   var parent=el.closest('.sec');
@@ -2600,6 +2638,10 @@ async function deactivateEmp(id){
   e.deactivatedAt=new Date().toISOString();
   await api('PUT','/api/employees/'+id,{...e});
   renderEmpTable();populateAllSelects();renderDashboard();showSaveIndicator();
+  if(confirm(e.name+' has been deactivated. Start their offboarding checklist now?')){
+    await api('POST','/api/offboarding/start', {employeeId: id});
+    goSec('offboarding', document.getElementById('nav-offboarding'));
+  }
 }
 async function reactivateEmp(id){
   var e=employees.find(x=>x.id===id);if(!e)return;
@@ -5976,6 +6018,108 @@ async function applLoadList(){
     if(w) w.innerHTML = '<div class="empty">Could not load applicants. Please try refreshing.</div>';
   }
 }
+// ── ONBOARDING / OFFBOARDING CHECKLISTS ──────────────────────────────────────
+function populateChecklistStartSelect(kind){
+  var sel = document.getElementById(kind==='onboarding'?'onb-start-emp':'offb-start-emp');
+  if(!sel) return;
+  var cur = sel.value;
+  sel.innerHTML = '<option value="">-- Select --</option>';
+  employees.filter(e=>e.active!==0).forEach(e=>{
+    var o=document.createElement('option'); o.value=e.id; o.textContent=e.name; if(e.id==cur)o.selected=true;
+    sel.appendChild(o);
+  });
+}
+async function startChecklist(kind){
+  var sel = document.getElementById(kind==='onboarding'?'onb-start-emp':'offb-start-emp');
+  var empId = parseInt(sel.value);
+  if(!empId){ alert('Select an employee first.'); return; }
+  var r = await api('POST','/api/'+kind+'/start', {employeeId: empId});
+  if(r.success){
+    flash(kind==='onboarding'?'onb-start-ok':'offb-start-ok');
+    sel.value='';
+    loadChecklist(kind);
+  }
+}
+async function loadChecklist(kind){
+  var w = document.getElementById(kind+'-wrap');
+  w.innerHTML = '<div class="empty">Loading…</div>';
+  try{
+    var data = await api('GET','/api/'+kind);
+    renderChecklistList(kind, data);
+  }catch(e){
+    w.innerHTML = '<div class="empty">Could not load. Please try refreshing.</div>';
+  }
+}
+function renderChecklistList(kind, data){
+  var w = document.getElementById(kind+'-wrap');
+  if(!data.length){ w.innerHTML='<div class="empty">No one is currently in '+kind+'. Start one above.</div>'; return; }
+  w.innerHTML = data.map(function(emp){
+    var done = emp.items.filter(i=>i.isDone).length;
+    var total = emp.items.length;
+    var pct = total?Math.round(done/total*100):0;
+    var itemsHtml = emp.items.map(function(it){
+      return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px'+(it.isDone?';color:var(--muted);text-decoration:line-through':'')+'">'
+        +'<input type="checkbox" '+(it.isDone?'checked':'')+' onchange="toggleChecklistItem(\''+kind+'\','+it.id+',this)">'
+        +it.task
+        +(it.isDone&&it.doneBy?' <span style="font-size:11px;color:var(--muted);text-decoration:none">('+it.doneBy+')</span>':'')
+        +'</label>';
+    }).join('');
+    return '<div class="card" style="margin-bottom:10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      +'<strong>'+emp.empName+'</strong>'
+      +'<div style="display:flex;align-items:center;gap:10px">'
+      +'<span style="font-size:12px;color:var(--muted)">'+done+'/'+total+' complete</span>'
+      +'<button class="btn bs br" style="font-size:11px" onclick="deleteChecklistForEmployee(\''+kind+'\','+emp.empId+',\''+emp.empName.replace(/'/g,"\\'")+'\')">🗑 Remove</button>'
+      +'</div></div>'
+      +'<div style="background:#eee;border-radius:8px;height:8px;overflow:hidden;margin-bottom:10px">'
+      +'<div style="background:'+(pct===100?'var(--green)':'var(--blue)')+';height:100%;width:'+pct+'%"></div></div>'
+      +itemsHtml
+      +'</div>';
+  }).join('');
+}
+async function toggleChecklistItem(kind, itemId, checkbox){
+  await api('PATCH','/api/'+kind+'/'+itemId, {isDone: checkbox.checked});
+  loadChecklist(kind);
+}
+async function deleteChecklistForEmployee(kind, empId, empName){
+  if(!confirm('Remove the entire '+kind+' checklist for '+empName+'? This cannot be undone.')) return;
+  await api('DELETE','/api/'+kind+'/employee/'+empId);
+  loadChecklist(kind);
+}
+// ── ORG CHART ─────────────────────────────────────────────────────────────
+function renderOrgChart(){
+  var w = document.getElementById('orgchart-wrap');
+  var active = employees.filter(e=>e.active!==0);
+  if(!active.length){ w.innerHTML='<div class="empty">No active employees to show.</div>'; return; }
+  // Build a lookup by lowercased, trimmed name
+  var byName = {};
+  active.forEach(e=>{ byName[(e.name||'').trim().toLowerCase()] = e; });
+  var childrenOf = {}; // empId -> [employees]
+  var roots = [];
+  active.forEach(e=>{
+    var sup = (e.immediateSuperior||'').trim();
+    var supEmp = sup ? byName[sup.toLowerCase()] : null;
+    if(supEmp && supEmp.id !== e.id){
+      childrenOf[supEmp.id] = childrenOf[supEmp.id] || [];
+      childrenOf[supEmp.id].push(e);
+    } else {
+      roots.push(e);
+    }
+  });
+  function nodeHtml(e, depth){
+    var kids = childrenOf[e.id] || [];
+    var html = '<div style="margin-left:'+(depth*28)+'px;padding:8px 12px;margin-bottom:4px;background:'+(depth===0?'#eef4ff':'#fff')+';border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:10px">'
+      +'<span style="font-weight:600">'+e.name+'</span>'
+      +(e.pos?'<span style="font-size:12px;color:var(--muted)">'+e.pos+'</span>':'')
+      +(kids.length?'<span style="font-size:11px;color:var(--muted);margin-left:auto">'+kids.length+' direct report'+(kids.length>1?'s':'')+'</span>':'')
+      +'</div>';
+    kids.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    kids.forEach(k=>{ html += nodeHtml(k, depth+1); });
+    return html;
+  }
+  roots.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  w.innerHTML = roots.map(r=>nodeHtml(r,0)).join('');
+}
 function applPopulatePosFilter(){
   var sel = document.getElementById('appl-filter-pos');
   if(!sel) return;
@@ -6148,6 +6292,16 @@ async function applChangeStatus(idx, newStatus){
     a.status = newStatus;
     applRenderKpi();
     applUpdateNavBadge();
+    if(newStatus==='Hired'){
+      if(a.employee_id){
+        if(confirm(a.full_name+' is marked Hired and already linked to an employee record. Start their onboarding checklist now?')){
+          await api('POST','/api/onboarding/start', {employeeId: a.employee_id});
+          goSec('onboarding', document.getElementById('nav-onboarding'));
+        }
+      }else{
+        alert(a.full_name+' is marked Hired. Once you create their employee record (Employee Records → Add Employee), come back to the Onboarding tab to start their checklist.');
+      }
+    }
   }catch(e){
     alert('Could not update status: '+e.message);
     renderApplicantsList();
