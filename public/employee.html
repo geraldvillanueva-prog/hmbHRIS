@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HMB HRIS – Employee Portal</title>
+<link rel="manifest" href="/manifest-employee.json">
+<meta name="theme-color" content="#1565c0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HMB Employee">
+<link rel="apple-touch-icon" href="/icon-apple-touch.png">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2818,5 +2825,19 @@ var _celAmbientStarted=false;
   </svg>
 </div>
 <div id="cel-overlay" class="cel-overlay" aria-hidden="true"></div>
+<script>
+// Registers the shared service worker so this page can be installed to a
+// phone's home screen and opens as a standalone app. Wrapped in a support
+// check and try/catch since older browsers simply won't have this API —
+// the page still works normally for them, just without the installable
+// app behavior.
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('/sw.js').catch(function(err){
+      console.warn('Service worker registration failed:', err);
+    });
+  });
+}
+</script>
 </body>
 </html>
