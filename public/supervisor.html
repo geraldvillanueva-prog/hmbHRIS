@@ -2565,6 +2565,89 @@ function colorForNameHex(name){
 // ---- Scene state, created once and reused across refreshes ----
 var vo3d = { scene:null, camera:null, renderer:null, characters:{}, animId:null, resizeHandler:null };
 
+// Room shell — walls, a door, windows, and an extra meeting table, all
+// built once alongside the floor. Walls are deliberately only placed on
+// the back (north) and two side walls — a wall on the near/south side
+// (where the fixed camera sits) would block the entire view, so that
+// side is left open, the way a dollhouse or stage set omits its "fourth
+// wall" for the audience to see in.
+function buildRoomDecor(){
+  var wallMat = new THREE.MeshStandardMaterial({color:0xe0d8c8});
+  var wallH = 3.2, wallT = 0.15;
+  var floorHalfW = 10, floorHalfD = 6;
+
+  // Back (north) wall — spans the full width
+  var backWall = new THREE.Mesh(new THREE.BoxGeometry(floorHalfW*2, wallH, wallT), wallMat);
+  backWall.position.set(0, wallH/2, -floorHalfD);
+  backWall.receiveShadow = true;
+  vo3d.scene.add(backWall);
+
+  // Left (west) and right (east) walls — spans the full depth
+  var leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallT, wallH, floorHalfD*2), wallMat);
+  leftWall.position.set(-floorHalfW, wallH/2, 0);
+  leftWall.receiveShadow = true;
+  vo3d.scene.add(leftWall);
+
+  var rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallT, wallH, floorHalfD*2), wallMat);
+  rightWall.position.set(floorHalfW, wallH/2, 0);
+  rightWall.receiveShadow = true;
+  vo3d.scene.add(rightWall);
+
+  // Door — mounted on the west wall near the Entrance zone, so it reads
+  // as "this is where people come in". A door frame plus a slightly
+  // recessed door panel and a small knob.
+  var doorZ = 3.3;
+  var doorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.3, 1.3), new THREE.MeshStandardMaterial({color:0x8d6e4a}));
+  doorFrame.position.set(-floorHalfW+0.08, 1.15, doorZ);
+  vo3d.scene.add(doorFrame);
+  var doorPanel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.1, 1.1), new THREE.MeshStandardMaterial({color:0x6b4f3a}));
+  doorPanel.position.set(-floorHalfW+0.16, 1.1, doorZ);
+  vo3d.scene.add(doorPanel);
+  var knob = new THREE.Mesh(new THREE.SphereGeometry(0.05,10,10), new THREE.MeshStandardMaterial({color:0xd4af37}));
+  knob.position.set(-floorHalfW+0.2, 1.05, doorZ+0.45);
+  vo3d.scene.add(knob);
+
+  // Windows — a few panes on the back wall, letting the "office" feel
+  // like it has natural light rather than being a windowless box.
+  [-6, -1, 4].forEach(function(wx){
+    var frame = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.3, 0.1), new THREE.MeshStandardMaterial({color:0xffffff}));
+    frame.position.set(wx, 2.0, -floorHalfD+0.1);
+    vo3d.scene.add(frame);
+    var pane = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.05, 0.06), new THREE.MeshStandardMaterial({color:0xbfe3f0, transparent:true, opacity:0.55}));
+    pane.position.set(wx, 2.0, -floorHalfD+0.16);
+    vo3d.scene.add(pane);
+  });
+
+  // An extra meeting table with chairs, in the open area that isn't part
+  // of any employee's assigned desk zone — makes the room feel like a
+  // real, furnished office rather than only individual workstations.
+  var meetX = 7, meetZ = 2.5;
+  var tableTop = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.06,1.1), new THREE.MeshStandardMaterial({color:0x8d6e4a}));
+  tableTop.position.set(meetX, 0.6, meetZ);
+  tableTop.castShadow = true;
+  vo3d.scene.add(tableTop);
+  [[-0.95,-0.45],[0.95,-0.45],[-0.95,0.45],[0.95,0.45]].forEach(function(p){
+    var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.6,8), new THREE.MeshStandardMaterial({color:0x6b4f3a}));
+    leg.position.set(meetX+p[0], 0.3, meetZ+p[1]);
+    vo3d.scene.add(leg);
+  });
+  // Four simple chairs around the meeting table
+  [[-1.4,0],[1.4,0],[0,-0.9],[0,0.9]].forEach(function(p){
+    var chairMat = new THREE.MeshStandardMaterial({color:0x37474f});
+    var seat = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.05,0.38), chairMat);
+    seat.position.set(meetX+p[0], 0.32, meetZ+p[1]);
+    seat.castShadow = true;
+    vo3d.scene.add(seat);
+    var back = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.35,0.05), chairMat);
+    // Orient the backrest away from the table center on each side
+    var dirX = p[0]!==0 ? Math.sign(p[0]) : 0, dirZ = p[1]!==0 ? Math.sign(p[1]) : 0;
+    back.position.set(meetX+p[0]+dirX*0.17, 0.53, meetZ+p[1]+dirZ*0.17);
+    if(dirZ!==0) back.rotation.y = Math.PI/2;
+    back.castShadow = true;
+    vo3d.scene.add(back);
+  });
+}
+
 function ensureVoScene(container){
   if(vo3d.renderer){
     // Scene already built in memory (e.g. we switched to Table view and
@@ -2637,6 +2720,8 @@ function ensureVoScene(container){
     mesh.receiveShadow = true;
     vo3d.scene.add(mesh);
   });
+
+  buildRoomDecor();
 
   // Desk props (simple boxes) — drawn once per stable slot in updateVoCharacters,
   // since the number of slots depends on team size (computed from live rows).
