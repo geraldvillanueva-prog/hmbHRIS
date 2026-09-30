@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HMB HRIS – Supervisor Portal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <link rel="manifest" href="/manifest-supervisor.json">
 <meta name="theme-color" content="#1565c0">
 <meta name="mobile-web-app-capable" content="yes">
@@ -142,56 +143,6 @@ tr:hover td{background:#fafcff}
 .badge-blue{background:#e3f2fd;color:var(--blue)}
 .badge-purple{background:#f3e5f5;color:#7b1fa2}
 .badge-gray{background:#f0f4f8;color:var(--muted)}
-
-/* ── Virtual Office floor plan ─────────────────────────────────────── */
-.vo-floor{
-  position:relative;width:100%;
-  aspect-ratio:16/8;min-height:320px;
-  background:#f7f3ec;border:1px solid var(--border);border-radius:12px;
-  overflow:hidden;
-}
-.vo-zone{
-  position:absolute;border-radius:10px;
-  border:1.5px dashed rgba(0,0,0,0.12);
-  background:rgba(255,255,255,0.4);
-}
-.vo-zone-break{background:rgba(255,224,178,0.35);border-color:rgba(230,81,0,0.25)}
-.vo-zone-entrance{background:rgba(200,230,255,0.35);border-color:rgba(21,101,192,0.25)}
-.vo-zone-label{
-  position:absolute;top:6px;left:8px;font-size:11px;font-weight:700;
-  color:rgba(0,0,0,0.45);font-family:'IBM Plex Mono',monospace;
-  letter-spacing:.02em;pointer-events:none;
-}
-.vo-desk-icon{
-  position:absolute;transform:translate(-50%,-50%);
-  font-size:20px;opacity:0.35;pointer-events:none;
-}
-.vo-avatar{
-  position:absolute;transform:translate(-50%,-50%);
-  width:40px;height:40px;border-radius:50%;color:#fff;font-weight:700;
-  display:flex;align-items:center;justify-content:center;
-  border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.18);
-  /* This is what makes movement between zones look like walking rather
-     than teleporting — the browser animates left/top automatically
-     whenever a re-render assigns new percentage values. */
-  transition:left 1.4s cubic-bezier(.4,0,.2,1), top 1.4s cubic-bezier(.4,0,.2,1), opacity .6s;
-  animation:vo-idle-bob 2.4s ease-in-out infinite;
-  cursor:default;
-}
-.vo-avatar-faded{opacity:0.45;filter:grayscale(60%);animation:none}
-.vo-avatar-initials{font-size:13px}
-.vo-avatar-name{
-  position:absolute;top:100%;left:50%;transform:translateX(-50%);
-  font-size:9px;font-weight:700;color:var(--text);white-space:nowrap;
-  margin-top:3px;background:rgba(255,255,255,0.85);padding:1px 5px;border-radius:6px;
-}
-@keyframes vo-idle-bob{
-  0%,100%{ margin-top:0px; }
-  50%{ margin-top:-3px; }
-}
-@media (prefers-reduced-motion: reduce){
-  .vo-avatar{ animation:none; transition:opacity .3s; }
-}
 
 /* LEAVE CARD */
 .leave-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin-bottom:10px;transition:box-shadow .15s}
@@ -1330,7 +1281,10 @@ function flash(id){
   setTimeout(function(){el.style.display='none';},2200);
 }
 function goTab(name,el){
-  if(name!=='team' && typeof stopVoAutoRefresh==='function') stopVoAutoRefresh();
+  if(name!=='team'){
+    if(typeof stopVoAutoRefresh==='function') stopVoAutoRefresh();
+    if(typeof stopVoAnimation==='function') stopVoAnimation();
+  }
   // Progress bar
   var pb=document.getElementById('progress-bar');
   pb.style.width='0%'; pb.classList.add('running');
@@ -2533,7 +2487,7 @@ function setLiveAttView(mode){
   var tBtn=document.getElementById('live-att-view-table'), oBtn=document.getElementById('live-att-view-office');
   if(tBtn) tBtn.classList.toggle('on', mode==='table');
   if(oBtn) oBtn.classList.toggle('on', mode==='office');
-  if(mode==='table') stopVoAutoRefresh();
+  if(mode==='table'){ stopVoAutoRefresh(); if(typeof stopVoAnimation==='function') stopVoAnimation(); }
   if(window._liveAttLastRows) renderLiveAttendanceView(window._liveAttLastRows);
 }
 function renderLiveAttendanceView(rows){
@@ -2562,24 +2516,22 @@ function initialsForName(name){
   if(!parts.length||!parts[0]) return '?';
   return (parts[0][0] + (parts.length>1?parts[parts.length-1][0]:'')).toUpperCase();
 }
-// ── Virtual Office: animated floor plan ─────────────────────────────────
+// ── Virtual Office: real 3D scene (Three.js) ─────────────────────────────
 // Design notes:
-//  - Zones (Entrance, Break Room, Desks) are percentage-positioned so the
-//    whole floor plan scales with container width.
-//  - Each person gets a STABLE desk slot (computed from their employee id,
-//    not randomly each render) so their "home" position doesn't jump
-//    around on every refresh — only their CURRENT zone changes, based on
-//    their live status.
-//  - Movement between zones is plain CSS transition on left/top — no
-//    animation library needed. Re-rendering with new target coordinates
-//    is all it takes for the browser to animate the slide smoothly.
-//  - Auto-refreshes every 15s while this view is open, so movement is
-//    actually visible over time rather than only on manual refresh —
-//    paused automatically when switching away, to avoid needless load.
-var VO_ZONES = {
-  entrance:   { left: 4,  top: 76, width: 22, height: 18 },
-  breakroom:  { left: 68, top: 6,  width: 27, height: 34 },
-  desks:      { left: 6,  top: 12, width: 58, height: 60 }
+//  - One persistent Three.js scene is created the first time this view is
+//    opened. Later refreshes UPDATE existing character positions rather
+//    than rebuilding the scene — that's what makes movement look like
+//    genuine walking (interpolated frame-by-frame in the render loop)
+//    instead of a fresh render each time.
+//  - Zones are simple flat-colored rectangles on the floor. Each person
+//    gets a stable "home desk" (computed from employee id, not randomly),
+//    exactly as in the earlier 2D version — only the rendering changed.
+//  - Auto-refreshes every 15s while this view is open (unchanged from
+//    before), paused when the tab/view isn't visible.
+var VO_ZONES_3D = {
+  desks:     { x:-3, z:-1,   w:10, d:8,   color:0xffffff, label:'💼 Workstations' },
+  breakroom: { x:6.5, z:-3.5, w:5,  d:4.5, color:0xffe0b2, label:'☕ Break Room' },
+  entrance:  { x:-7.5, z:3.5, w:5,  d:3,   color:0xc8e6ff, label:'🚪 Entrance' }
 };
 var voAutoRefreshTimer = null;
 function stopVoAutoRefresh(){
@@ -2588,14 +2540,10 @@ function stopVoAutoRefresh(){
 function startVoAutoRefresh(){
   stopVoAutoRefresh();
   voAutoRefreshTimer = setInterval(function(){
-    if(document.hidden) return; // don't bother fetching for a background tab
+    if(document.hidden) return;
     if(getLiveAttView()==='office') loadLiveAttendance();
   }, 15000);
 }
-// A stable, small "jitter" offset per person within whatever zone they're
-// in, so multiple people in the same zone (e.g. two people on break)
-// don't render exactly on top of each other. Derived from their name hash
-// — same idea as colorForName — so it's consistent across renders.
 function jitterForName(name, range){
   var hash = 0;
   for(var i=0;i<(name||'').length;i++) hash = (hash*17 + name.charCodeAt(i)) >>> 0;
@@ -2605,69 +2553,233 @@ function zoneForRow(r){
   var s = statusLabel(r);
   if(s.cls==='badge-green') return 'desks';
   if(s.cls==='badge-yellow') return 'breakroom';
-  return 'entrance'; // not yet in, or shift complete — both "away from desk"
+  return 'entrance';
 }
-function renderVirtualOffice(rows){
-  var w = document.getElementById('live-att-wrap');
-  if(!w) return;
-  if(!rows.length){ w.innerHTML='<div class="empty">No subordinates assigned.</div>'; stopVoAutoRefresh(); return; }
-  var in_count   = rows.filter(r=>r.timeIn && !r.timeOut).length;
-  var out_count  = rows.filter(r=>r.timeOut).length;
-  var none_count = rows.filter(r=>!r.timeIn).length;
+function colorForNameHex(name){
+  // Same palette/hash as colorForName, but returns a numeric hex for
+  // Three.js materials instead of a CSS string.
+  var hex = colorForName(name).replace('#','');
+  return parseInt(hex, 16);
+}
 
-  var summaryHtml =
-    '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">'
-    +'<div style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">🟢 Working: '+in_count+'</div>'
-    +'<div style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">✅ Done: '+out_count+'</div>'
-    +'<div style="background:#f0f4f8;color:#6b7c93;border:1px solid #dce3ec;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">⬜ Not in: '+none_count+'</div>'
-    +'</div>';
+// ---- Scene state, created once and reused across refreshes ----
+var vo3d = { scene:null, camera:null, renderer:null, characters:{}, animId:null, resizeHandler:null };
 
-  // Stable desk slots: sort by employee id so each person always gets the
-  // same slot index across every render, regardless of live status order.
+function ensureVoScene(container){
+  if(vo3d.renderer){
+    // Scene already built in memory (e.g. we switched to Table view and
+    // back) — just make sure its canvas is actually attached to whatever
+    // container element exists right now, since the old one may have been
+    // destroyed when the table view replaced this panel's innerHTML.
+    if(!container.contains(vo3d.renderer.domElement)) container.appendChild(vo3d.renderer.domElement);
+    return;
+  }
+  if(typeof THREE === 'undefined'){
+    container.innerHTML = '<div class="empty">3D view could not load (Three.js failed to load from CDN). Try refreshing the page.</div>';
+    return;
+  }
+  var w = container.clientWidth || 800, h = 420;
+
+  vo3d.scene = new THREE.Scene();
+  vo3d.scene.background = new THREE.Color(0xf7f3ec);
+
+  vo3d.camera = new THREE.PerspectiveCamera(42, w/h, 0.1, 100);
+  vo3d.camera.position.set(0, 13, 11);
+  vo3d.camera.lookAt(0, 0, 0);
+
+  vo3d.renderer = new THREE.WebGLRenderer({antialias:true});
+  vo3d.renderer.setSize(w, h);
+  vo3d.renderer.shadowMap.enabled = true;
+  container.innerHTML = '';
+  container.appendChild(vo3d.renderer.domElement);
+
+  // Lighting — ambient for overall softness, one directional casting
+  // shadows for actual depth/shading (this is what makes it read as "3D"
+  // rather than flat-shaded shapes).
+  vo3d.scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+  var dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+  dirLight.position.set(6, 12, 6);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(1024,1024);
+  vo3d.scene.add(dirLight);
+
+  // Floor
+  var floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(20, 12),
+    new THREE.MeshStandardMaterial({color:0xe8ddc9})
+  );
+  floor.rotation.x = -Math.PI/2;
+  floor.receiveShadow = true;
+  vo3d.scene.add(floor);
+
+  // Zone markers — flat colored rectangles sitting just above the floor
+  Object.keys(VO_ZONES_3D).forEach(function(key){
+    var z = VO_ZONES_3D[key];
+    var mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(z.w, z.d),
+      new THREE.MeshStandardMaterial({color:z.color, transparent:true, opacity:0.6})
+    );
+    mesh.rotation.x = -Math.PI/2;
+    mesh.position.set(z.x, 0.01, z.z);
+    mesh.receiveShadow = true;
+    vo3d.scene.add(mesh);
+  });
+
+  // Desk props (simple boxes) — drawn once per stable slot in updateVoCharacters,
+  // since the number of slots depends on team size (computed from live rows).
+
+  vo3d.resizeHandler = function(){
+    if(!container.clientWidth) return;
+    var nw = container.clientWidth, nh = 420;
+    vo3d.camera.aspect = nw/nh;
+    vo3d.camera.updateProjectionMatrix();
+    vo3d.renderer.setSize(nw, nh);
+  };
+  window.addEventListener('resize', vo3d.resizeHandler);
+}
+
+function createCharacterMesh(colorHex){
+  var group = new THREE.Group();
+  var body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.32, 0.4, 0.85, 16),
+    new THREE.MeshStandardMaterial({color: colorHex})
+  );
+  body.position.y = 0.42;
+  body.castShadow = true;
+  group.add(body);
+
+  var head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.3, 20, 20),
+    new THREE.MeshStandardMaterial({color: colorHex})
+  );
+  head.position.y = 1.02;
+  head.castShadow = true;
+  group.add(head);
+
+  return group;
+}
+
+function deskWorldPosition(idx, cols, rows){
+  var z = VO_ZONES_3D.desks;
+  var col = idx % cols, row = Math.floor(idx / cols);
+  var x = z.x - z.w/2 + z.w * (col + 0.5) / cols;
+  var zz = z.z - z.d/2 + z.d * (row + 0.5) / Math.max(1, rows);
+  return { x: x, z: zz };
+}
+function zoneWorldPosition(zoneName, name){
+  var z = VO_ZONES_3D[zoneName];
+  return {
+    x: z.x + jitterForName(name, z.w*0.5),
+    z: z.z + jitterForName(name+'z', z.d*0.5)
+  };
+}
+
+function updateVoCharacters(rows){
   var sortedForDesks = rows.slice().sort((a,b)=>a.employeeId-b.employeeId);
   var deskSlotIndex = {};
   sortedForDesks.forEach((r,i)=>{ deskSlotIndex[r.employeeId] = i; });
   var deskCols = Math.max(2, Math.ceil(Math.sqrt(rows.length)));
   var deskRows = Math.ceil(rows.length / deskCols);
 
-  function deskPosition(idx){
-    var col = idx % deskCols, row = Math.floor(idx / deskCols);
-    var z = VO_ZONES.desks;
-    var x = z.left + (z.width  * (col + 0.5) / deskCols);
-    var y = z.top  + (z.height * (row + 0.5) / Math.max(1,deskRows));
-    return { x: x, y: y };
-  }
-  function zonePosition(zoneName, name){
-    var z = VO_ZONES[zoneName];
-    var x = z.left + z.width/2  + jitterForName(name, z.width*0.6);
-    var y = z.top  + z.height/2 + jitterForName(name+'y', z.height*0.5);
-    return { x: x, y: y };
-  }
+  // Draw/refresh desk props to match current team size (cheap to just
+  // clear and redraw these each time, unlike the characters themselves).
+  if(vo3d.deskProps){ vo3d.deskProps.forEach(m=>vo3d.scene.remove(m)); }
+  vo3d.deskProps = sortedForDesks.map(function(r,i){
+    var p = deskWorldPosition(i, deskCols, deskRows);
+    var desk = new THREE.Mesh(
+      new THREE.BoxGeometry(0.7,0.4,0.5),
+      new THREE.MeshStandardMaterial({color:0xcfc3ad})
+    );
+    desk.position.set(p.x, 0.2, p.z);
+    desk.castShadow = true;
+    vo3d.scene.add(desk);
+    return desk;
+  });
 
-  var floorHtml = '<div class="vo-floor">'
-    + '<div class="vo-zone vo-zone-desks" style="left:'+VO_ZONES.desks.left+'%;top:'+VO_ZONES.desks.top+'%;width:'+VO_ZONES.desks.width+'%;height:'+VO_ZONES.desks.height+'%"><span class="vo-zone-label">💼 Workstations</span></div>'
-    + '<div class="vo-zone vo-zone-break" style="left:'+VO_ZONES.breakroom.left+'%;top:'+VO_ZONES.breakroom.top+'%;width:'+VO_ZONES.breakroom.width+'%;height:'+VO_ZONES.breakroom.height+'%"><span class="vo-zone-label">☕ Break Room</span></div>'
-    + '<div class="vo-zone vo-zone-entrance" style="left:'+VO_ZONES.entrance.left+'%;top:'+VO_ZONES.entrance.top+'%;width:'+VO_ZONES.entrance.width+'%;height:'+VO_ZONES.entrance.height+'%"><span class="vo-zone-label">🚪 Entrance</span></div>'
-    // Little desk icons drawn under each stable slot, so a desk is visibly
-    // "empty" the moment its person steps away.
-    + sortedForDesks.map(function(r,i){
-        var p = deskPosition(i);
-        return '<div class="vo-desk-icon" style="left:'+p.x+'%;top:'+p.y+'%">🖥️</div>';
-      }).join('')
-    + rows.map(function(r){
-        var zone = zoneForRow(r);
-        var pos = zone==='desks' ? deskPosition(deskSlotIndex[r.employeeId]) : zonePosition(zone, r.empName);
-        var s = statusLabel(r);
-        var bg = colorForName(r.empName);
-        var faded = (zone==='entrance');
-        return '<div class="vo-avatar'+(faded?' vo-avatar-faded':'')+'" style="left:'+pos.x+'%;top:'+pos.y+'%;background:'+bg+'" title="'+escHtml(r.empName)+' — '+s.text+'">'
-          + '<span class="vo-avatar-initials">'+initialsForName(r.empName)+'</span>'
-          + '<span class="vo-avatar-name">'+escHtml(r.empName.split(',')[0])+'</span>'
-          + '</div>';
-      }).join('')
-    + '</div>';
+  var currentIds = {};
+  rows.forEach(function(r){
+    currentIds[r.employeeId] = true;
+    var zone = zoneForRow(r);
+    var pos = zone==='desks'
+      ? deskWorldPosition(deskSlotIndex[r.employeeId], deskCols, deskRows)
+      : zoneWorldPosition(zone, r.empName);
 
-  w.innerHTML = summaryHtml + floorHtml;
+    if(!vo3d.characters[r.employeeId]){
+      var mesh = createCharacterMesh(colorForNameHex(r.empName));
+      mesh.position.set(pos.x, 0, pos.z);
+      vo3d.scene.add(mesh);
+      vo3d.characters[r.employeeId] = {
+        group: mesh, current:{x:pos.x,z:pos.z}, target:{x:pos.x,z:pos.z},
+        bobPhase: Math.random()*10, name:r.empName
+      };
+    } else {
+      vo3d.characters[r.employeeId].target = { x: pos.x, z: pos.z };
+    }
+  });
+  Object.keys(vo3d.characters).forEach(function(id){
+    if(!currentIds[id]){
+      vo3d.scene.remove(vo3d.characters[id].group);
+      delete vo3d.characters[id];
+    }
+  });
+}
+
+function stopVoAnimation(){
+  if(vo3d.animId){ cancelAnimationFrame(vo3d.animId); vo3d.animId=null; }
+}
+function animateVoScene(){
+  vo3d.animId = requestAnimationFrame(animateVoScene);
+  var speed = 0.06;
+  Object.keys(vo3d.characters).forEach(function(id){
+    var c = vo3d.characters[id];
+    var dx = c.target.x - c.current.x, dz = c.target.z - c.current.z;
+    var moving = Math.abs(dx) > 0.02 || Math.abs(dz) > 0.02;
+    c.current.x += dx * speed;
+    c.current.z += dz * speed;
+    c.bobPhase += moving ? 0.25 : 0.05;
+    var bobY = moving ? Math.abs(Math.sin(c.bobPhase))*0.08 : Math.sin(c.bobPhase)*0.02;
+    c.group.position.set(c.current.x, bobY, c.current.z);
+    if(moving){
+      // Face the direction of travel — small touch, makes movement read
+      // as walking rather than sliding sideways.
+      c.group.rotation.y = Math.atan2(dx, dz);
+    }
+  });
+  if(vo3d.renderer) vo3d.renderer.render(vo3d.scene, vo3d.camera);
+}
+
+function renderVirtualOffice(rows){
+  var w = document.getElementById('live-att-wrap');
+  if(!w) return;
+  if(!rows.length){ w.innerHTML='<div class="empty">No subordinates assigned.</div>'; stopVoAutoRefresh(); stopVoAnimation(); return; }
+
+  var in_count   = rows.filter(r=>r.timeIn && !r.timeOut).length;
+  var out_count  = rows.filter(r=>r.timeOut).length;
+  var none_count = rows.filter(r=>!r.timeIn).length;
+  var summaryHtml =
+    '<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">'
+    +'<div style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">🟢 Working: '+in_count+'</div>'
+    +'<div style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">✅ Done: '+out_count+'</div>'
+    +'<div style="background:#f0f4f8;color:#6b7c93;border:1px solid #dce3ec;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">⬜ Not in: '+none_count+'</div>'
+    +'</div>'
+    +'<div style="font-size:10px;color:var(--muted)">💼 Workstations &nbsp; ☕ Break Room &nbsp; 🚪 Entrance — fixed camera angle</div>';
+
+  // The canvas wrapper is created exactly once. On every later refresh we
+  // only touch the summary badges above it — the canvas itself, and the
+  // Three.js scene/characters inside it, are never destroyed or rebuilt,
+  // which is what lets movement persist smoothly across refreshes.
+  var canvasWrap = document.getElementById('vo-canvas-wrap');
+  var summaryWrap = document.getElementById('vo-summary-wrap');
+  if(!canvasWrap){
+    w.innerHTML = '<div id="vo-summary-wrap"></div><div id="vo-canvas-wrap" style="width:100%;height:420px;border-radius:12px;overflow:hidden;border:1px solid var(--border)"></div>';
+    summaryWrap = document.getElementById('vo-summary-wrap');
+    canvasWrap = document.getElementById('vo-canvas-wrap');
+  }
+  ensureVoScene(canvasWrap);
+  if(summaryWrap) summaryWrap.innerHTML = summaryHtml;
+
+  updateVoCharacters(rows);
+  if(!vo3d.animId) animateVoScene();
   startVoAutoRefresh();
 }
 
