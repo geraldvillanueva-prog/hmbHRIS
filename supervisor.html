@@ -2568,10 +2568,13 @@ var vo3d = { scene:null, camera:null, renderer:null, characters:{}, animId:null,
 function ensureVoScene(container){
   if(vo3d.renderer){
     // Scene already built in memory (e.g. we switched to Table view and
-    // back) — just make sure its canvas is actually attached to whatever
-    // container element exists right now, since the old one may have been
-    // destroyed when the table view replaced this panel's innerHTML.
+    // back) — just make sure its canvas (and label layer) are actually
+    // attached to whatever container element exists right now, since the
+    // old one may have been destroyed when the table view replaced this
+    // panel's innerHTML.
+    container.style.position = 'relative';
     if(!container.contains(vo3d.renderer.domElement)) container.appendChild(vo3d.renderer.domElement);
+    if(vo3d.labelLayer && !container.contains(vo3d.labelLayer)) container.appendChild(vo3d.labelLayer);
     return;
   }
   if(typeof THREE === 'undefined'){
@@ -2591,7 +2594,17 @@ function ensureVoScene(container){
   vo3d.renderer.setSize(w, h);
   vo3d.renderer.shadowMap.enabled = true;
   container.innerHTML = '';
+  container.style.position = 'relative';
   container.appendChild(vo3d.renderer.domElement);
+
+  // A plain HTML layer on top of the canvas for name labels — simpler and
+  // more reliable than Three.js's text-rendering options (which need an
+  // extra font file loaded over the network); each label's position is
+  // recalculated every frame by projecting its character's 3D position
+  // into 2D screen space.
+  vo3d.labelLayer = document.createElement('div');
+  vo3d.labelLayer.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden';
+  container.appendChild(vo3d.labelLayer);
 
   // Lighting — ambient for overall softness, one directional casting
   // shadows for actual depth/shading (this is what makes it read as "3D"
@@ -2674,6 +2687,53 @@ function zoneWorldPosition(zoneName, name){
   };
 }
 
+// A small table (tabletop + 4 legs) with a chair (seat + backrest + 4
+// legs) tucked behind it — "behind" meaning toward the back of the desks
+// zone, so the character sits facing outward across their table, the way
+// an actual desk is arranged. Built once per stable slot, reused as a
+// single Group so it moves/scales together.
+function createDeskFurniture(){
+  var group = new THREE.Group();
+  var woodMat = new THREE.MeshStandardMaterial({color:0xb08968});
+  var legMat  = new THREE.MeshStandardMaterial({color:0x6b4f3a});
+  var chairMat = new THREE.MeshStandardMaterial({color:0x455a64});
+
+  // Tabletop — local z 0.05 to 0.55 (the "front" half of the slot)
+  var top = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.5), woodMat);
+  top.position.set(0, 0.55, 0.30);
+  top.castShadow = true;
+  group.add(top);
+  [[-0.4,0.08],[0.4,0.08],[-0.4,0.52],[0.4,0.52]].forEach(function(p){
+    var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.52,8), legMat);
+    leg.position.set(p[0], 0.26, p[1]);
+    leg.castShadow = true;
+    group.add(leg);
+  });
+
+  // Chair — local z around -0.15 to -0.35 (the "back" half), where the
+  // character actually stands/sits.
+  var seat = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.05,0.42), chairMat);
+  seat.position.set(0, 0.32, -0.15);
+  seat.castShadow = true;
+  group.add(seat);
+  var back = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.4,0.05), chairMat);
+  back.position.set(0, 0.55, -0.34);
+  back.castShadow = true;
+  group.add(back);
+  [[-0.18,-0.03],[0.18,-0.03],[-0.18,-0.27],[0.18,-0.27]].forEach(function(p){
+    var leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.32,8), legMat);
+    leg.position.set(p[0], 0.16, p[1]);
+    leg.castShadow = true;
+    group.add(leg);
+  });
+
+  return group;
+}
+// The offset from a desk slot's center to where its chair actually sits —
+// characters "at their desk" stand here, not at the exact slot center,
+// so they visually line up with the chair rather than the tabletop.
+var VO_CHAIR_OFFSET_Z = -0.15;
+
 function updateVoCharacters(rows){
   var sortedForDesks = rows.slice().sort((a,b)=>a.employeeId-b.employeeId);
   var deskSlotIndex = {};
@@ -2681,19 +2741,15 @@ function updateVoCharacters(rows){
   var deskCols = Math.max(2, Math.ceil(Math.sqrt(rows.length)));
   var deskRows = Math.ceil(rows.length / deskCols);
 
-  // Draw/refresh desk props to match current team size (cheap to just
+  // Draw/refresh desk furniture to match current team size (cheap to just
   // clear and redraw these each time, unlike the characters themselves).
   if(vo3d.deskProps){ vo3d.deskProps.forEach(m=>vo3d.scene.remove(m)); }
   vo3d.deskProps = sortedForDesks.map(function(r,i){
     var p = deskWorldPosition(i, deskCols, deskRows);
-    var desk = new THREE.Mesh(
-      new THREE.BoxGeometry(0.7,0.4,0.5),
-      new THREE.MeshStandardMaterial({color:0xcfc3ad})
-    );
-    desk.position.set(p.x, 0.2, p.z);
-    desk.castShadow = true;
-    vo3d.scene.add(desk);
-    return desk;
+    var furniture = createDeskFurniture();
+    furniture.position.set(p.x, 0, p.z);
+    vo3d.scene.add(furniture);
+    return furniture;
   });
 
   var currentIds = {};
@@ -2703,14 +2759,22 @@ function updateVoCharacters(rows){
     var pos = zone==='desks'
       ? deskWorldPosition(deskSlotIndex[r.employeeId], deskCols, deskRows)
       : zoneWorldPosition(zone, r.empName);
+    if(zone==='desks') pos = { x: pos.x, z: pos.z + VO_CHAIR_OFFSET_Z };
 
     if(!vo3d.characters[r.employeeId]){
       var mesh = createCharacterMesh(colorForNameHex(r.empName));
       mesh.position.set(pos.x, 0, pos.z);
       vo3d.scene.add(mesh);
+      var label = document.createElement('div');
+      label.textContent = (r.empName||'').split(',')[0].trim();
+      label.style.cssText = 'position:absolute;transform:translate(-50%,-100%);'
+        + 'font-size:10px;font-weight:700;color:#2a2a2a;white-space:nowrap;'
+        + 'background:rgba(255,255,255,0.85);padding:1px 6px;border-radius:6px;'
+        + 'font-family:\'IBM Plex Mono\',monospace;';
+      if(vo3d.labelLayer) vo3d.labelLayer.appendChild(label);
       vo3d.characters[r.employeeId] = {
         group: mesh, current:{x:pos.x,z:pos.z}, target:{x:pos.x,z:pos.z},
-        bobPhase: Math.random()*10, name:r.empName
+        bobPhase: Math.random()*10, name:r.empName, label:label
       };
     } else {
       vo3d.characters[r.employeeId].target = { x: pos.x, z: pos.z };
@@ -2718,6 +2782,7 @@ function updateVoCharacters(rows){
   });
   Object.keys(vo3d.characters).forEach(function(id){
     if(!currentIds[id]){
+      if(vo3d.characters[id].label) vo3d.characters[id].label.remove();
       vo3d.scene.remove(vo3d.characters[id].group);
       delete vo3d.characters[id];
     }
@@ -2730,6 +2795,9 @@ function stopVoAnimation(){
 function animateVoScene(){
   vo3d.animId = requestAnimationFrame(animateVoScene);
   var speed = 0.06;
+  var canvasEl = vo3d.renderer ? vo3d.renderer.domElement : null;
+  var cw = canvasEl ? canvasEl.clientWidth : 0, ch = canvasEl ? canvasEl.clientHeight : 0;
+  var projected = new THREE.Vector3();
   Object.keys(vo3d.characters).forEach(function(id){
     var c = vo3d.characters[id];
     var dx = c.target.x - c.current.x, dz = c.target.z - c.current.z;
@@ -2743,6 +2811,18 @@ function animateVoScene(){
       // Face the direction of travel — small touch, makes movement read
       // as walking rather than sliding sideways.
       c.group.rotation.y = Math.atan2(dx, dz);
+    }
+    // Name label: project a point just above the character's head into
+    // 2D screen space, and place the HTML label there. Recomputed every
+    // frame so the label tracks the character as they walk and as the
+    // (fixed) camera would show them at any position on the floor.
+    if(c.label && cw && ch){
+      projected.set(c.current.x, bobY + 1.32, c.current.z);
+      projected.project(vo3d.camera);
+      var sx = (projected.x * 0.5 + 0.5) * cw;
+      var sy = (-projected.y * 0.5 + 0.5) * ch;
+      c.label.style.left = sx + 'px';
+      c.label.style.top = sy + 'px';
     }
   });
   if(vo3d.renderer) vo3d.renderer.render(vo3d.scene, vo3d.camera);
