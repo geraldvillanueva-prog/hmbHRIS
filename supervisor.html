@@ -141,6 +141,7 @@ tr:hover td{background:#fafcff}
 .badge-red{background:#ffebee;color:var(--red)}
 .badge-blue{background:#e3f2fd;color:var(--blue)}
 .badge-purple{background:#f3e5f5;color:#7b1fa2}
+.badge-gray{background:#f0f4f8;color:var(--muted)}
 
 /* LEAVE CARD */
 .leave-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;margin-bottom:10px;transition:box-shadow .15s}
@@ -826,6 +827,8 @@ input:focus,select:focus,textarea:focus{
         <span id="live-att-dot" title="Live sync" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef9a9a;margin-left:8px;vertical-align:middle;transition:background .4s"></span>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
+        <button class="filter-btn" id="live-att-view-table" style="font-size:11px" onclick="setLiveAttView('table')">📋 Table</button>
+        <button class="filter-btn" id="live-att-view-office" style="font-size:11px" onclick="setLiveAttView('office')">🏢 Virtual Office</button>
         <span id="live-att-ts" style="font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace"></span>
         <button class="filter-btn" style="font-size:11px" onclick="loadLiveAttendance()">↻ Refresh</button>
       </div>
@@ -2463,12 +2466,27 @@ async function loadLiveAttendance(){
     var res = await fetch('/api/timelogs/live');
     if(!res.ok){ w.innerHTML='<div class="empty">Could not load live attendance.</div>'; return; }
     var rows = await res.json();
-    renderLiveAttendance(rows);
+    window._liveAttLastRows = rows; // so switching views doesn't need a re-fetch
+    renderLiveAttendanceView(rows);
     var ts = document.getElementById('live-att-ts');
     if(ts) ts.textContent = 'Updated ' + new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
   } catch(e){
     w.innerHTML='<div class="empty">Live attendance unavailable.</div>';
   }
+}
+function getLiveAttView(){
+  try { return localStorage.getItem('hmb_live_att_view') || 'table'; } catch(e){ return 'table'; }
+}
+function setLiveAttView(mode){
+  try { localStorage.setItem('hmb_live_att_view', mode); } catch(e){}
+  var tBtn=document.getElementById('live-att-view-table'), oBtn=document.getElementById('live-att-view-office');
+  if(tBtn) tBtn.classList.toggle('on', mode==='table');
+  if(oBtn) oBtn.classList.toggle('on', mode==='office');
+  if(window._liveAttLastRows) renderLiveAttendanceView(window._liveAttLastRows);
+}
+function renderLiveAttendanceView(rows){
+  if(getLiveAttView()==='office') renderVirtualOffice(rows);
+  else renderLiveAttendanceTable(rows);
 }
 
 function statusLabel(row){
@@ -2478,8 +2496,64 @@ function statusLabel(row){
   if(row.meriendaOut && !row.meriendaIn) return { text:'Merienda break', cls:'badge-yellow', icon:'☕' };
   return { text:'Working',      cls:'badge-green',  icon:'🟢' };
 }
+// A simple, deterministic color per person (based on their name), so the
+// same employee's avatar is always the same color across refreshes and
+// sessions, without needing to store a color choice anywhere.
+var VIRTUAL_OFFICE_PALETTE = ['#1565c0','#6a1b9a','#2e7d32','#e65100','#00838f','#c2185b','#5d4037','#455a64'];
+function colorForName(name){
+  var hash = 0;
+  for(var i=0;i<(name||'').length;i++) hash = (hash*31 + name.charCodeAt(i)) >>> 0;
+  return VIRTUAL_OFFICE_PALETTE[hash % VIRTUAL_OFFICE_PALETTE.length];
+}
+function initialsForName(name){
+  var parts=(name||'').trim().split(/\s+/);
+  if(!parts.length||!parts[0]) return '?';
+  return (parts[0][0] + (parts.length>1?parts[parts.length-1][0]:'')).toUpperCase();
+}
+function renderVirtualOffice(rows){
+  var w = document.getElementById('live-att-wrap');
+  if(!w) return;
+  if(!rows.length){ w.innerHTML='<div class="empty">No subordinates assigned.</div>'; return; }
+  var in_count   = rows.filter(r=>r.timeIn && !r.timeOut).length;
+  var out_count  = rows.filter(r=>r.timeOut).length;
+  var none_count = rows.filter(r=>!r.timeIn).length;
 
-function renderLiveAttendance(rows){
+  var summaryHtml =
+    '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">'
+    +'<div style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">🟢 Working: '+in_count+'</div>'
+    +'<div style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">✅ Done: '+out_count+'</div>'
+    +'<div style="background:#f0f4f8;color:#6b7c93;border:1px solid #dce3ec;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700">⬜ Not in: '+none_count+'</div>'
+    +'</div>';
+
+  // Each "desk" is a card: avatar (colored by person, ringed by status
+  // color), name, position, and a status badge — a lightweight, static
+  // stand-in for a literal animated office floor plan, built from the
+  // exact same live attendance data as the table view.
+  var STATUS_RING = { 'badge-green':'#2e7d32', 'badge-yellow':'#f9a825', 'badge-blue':'#1565c0', 'badge-gray':'#b0bec5' };
+  var deskHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px">'
+    + rows.map(function(r){
+      var s = statusLabel(r);
+      var ring = STATUS_RING[s.cls] || '#b0bec5';
+      var bg = colorForName(r.empName);
+      var isWorking = r.timeIn && !r.timeOut && !(r.lunchOut && !r.lunchIn) && !(r.meriendaOut && !r.meriendaIn);
+      return '<div style="text-align:center;padding:14px 8px;background:#fff;border:1px solid var(--border);border-radius:12px;position:relative">'
+        + '<div style="width:56px;height:56px;border-radius:50%;background:'+bg+';color:#fff;font-weight:700;font-size:18px;'
+          + 'display:flex;align-items:center;justify-content:center;margin:0 auto 8px;border:3px solid '+ring+';position:relative'
+          + (isWorking?';box-shadow:0 0 0 3px rgba(46,125,50,0.15)':'')+'">'
+          + initialsForName(r.empName)
+          + (isWorking?'<span style="position:absolute;bottom:-1px;right:-1px;width:14px;height:14px;border-radius:50%;background:#2e7d32;border:2px solid #fff"></span>':'')
+        + '</div>'
+        + '<div style="font-size:12.5px;font-weight:700;line-height:1.3">'+escHtml(r.empName)+'</div>'
+        + (r.empPos ? '<div style="font-size:10.5px;color:var(--muted);margin-bottom:6px">'+escHtml(r.empPos)+'</div>' : '<div style="margin-bottom:6px"></div>')
+        + '<span class="badge '+s.cls+'" style="font-size:10px">'+s.icon+' '+s.text+'</span>'
+        + '</div>';
+    }).join('')
+    + '</div>';
+
+  w.innerHTML = summaryHtml + deskHtml;
+}
+
+function renderLiveAttendanceTable(rows){
   var w = document.getElementById('live-att-wrap');
   if(!w) return;
   if(!rows.length){ w.innerHTML='<div class="empty">No subordinates assigned.</div>'; return; }
@@ -2542,6 +2616,7 @@ function liveCell(val, color){
 var _origLoadTeam = window.loadTeam;
 window.loadTeam = async function(){
   if(typeof _origLoadTeam === 'function') await _origLoadTeam();
+  setLiveAttView(getLiveAttView()); // sync toggle button highlight to saved preference
   await loadLiveAttendance();
 };
 
