@@ -151,7 +151,7 @@
 
   // ---- 3d. Greeting banner — "Merry Christmas!", "Happy Halloween!" etc.
   if (theme.greeting) {
-    renderGreeting(theme.greeting);
+    renderGreeting(theme.greeting, theme);
   }
 
   // ---- 3e. Countdown — large, subtle background text counting down to
@@ -185,20 +185,23 @@
   // placed in corners, out of the way of anything clickable. Separate
   // from the falling-particle effect above — these are fixed decorations
   // with a gentle idle animation, not moving across the screen.
-  // A pill-shaped greeting banner, centered near the top of the page —
-  // "Merry Christmas!", "Happy Halloween!", etc. Sits above everything
-  // else (very high z-index) but doesn't block clicks, same as every
-  // other decorative piece here.
-  function renderGreeting(text) {
+  // A large, bold, theme-colored greeting banner near the top of the
+  // page — "Merry Christmas!", "Happy Halloween!", etc. Big and stylized
+  // on purpose (gradient text fill + glow), the way a festive card would
+  // treat its title, rather than a small discreet badge.
+  function renderGreeting(text, theme) {
     var el = document.createElement('div');
     el.textContent = text;
-    el.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);'
-      + 'z-index:99996;pointer-events:none;font-family:sans-serif;font-weight:700;'
-      + 'font-size:15px;color:#fff;background:rgba(0,0,0,0.28);padding:7px 20px;'
-      + 'border-radius:22px;letter-spacing:.02em;opacity:0;transition:opacity 1s ease, top 1s ease;'
-      + 'box-shadow:0 2px 10px rgba(0,0,0,0.15)';
+    el.style.cssText = 'position:fixed;top:4%;left:50%;transform:translateX(-50%);'
+      + 'z-index:99996;pointer-events:none;text-align:center;width:90%;max-width:700px;'
+      + 'font-family:\'Fraunces\',Georgia,serif;font-weight:700;'
+      + 'font-size:clamp(28px,6vw,58px);letter-spacing:.01em;line-height:1.1;'
+      + 'background:linear-gradient(135deg,' + theme.accent + ',' + theme.blue + ');'
+      + '-webkit-background-clip:text;background-clip:text;color:transparent;'
+      + 'filter:drop-shadow(0 2px 10px rgba(0,0,0,0.35)) drop-shadow(0 0 22px ' + theme.accent + '88);'
+      + 'opacity:0;transition:opacity 1.2s ease, top 1.2s ease';
     document.documentElement.appendChild(el);
-    requestAnimationFrame(function () { el.style.opacity = '1'; el.style.top = '20px'; });
+    requestAnimationFrame(function () { el.style.opacity = '1'; el.style.top = '5%'; });
   }
 
   // A large, low-opacity number sitting in the page background, counting
@@ -221,7 +224,7 @@
 
     var wrap = document.createElement('div');
     wrap.style.cssText = 'position:fixed;bottom:4%;left:50%;transform:translateX(-50%);'
-      + 'z-index:-1;pointer-events:none;text-align:center;opacity:0;transition:opacity 1.5s ease';
+      + 'z-index:1;pointer-events:none;text-align:center;opacity:0;transition:opacity 1.5s ease';
     wrap.innerHTML = '<div style="font-family:\'IBM Plex Sans\',sans-serif;font-weight:800;'
       + 'font-size:clamp(28px,8vw,96px);color:rgba(255,255,255,0.18);line-height:1;letter-spacing:.01em">'
       + label + '</div>';
