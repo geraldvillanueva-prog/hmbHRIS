@@ -39,15 +39,15 @@
     function between(from, to) { return md >= from && md <= to; }
 
     if (between(1230, 1231) || between(101, 102)) {
-      return { name: 'New Year', blue: '#b8860b', accent: '#d4af37', effect: 'confetti',
+      return { name: 'New Year', blue: '#b8860b', accent: '#d4af37', effect: 'confetti', scene: 'newyear',
         decorations: [ {emoji:'🎉', corner:'bottom-right', size:52, anim:'bob'} ] };
     }
     if (between(210, 214)) {
-      return { name: "Valentine's", blue: '#c2185b', accent: '#e91e63', effect: 'hearts',
+      return { name: "Valentine's", blue: '#c2185b', accent: '#e91e63', effect: 'hearts', scene: 'valentines',
         decorations: [ {emoji:'🌹', corner:'bottom-left', size:50, anim:'sway'} ] };
     }
     if (between(1028, 1101)) {
-      return { name: 'Undas / Halloween', blue: '#6a1b9a', accent: '#e65100', effect: 'leaves',
+      return { name: 'Undas / Halloween', blue: '#6a1b9a', accent: '#e65100', effect: 'leaves', scene: 'halloween',
         decorations: [
           {emoji:'👻', corner:'top-right',   size:58, anim:'float'},
           {emoji:'🎃', corner:'bottom-left', size:56, anim:'bob'}
@@ -55,18 +55,18 @@
     }
     if (between(901, 1229)) {
       // The Philippines' famous "Ber months" — the long Christmas season.
-      return { name: 'Christmas Season', blue: '#c62828', accent: '#2e7d32', effect: 'snow',
+      return { name: 'Christmas Season', blue: '#c62828', accent: '#2e7d32', effect: 'snow', scene: 'christmas',
         decorations: [
           {emoji:'🎄', corner:'bottom-left',  size:66, anim:'sway'},
           {emoji:'🎅', corner:'bottom-right', size:60, anim:'bob'}
         ] };
     }
     if (between(301, 531)) {
-      return { name: 'Summer', blue: '#e65100', accent: '#f9a825', effect: null,
+      return { name: 'Summer', blue: '#e65100', accent: '#f9a825', effect: null, scene: 'summer',
         decorations: [ {emoji:'🌴', corner:'bottom-left', size:54, anim:'sway'} ] };
     }
     if (between(601, 831)) {
-      return { name: 'Rainy Season', blue: '#37474f', accent: '#1565c0', effect: 'rain',
+      return { name: 'Rainy Season', blue: '#37474f', accent: '#1565c0', effect: 'rain', scene: 'rainy',
         decorations: [ {emoji:'☂️', corner:'bottom-right', size:50, anim:'sway'} ] };
     }
     // Jan 3 – Feb 9, and Sep 1 handled above — anything left over
@@ -95,6 +95,14 @@
   // ---- 3b. Themed corner decorations (tree+Santa, ghost+pumpkin, etc.) --
   if (theme.decorations && theme.decorations.length) {
     renderDecorations(theme.decorations);
+  }
+
+  // ---- 3c. A large, rich illustrated corner scene (pine branches +
+  // glossy ornaments, a spooky branch + bats, etc.) — this is the part
+  // that makes the theme feel like a real visual takeover rather than a
+  // couple of small added icons.
+  if (theme.scene) {
+    renderSeasonalScene(theme.scene);
   }
 
   // Small, unobtrusive control to turn this off, in case anyone finds
@@ -150,6 +158,148 @@
         + 'filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));';
       document.documentElement.appendChild(el);
     });
+  }
+
+  // A large, illustrated corner scene — pine branches with glossy
+  // ornament baubles for Christmas, a spooky branch with bats and a
+  // glowing jack-o-lantern for Halloween, etc. Built as original SVG
+  // illustration (gradients for the glossy ball look, layered shapes for
+  // branches) rather than a stock photo, so there's no licensing concern,
+  // while still giving the rich, full-corner visual weight you'd get from
+  // a real photo. Anchored to the bottom-right corner, growing diagonally
+  // into the page — large enough to read as a real scene, not an icon.
+  function renderSeasonalScene(sceneName) {
+    var svgInner = sceneSvgContent(sceneName);
+    if (!svgInner) return;
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;bottom:0;right:0;width:360px;height:360px;'
+      + 'max-width:45vw;max-height:45vw;pointer-events:none;z-index:99995;'
+      + 'opacity:0;transition:opacity 1.2s ease';
+    wrap.innerHTML = '<svg viewBox="0 0 360 360" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">' + svgInner + '</svg>';
+    document.documentElement.appendChild(wrap);
+    requestAnimationFrame(function () { wrap.style.opacity = '1'; });
+  }
+
+  function sceneSvgContent(sceneName) {
+    if (sceneName === 'christmas') {
+      return ''
+        + '<defs>'
+        + '  <radialGradient id="szn-orn-red" cx="35%" cy="28%" r="75%">'
+        + '    <stop offset="0%" stop-color="#ff8a80"/><stop offset="45%" stop-color="#e53935"/><stop offset="100%" stop-color="#8e0000"/>'
+        + '  </radialGradient>'
+        + '  <radialGradient id="szn-orn-teal" cx="35%" cy="28%" r="75%">'
+        + '    <stop offset="0%" stop-color="#80e8d8"/><stop offset="45%" stop-color="#00897b"/><stop offset="100%" stop-color="#004d40"/>'
+        + '  </radialGradient>'
+        + '  <radialGradient id="szn-orn-gold" cx="35%" cy="28%" r="75%">'
+        + '    <stop offset="0%" stop-color="#fff3b0"/><stop offset="45%" stop-color="#d4af37"/><stop offset="100%" stop-color="#8a6d1a"/>'
+        + '  </radialGradient>'
+        + '</defs>'
+        // Pine branch clusters fanning from the bottom-right corner
+        + '<g opacity="0.95">'
+        + branchCluster(330, 350, -35) + branchCluster(300, 330, -55) + branchCluster(250, 340, -15)
+        + branchCluster(355, 300, -70) + branchCluster(200, 355, 5)
+        + '</g>'
+        // Berries
+        + '<circle cx="255" cy="305" r="5" fill="#c62828"/><circle cx="268" cy="298" r="5" fill="#c62828"/>'
+        + '<circle cx="195" cy="330" r="4" fill="#c62828"/>'
+        // Glossy ornament baubles, varied size
+        + '<circle cx="230" cy="250" r="26" fill="url(#szn-orn-red)"/>'
+        + '<circle cx="290" cy="220" r="22" fill="url(#szn-orn-teal)"/>'
+        + '<circle cx="180" cy="285" r="19" fill="url(#szn-orn-gold)"/>'
+        + '<circle cx="310" cy="285" r="15" fill="url(#szn-orn-red)"/>'
+        // Little ornament caps
+        + '<rect x="226" y="222" width="8" height="6" rx="2" fill="#d4af37"/>'
+        + '<rect x="286" y="196" width="7" height="5" rx="2" fill="#d4af37"/>'
+        // Ribbon bow near the corner
+        + '<path d="M300 330 Q270 310 290 340 Q270 330 300 355 Q330 330 310 340 Q330 310 300 330 Z" fill="#c62828" stroke="#8e0000" stroke-width="2"/>'
+        + '<circle cx="300" cy="332" r="6" fill="#8e0000"/>';
+    }
+    if (sceneName === 'halloween') {
+      return ''
+        + '<defs>'
+        + '  <radialGradient id="szn-pumpkin" cx="35%" cy="28%" r="75%">'
+        + '    <stop offset="0%" stop-color="#ffb74d"/><stop offset="55%" stop-color="#e65100"/><stop offset="100%" stop-color="#8d3800"/>'
+        + '  </radialGradient>'
+        + '  <radialGradient id="szn-glow" cx="50%" cy="50%" r="50%">'
+        + '    <stop offset="0%" stop-color="#ffcc80" stop-opacity="0.8"/><stop offset="100%" stop-color="#ffcc80" stop-opacity="0"/>'
+        + '  </radialGradient>'
+        + '</defs>'
+        // Bare twisted branches
+        + '<g stroke="#3e2723" stroke-width="7" fill="none" stroke-linecap="round" opacity="0.9">'
+        + '  <path d="M360 360 L300 300 Q280 270 255 275 Q235 278 220 255"/>'
+        + '  <path d="M300 300 Q320 280 345 285"/>'
+        + '  <path d="M255 275 Q245 250 260 230"/>'
+        + '</g>'
+        // Glow behind the pumpkin
+        + '<circle cx="250" cy="300" r="70" fill="url(#szn-glow)"/>'
+        // Jack-o-lantern
+        + '<ellipse cx="250" cy="305" rx="38" ry="30" fill="url(#szn-pumpkin)"/>'
+        + '<rect x="244" y="270" width="10" height="14" rx="3" fill="#4e342e"/>'
+        + '<polygon points="236,298 246,292 246,304" fill="#2b1a12"/>'
+        + '<polygon points="264,298 254,292 254,304" fill="#2b1a12"/>'
+        + '<path d="M232 318 Q250 332 268 318 Q250 326 232 318 Z" fill="#2b1a12"/>'
+        // Bats
+        + '<g fill="#1a1a1a" opacity="0.9">'
+        + '  <path d="M80 60 Q95 45 100 60 Q105 45 120 60 Q108 58 100 68 Q92 58 80 60 Z"/>'
+        + '  <path d="M140 100 Q152 88 156 100 Q160 88 172 100 Q163 98 156 106 Q150 98 140 100 Z"/>'
+        + '</g>';
+    }
+    if (sceneName === 'newyear') {
+      return ''
+        + '<defs><radialGradient id="szn-burst" cx="50%" cy="50%" r="50%">'
+        + '<stop offset="0%" stop-color="#fff3b0" stop-opacity="0.9"/><stop offset="100%" stop-color="#fff3b0" stop-opacity="0"/>'
+        + '</radialGradient></defs>'
+        + '<circle cx="300" cy="300" r="90" fill="url(#szn-burst)"/>'
+        + '<g stroke="#d4af37" stroke-width="3" opacity="0.85">'
+        + sparkLines(300, 300, 60, 10)
+        + '</g>'
+        + '<circle cx="300" cy="300" r="5" fill="#d4af37"/>';
+    }
+    if (sceneName === 'valentines') {
+      return ''
+        + '<defs><radialGradient id="szn-rose" cx="35%" cy="28%" r="75%">'
+        + '<stop offset="0%" stop-color="#ff8a9e"/><stop offset="55%" stop-color="#e91e63"/><stop offset="100%" stop-color="#880e4f"/>'
+        + '</radialGradient></defs>'
+        + '<g stroke="#2e7d32" stroke-width="5" fill="none"><path d="M300 360 Q290 300 310 260"/><path d="M260 360 Q275 310 265 270"/></g>'
+        + '<ellipse cx="300" cy="255" rx="20" ry="16" fill="url(#szn-rose)"/>'
+        + '<ellipse cx="265" cy="265" rx="16" ry="13" fill="url(#szn-rose)"/>';
+    }
+    if (sceneName === 'summer') {
+      return ''
+        + '<defs><radialGradient id="szn-sun" cx="50%" cy="50%" r="50%">'
+        + '<stop offset="0%" stop-color="#fff59d"/><stop offset="100%" stop-color="#f9a825"/>'
+        + '</radialGradient></defs>'
+        + '<circle cx="300" cy="80" r="34" fill="url(#szn-sun)"/>'
+        + '<g stroke="#f9a825" stroke-width="4"><line x1="300" y1="25" x2="300" y2="5"/><line x1="345" y1="80" x2="360" y2="80"/></g>'
+        + '<g fill="#2e7d32"><path d="M60 360 Q80 280 70 220 Q110 290 100 360 Z"/><path d="M60 360 Q40 280 55 220 Q15 290 25 360 Z"/></g>';
+    }
+    if (sceneName === 'rainy') {
+      return ''
+        + '<ellipse cx="260" cy="90" rx="55" ry="26" fill="#cfd8dc"/>'
+        + '<ellipse cx="310" cy="105" rx="40" ry="20" fill="#b0bec5"/>'
+        + '<g stroke="#64b5f6" stroke-width="3" stroke-linecap="round" opacity="0.8">'
+        + '  <line x1="250" y1="140" x2="240" y2="175"/><line x1="280" y1="145" x2="270" y2="180"/>'
+        + '  <line x1="310" y1="140" x2="300" y2="175"/>'
+        + '</g>';
+    }
+    return '';
+  }
+  function branchCluster(x, y, angle) {
+    return '<g transform="translate(' + x + ',' + y + ') rotate(' + angle + ')">'
+      + '<ellipse cx="0" cy="0" rx="45" ry="11" fill="#1b5e20"/>'
+      + '<ellipse cx="-15" cy="-8" rx="32" ry="9" fill="#2e7d32" transform="rotate(-18)"/>'
+      + '<ellipse cx="-15" cy="8" rx="32" ry="9" fill="#2e7d32" transform="rotate(18)"/>'
+      + '</g>';
+  }
+  function sparkLines(cx, cy, len, count) {
+    var out = '';
+    for (var i = 0; i < count; i++) {
+      var a = (Math.PI * 2 * i) / count;
+      var x1 = cx + Math.cos(a) * 20, y1 = cy + Math.sin(a) * 20;
+      var x2 = cx + Math.cos(a) * len, y2 = cy + Math.sin(a) * len;
+      out += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '"/>';
+    }
+    return out;
   }
 
   function startEffect(kind) {
