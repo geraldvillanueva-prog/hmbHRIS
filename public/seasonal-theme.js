@@ -40,22 +40,31 @@
 
     if (between(1230, 1231) || between(101, 102)) {
       return { name: 'New Year', blue: '#b8860b', accent: '#d4af37', effect: 'confetti', scene: 'newyear',
+        bgGradient: 'linear-gradient(160deg, #0d0d0d 0%, #3e2f0a 55%, #d4af37 100%)',
         decorations: [ {emoji:'🎉', corner:'bottom-right', size:52, anim:'bob'} ] };
     }
     if (between(210, 214)) {
       return { name: "Valentine's", blue: '#c2185b', accent: '#e91e63', effect: 'hearts', scene: 'valentines',
+        bgGradient: 'linear-gradient(160deg, #4a0e2e 0%, #c2185b 55%, #ff8a9e 100%)',
         decorations: [ {emoji:'🌹', corner:'bottom-left', size:50, anim:'sway'} ] };
     }
-    if (between(1028, 1101)) {
+    if (between(1001, 1101)) {
+      // All of October — Halloween/Undas gets its own full month, clearly
+      // ahead of Christmas starting in November (rather than Christmas
+      // starting back in September and Halloween just interrupting it
+      // for a few days in between).
       return { name: 'Undas / Halloween', blue: '#6a1b9a', accent: '#e65100', effect: 'leaves', scene: 'halloween',
+        bgGradient: 'linear-gradient(160deg, #1a0a2e 0%, #4a148c 45%, #e65100 100%)',
         decorations: [
           {emoji:'👻', corner:'top-right',   size:58, anim:'float'},
           {emoji:'🎃', corner:'bottom-left', size:56, anim:'bob'}
         ] };
     }
-    if (between(901, 1229)) {
-      // The Philippines' famous "Ber months" — the long Christmas season.
+    if (between(901, 930) || between(1102, 1229)) {
+      // Early September (the very start of the PH "Ber months"), then
+      // picking back up right after Halloween ends through late December.
       return { name: 'Christmas Season', blue: '#c62828', accent: '#2e7d32', effect: 'snow', scene: 'christmas',
+        bgGradient: 'linear-gradient(160deg, #6d0000 0%, #c62828 45%, #1b5e20 100%)',
         decorations: [
           {emoji:'🎄', corner:'bottom-left',  size:66, anim:'sway'},
           {emoji:'🎅', corner:'bottom-right', size:60, anim:'bob'}
@@ -63,10 +72,12 @@
     }
     if (between(301, 531)) {
       return { name: 'Summer', blue: '#e65100', accent: '#f9a825', effect: null, scene: 'summer',
+        bgGradient: 'linear-gradient(160deg, #ff8f00 0%, #ffd54f 55%, #87ceeb 100%)',
         decorations: [ {emoji:'🌴', corner:'bottom-left', size:54, anim:'sway'} ] };
     }
     if (between(601, 831)) {
       return { name: 'Rainy Season', blue: '#37474f', accent: '#1565c0', effect: 'rain', scene: 'rainy',
+        bgGradient: 'linear-gradient(160deg, #263238 0%, #455a64 55%, #78909c 100%)',
         decorations: [ {emoji:'☂️', corner:'bottom-right', size:50, anim:'sway'} ] };
     }
     // Jan 3 – Feb 9, and Sep 1 handled above — anything left over
@@ -86,6 +97,33 @@
   // ---- 2. Color override ----------------------------------------------
   document.documentElement.style.setProperty('--blue', theme.blue);
   document.documentElement.style.setProperty('--accent', theme.accent);
+
+  // ---- 2b. Actual background change (not just corner decorations) -----
+  // The login page (index.html) has a video background with a dark dim
+  // overlay on top of it — on that page, we tint the overlay with the
+  // season's gradient instead of its usual flat dark tint, at partial
+  // opacity so the video is still visible underneath, just moodier.
+  // The other three pages (admin/employee/supervisor) have a plain flat
+  // background — there, the gradient becomes the actual page background,
+  // which is the part that makes the season genuinely change the page
+  // rather than just adding small decorations on top of an unchanged one.
+  if (theme.bgGradient) {
+    var dimOverlay = document.querySelector('.bg-dim-overlay');
+    if (dimOverlay) {
+      dimOverlay.style.background = theme.bgGradient;
+      dimOverlay.style.opacity = '0.6';
+    } else {
+      document.documentElement.style.background = theme.bgGradient;
+      document.documentElement.style.backgroundAttachment = 'fixed';
+      if (document.body) {
+        document.body.style.background = 'transparent';
+      } else {
+        window.addEventListener('DOMContentLoaded', function () {
+          document.body.style.background = 'transparent';
+        });
+      }
+    }
+  }
 
   // ---- 3. Decorative effect (optional per theme) -----------------------
   if (theme.effect) {
