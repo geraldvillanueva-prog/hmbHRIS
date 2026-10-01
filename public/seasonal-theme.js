@@ -150,7 +150,12 @@
   }
 
   // ---- 3d. Greeting banner — "Merry Christmas!", "Happy Halloween!" etc.
-  if (theme.greeting) {
+  // Login-page only: inside the actual HRIS (admin/employee/supervisor),
+  // this sat right on top of the real navigation tabs, which looked broken
+  // rather than festive. .login-wrap only exists on the login page, so
+  // it's a reliable way to tell the two apart.
+  var isLoginPage = !!document.querySelector('.login-wrap');
+  if (theme.greeting && isLoginPage) {
     renderGreeting(theme.greeting, theme);
   }
 
@@ -226,7 +231,7 @@
     wrap.style.cssText = 'position:fixed;bottom:4%;left:50%;transform:translateX(-50%);'
       + 'z-index:1;pointer-events:none;text-align:center;opacity:0;transition:opacity 1.5s ease';
     wrap.innerHTML = '<div style="font-family:\'IBM Plex Sans\',sans-serif;font-weight:800;'
-      + 'font-size:clamp(28px,8vw,96px);color:rgba(255,255,255,0.32);line-height:1;letter-spacing:.01em">'
+      + 'font-size:clamp(18px,4vw,42px);color:rgba(255,255,255,0.32);line-height:1.2;letter-spacing:.01em;white-space:nowrap">'
       + label + '</div>';
     document.documentElement.appendChild(wrap);
     requestAnimationFrame(function () { wrap.style.opacity = '1'; });
