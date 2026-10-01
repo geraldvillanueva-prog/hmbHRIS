@@ -57,7 +57,7 @@
       // for a few days in between).
       return { name: 'Undas / Halloween', blue: '#6a1b9a', accent: '#e65100', effect: 'leaves', scene: 'halloween',
         bgGradient: 'linear-gradient(160deg, #1a0a2e 0%, #4a148c 45%, #e65100 100%)',
-        greeting: '👻 Happy Halloween!',
+        greeting: '👻 Happy Halloween!', countdownTo: 'christmas',
         decorations: [
           {emoji:'👻', corner:'top-right',   size:58, anim:'float'},
           {emoji:'🎃', corner:'bottom-left', size:56, anim:'bob'}
@@ -226,7 +226,7 @@
     wrap.style.cssText = 'position:fixed;bottom:4%;left:50%;transform:translateX(-50%);'
       + 'z-index:1;pointer-events:none;text-align:center;opacity:0;transition:opacity 1.5s ease';
     wrap.innerHTML = '<div style="font-family:\'IBM Plex Sans\',sans-serif;font-weight:800;'
-      + 'font-size:clamp(28px,8vw,96px);color:rgba(255,255,255,0.18);line-height:1;letter-spacing:.01em">'
+      + 'font-size:clamp(28px,8vw,96px);color:rgba(255,255,255,0.32);line-height:1;letter-spacing:.01em">'
       + label + '</div>';
     document.documentElement.appendChild(wrap);
     requestAnimationFrame(function () { wrap.style.opacity = '1'; });
