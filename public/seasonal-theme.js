@@ -41,11 +41,13 @@
     if (between(1230, 1231) || between(101, 102)) {
       return { name: 'New Year', blue: '#b8860b', accent: '#d4af37', effect: 'confetti', scene: 'newyear',
         bgGradient: 'linear-gradient(160deg, #0d0d0d 0%, #3e2f0a 55%, #d4af37 100%)',
+        greeting: '🎉 Happy New Year!',
         decorations: [ {emoji:'🎉', corner:'bottom-right', size:52, anim:'bob'} ] };
     }
     if (between(210, 214)) {
       return { name: "Valentine's", blue: '#c2185b', accent: '#e91e63', effect: 'hearts', scene: 'valentines',
         bgGradient: 'linear-gradient(160deg, #4a0e2e 0%, #c2185b 55%, #ff8a9e 100%)',
+        greeting: '💝 Happy Valentine\'s Day!',
         decorations: [ {emoji:'🌹', corner:'bottom-left', size:50, anim:'sway'} ] };
     }
     if (between(1001, 1101)) {
@@ -55,6 +57,7 @@
       // for a few days in between).
       return { name: 'Undas / Halloween', blue: '#6a1b9a', accent: '#e65100', effect: 'leaves', scene: 'halloween',
         bgGradient: 'linear-gradient(160deg, #1a0a2e 0%, #4a148c 45%, #e65100 100%)',
+        greeting: '👻 Happy Halloween!',
         decorations: [
           {emoji:'👻', corner:'top-right',   size:58, anim:'float'},
           {emoji:'🎃', corner:'bottom-left', size:56, anim:'bob'}
@@ -65,6 +68,7 @@
       // picking back up right after Halloween ends through late December.
       return { name: 'Christmas Season', blue: '#c62828', accent: '#2e7d32', effect: 'snow', scene: 'christmas',
         bgGradient: 'linear-gradient(160deg, #6d0000 0%, #c62828 45%, #1b5e20 100%)',
+        greeting: '🎄 Merry Christmas!', countdownTo: 'christmas',
         decorations: [
           {emoji:'🎄', corner:'bottom-left',  size:66, anim:'sway'},
           {emoji:'🎅', corner:'bottom-right', size:60, anim:'bob'}
@@ -73,11 +77,13 @@
     if (between(301, 531)) {
       return { name: 'Summer', blue: '#e65100', accent: '#f9a825', effect: null, scene: 'summer',
         bgGradient: 'linear-gradient(160deg, #ff8f00 0%, #ffd54f 55%, #87ceeb 100%)',
+        greeting: '☀️ Happy Summer!',
         decorations: [ {emoji:'🌴', corner:'bottom-left', size:54, anim:'sway'} ] };
     }
     if (between(601, 831)) {
       return { name: 'Rainy Season', blue: '#37474f', accent: '#1565c0', effect: 'rain', scene: 'rainy',
         bgGradient: 'linear-gradient(160deg, #263238 0%, #455a64 55%, #78909c 100%)',
+        greeting: '☔ Stay dry out there!',
         decorations: [ {emoji:'☂️', corner:'bottom-right', size:50, anim:'sway'} ] };
     }
     // Jan 3 – Feb 9, and Sep 1 handled above — anything left over
@@ -143,6 +149,17 @@
     renderSeasonalScene(theme.scene);
   }
 
+  // ---- 3d. Greeting banner — "Merry Christmas!", "Happy Halloween!" etc.
+  if (theme.greeting) {
+    renderGreeting(theme.greeting);
+  }
+
+  // ---- 3e. Countdown — large, subtle background text counting down to
+  // a specific date (currently only wired up for Christmas -> Dec 25).
+  if (theme.countdownTo) {
+    renderCountdown(theme.countdownTo);
+  }
+
   // Small, unobtrusive control to turn this off, in case anyone finds
   // it distracting during actual work. Bottom-right, out of the way.
   var btn = document.createElement('button');
@@ -168,6 +185,50 @@
   // placed in corners, out of the way of anything clickable. Separate
   // from the falling-particle effect above — these are fixed decorations
   // with a gentle idle animation, not moving across the screen.
+  // A pill-shaped greeting banner, centered near the top of the page —
+  // "Merry Christmas!", "Happy Halloween!", etc. Sits above everything
+  // else (very high z-index) but doesn't block clicks, same as every
+  // other decorative piece here.
+  function renderGreeting(text) {
+    var el = document.createElement('div');
+    el.textContent = text;
+    el.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);'
+      + 'z-index:99996;pointer-events:none;font-family:sans-serif;font-weight:700;'
+      + 'font-size:15px;color:#fff;background:rgba(0,0,0,0.28);padding:7px 20px;'
+      + 'border-radius:22px;letter-spacing:.02em;opacity:0;transition:opacity 1s ease, top 1s ease;'
+      + 'box-shadow:0 2px 10px rgba(0,0,0,0.15)';
+    document.documentElement.appendChild(el);
+    requestAnimationFrame(function () { el.style.opacity = '1'; el.style.top = '20px'; });
+  }
+
+  // A large, low-opacity number sitting in the page background, counting
+  // down to a specific date. Deliberately subtle (low opacity, behind
+  // everything) — it's meant to read as a background design touch, not
+  // compete with the actual login form or app content in front of it.
+  function renderCountdown(targetName) {
+    var today = new Date();
+    var year = today.getFullYear();
+    var target;
+    if (targetName === 'christmas') {
+      target = new Date(year, 11, 25); // Dec 25, month is 0-indexed
+      if (today > target) target = new Date(year + 1, 11, 25); // already passed this year
+    } else {
+      return;
+    }
+    var msPerDay = 1000 * 60 * 60 * 24;
+    var daysLeft = Math.ceil((target - today) / msPerDay);
+    var label = daysLeft <= 0 ? 'Merry Christmas! 🎄' : daysLeft + ' day' + (daysLeft === 1 ? '' : 's') + ' until Christmas';
+
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;bottom:4%;left:50%;transform:translateX(-50%);'
+      + 'z-index:-1;pointer-events:none;text-align:center;opacity:0;transition:opacity 1.5s ease';
+    wrap.innerHTML = '<div style="font-family:\'IBM Plex Sans\',sans-serif;font-weight:800;'
+      + 'font-size:clamp(28px,8vw,96px);color:rgba(255,255,255,0.18);line-height:1;letter-spacing:.01em">'
+      + label + '</div>';
+    document.documentElement.appendChild(wrap);
+    requestAnimationFrame(function () { wrap.style.opacity = '1'; });
+  }
+
   function renderDecorations(decorations) {
     var style = document.createElement('style');
     style.textContent =
