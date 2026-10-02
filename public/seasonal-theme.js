@@ -100,34 +100,32 @@
 
   if (!theme) return; // Nothing to do today — leave every page exactly as-is.
 
+  // .login-wrap only exists on index.html — this is how every
+  // "could this hurt readability on a page full of real work" decision
+  // below tells the decorative login screen apart from the actual dense,
+  // data-heavy admin/employee/supervisor app pages.
+  var isLoginPage = !!document.querySelector('.login-wrap');
+
   // ---- 2. Color override ----------------------------------------------
+  // Safe everywhere — this only tints buttons/links a little, nowhere
+  // near the contrast-sensitive territory of a data table's text.
   document.documentElement.style.setProperty('--blue', theme.blue);
   document.documentElement.style.setProperty('--accent', theme.accent);
 
-  // ---- 2b. Actual background change (not just corner decorations) -----
-  // The login page (index.html) has a video background with a dark dim
-  // overlay on top of it — on that page, we tint the overlay with the
-  // season's gradient instead of its usual flat dark tint, at partial
-  // opacity so the video is still visible underneath, just moodier.
-  // The other three pages (admin/employee/supervisor) have a plain flat
-  // background — there, the gradient becomes the actual page background,
-  // which is the part that makes the season genuinely change the page
-  // rather than just adding small decorations on top of an unchanged one.
-  if (theme.bgGradient) {
-    var dimOverlay = document.querySelector('.bg-dim-overlay');
-    if (dimOverlay) {
-      dimOverlay.style.background = theme.bgGradient;
-      dimOverlay.style.opacity = '0.6';
+  // ---- 2b. Actual background change — LOGIN PAGE ONLY -------------------
+  // A vivid full-page gradient looks great on the login screen, but
+  // sitting behind a dense table (Employee Time Logs, payroll grids, etc.)
+  // it wrecks text contrast and makes real work hard to read. So this
+  // only ever applies here, never on the three actual app pages.
+  if (theme.bgGradient && isLoginPage) {
+    document.documentElement.style.background = theme.bgGradient;
+    document.documentElement.style.backgroundAttachment = 'fixed';
+    if (document.body) {
+      document.body.style.background = 'transparent';
     } else {
-      document.documentElement.style.background = theme.bgGradient;
-      document.documentElement.style.backgroundAttachment = 'fixed';
-      if (document.body) {
+      window.addEventListener('DOMContentLoaded', function () {
         document.body.style.background = 'transparent';
-      } else {
-        window.addEventListener('DOMContentLoaded', function () {
-          document.body.style.background = 'transparent';
-        });
-      }
+      });
     }
   }
 
@@ -152,16 +150,16 @@
   // ---- 3d. Greeting banner — "Merry Christmas!", "Happy Halloween!" etc.
   // Login-page only: inside the actual HRIS (admin/employee/supervisor),
   // this sat right on top of the real navigation tabs, which looked broken
-  // rather than festive. .login-wrap only exists on the login page, so
-  // it's a reliable way to tell the two apart.
-  var isLoginPage = !!document.querySelector('.login-wrap');
+  // rather than festive.
   if (theme.greeting && isLoginPage) {
     renderGreeting(theme.greeting, theme);
   }
 
   // ---- 3e. Countdown — large, subtle background text counting down to
-  // a specific date (currently only wired up for Christmas -> Dec 25).
-  if (theme.countdownTo) {
+  // a specific date. Login-page only, for the same reason as the greeting
+  // above — it was overlapping real table rows (Employee Time Logs, etc.)
+  // on the app pages, which made data harder to read rather than festive.
+  if (theme.countdownTo && isLoginPage) {
     renderCountdown(theme.countdownTo);
   }
 
