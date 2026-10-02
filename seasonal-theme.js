@@ -41,13 +41,13 @@
     if (between(1230, 1231) || between(101, 102)) {
       return { name: 'New Year', blue: '#b8860b', accent: '#d4af37', effect: 'confetti', scene: 'newyear',
         bgGradient: 'linear-gradient(160deg, #0d0d0d 0%, #3e2f0a 55%, #d4af37 100%)',
-        greeting: '🎉 Happy New Year!',
+        greeting: '🎉 Happy New Year!', costume: 'partyhat',
         decorations: [ {emoji:'🎉', corner:'bottom-right', size:52, anim:'bob'} ] };
     }
     if (between(210, 214)) {
       return { name: "Valentine's", blue: '#c2185b', accent: '#e91e63', effect: 'hearts', scene: 'valentines',
         bgGradient: 'linear-gradient(160deg, #4a0e2e 0%, #c2185b 55%, #ff8a9e 100%)',
-        greeting: '💝 Happy Valentine\'s Day!',
+        greeting: '💝 Happy Valentine\'s Day!', costume: 'flowercrown',
         decorations: [ {emoji:'🌹', corner:'bottom-left', size:50, anim:'sway'} ] };
     }
     if (between(1001, 1101)) {
@@ -57,7 +57,7 @@
       // for a few days in between).
       return { name: 'Undas / Halloween', blue: '#6a1b9a', accent: '#e65100', effect: 'leaves', scene: 'halloween',
         bgGradient: 'linear-gradient(160deg, #1a0a2e 0%, #4a148c 45%, #e65100 100%)',
-        greeting: '👻 Happy Halloween!', countdownTo: 'christmas',
+        greeting: '👻 Happy Halloween!', countdownTo: 'christmas', costume: 'witchhat',
         decorations: [
           {emoji:'👻', corner:'top-right',   size:58, anim:'float'},
           {emoji:'🎃', corner:'bottom-left', size:56, anim:'bob'}
@@ -68,7 +68,7 @@
       // picking back up right after Halloween ends through late December.
       return { name: 'Christmas Season', blue: '#c62828', accent: '#2e7d32', effect: 'snow', scene: 'christmas',
         bgGradient: 'linear-gradient(160deg, #6d0000 0%, #c62828 45%, #1b5e20 100%)',
-        greeting: '🎄 Merry Christmas!', countdownTo: 'christmas',
+        greeting: '🎄 Merry Christmas!', countdownTo: 'christmas', costume: 'santahat',
         decorations: [
           {emoji:'🎄', corner:'bottom-left',  size:66, anim:'sway'},
           {emoji:'🎅', corner:'bottom-right', size:60, anim:'bob'}
@@ -77,13 +77,13 @@
     if (between(301, 531)) {
       return { name: 'Summer', blue: '#e65100', accent: '#f9a825', effect: null, scene: 'summer',
         bgGradient: 'linear-gradient(160deg, #ff8f00 0%, #ffd54f 55%, #87ceeb 100%)',
-        greeting: '☀️ Happy Summer!',
+        greeting: '☀️ Happy Summer!', costume: 'sunglasses',
         decorations: [ {emoji:'🌴', corner:'bottom-left', size:54, anim:'sway'} ] };
     }
     if (between(601, 831)) {
       return { name: 'Rainy Season', blue: '#37474f', accent: '#1565c0', effect: 'rain', scene: 'rainy',
         bgGradient: 'linear-gradient(160deg, #263238 0%, #455a64 55%, #78909c 100%)',
-        greeting: '☔ Stay dry out there!',
+        greeting: '☔ Stay dry out there!', costume: 'rainhat',
         decorations: [ {emoji:'☂️', corner:'bottom-right', size:50, anim:'sway'} ] };
     }
     // Jan 3 – Feb 9, and Sep 1 handled above — anything left over
@@ -163,6 +163,13 @@
     renderCountdown(theme.countdownTo);
   }
 
+  // ---- 3f. A costume piece on the login page's animated mascot ---------
+  // Login-page only — #dogCanvas (the hand-drawn, animated "not peeking"
+  // character) only exists there in the first place.
+  if (theme.costume && isLoginPage) {
+    renderCostume(theme.costume);
+  }
+
   // Small, unobtrusive control to turn this off, in case anyone finds
   // it distracting during actual work. Bottom-right, out of the way.
   var btn = document.createElement('button');
@@ -233,6 +240,89 @@
       + label + '</div>';
     document.documentElement.appendChild(wrap);
     requestAnimationFrame(function () { wrap.style.opacity = '1'; });
+  }
+
+  // Dresses up the login page's hand-drawn "not peeking" character for
+  // the season. Rather than editing that character's own procedural
+  // canvas-drawing code (risky — it's a fairly intricate animation state
+  // machine), this overlays a small SVG costume piece positioned using
+  // the canvas's actual on-page bounding box, tracked on resize so it
+  // stays aligned with the character's head.
+  function renderCostume(kind) {
+    var canvas = document.getElementById('dogCanvas');
+    if (!canvas) return;
+    var el = document.createElement('div');
+    el.style.cssText = 'position:fixed;z-index:10000;pointer-events:none;transform-origin:50% 100%';
+    el.innerHTML = costumeSvg(kind);
+    document.documentElement.appendChild(el);
+
+    function position() {
+      var r = canvas.getBoundingClientRect();
+      // These fractions are tuned to the character's head sitting near
+      // the top third of its 200x200 canvas, ears included.
+      var size = r.width * 0.46;
+      el.style.width = size + 'px';
+      el.style.left = (r.left + r.width * 0.5 - size / 2) + 'px';
+      el.style.top = (r.top + r.height * 0.02) + 'px';
+    }
+    position();
+    window.addEventListener('resize', position);
+  }
+
+  function costumeSvg(kind) {
+    if (kind === 'witchhat') {
+      return '<svg viewBox="0 0 100 90" width="100%" style="display:block">'
+        + '<ellipse cx="50" cy="78" rx="42" ry="9" fill="#2b1a3d"/>'
+        + '<path d="M50 5 L78 72 L22 72 Z" fill="#3d2a5c"/>'
+        + '<rect x="24" y="63" width="52" height="11" rx="3" fill="#8e44ad"/>'
+        + '<circle cx="50" cy="68" r="4" fill="#d4af37"/>'
+        + '</svg>';
+    }
+    if (kind === 'santahat') {
+      return '<svg viewBox="0 0 100 90" width="100%" style="display:block">'
+        + '<path d="M22 72 Q20 30 55 12 Q85 25 78 60 Q60 68 22 72 Z" fill="#c62828"/>'
+        + '<circle cx="80" cy="18" r="9" fill="#fff"/>'
+        + '<rect x="14" y="62" width="68" height="16" rx="8" fill="#fff"/>'
+        + '</svg>';
+    }
+    if (kind === 'partyhat') {
+      return '<svg viewBox="0 0 100 90" width="100%" style="display:block">'
+        + '<path d="M50 8 L76 74 L24 74 Z" fill="#d4af37"/>'
+        + '<path d="M50 8 L58 30 L42 30 Z" fill="#fff8e1" opacity="0.5"/>'
+        + '<rect x="24" y="66" width="52" height="10" rx="3" fill="#8e6d1a"/>'
+        + '<circle cx="50" cy="10" r="5" fill="#fff"/>'
+        + '</svg>';
+    }
+    if (kind === 'flowercrown') {
+      return '<svg viewBox="0 0 100 60" width="100%" style="display:block">'
+        + '<g>'
+        + flowerAt(20,40) + flowerAt(40,28) + flowerAt(60,28) + flowerAt(80,40)
+        + '</g>'
+        + '<path d="M18 42 Q50 20 82 42" stroke="#2e7d32" stroke-width="4" fill="none"/>'
+        + '</svg>';
+    }
+    if (kind === 'sunglasses') {
+      return '<svg viewBox="0 0 100 50" width="100%" style="display:block">'
+        + '<circle cx="30" cy="25" r="18" fill="#263238"/>'
+        + '<circle cx="70" cy="25" r="18" fill="#263238"/>'
+        + '<rect x="44" y="21" width="12" height="6" fill="#263238"/>'
+        + '<circle cx="24" cy="19" r="4" fill="#546e7a" opacity="0.7"/>'
+        + '</svg>';
+    }
+    if (kind === 'rainhat') {
+      return '<svg viewBox="0 0 100 70" width="100%" style="display:block">'
+        + '<ellipse cx="50" cy="50" rx="46" ry="11" fill="#1565c0"/>'
+        + '<path d="M28 50 Q28 14 50 12 Q72 14 72 50 Z" fill="#1976d2"/>'
+        + '</svg>';
+    }
+    return '';
+  }
+  function flowerAt(x, y) {
+    return '<g transform="translate(' + x + ',' + y + ')">'
+      + '<circle cx="0" cy="-7" r="5" fill="#f48fb1"/><circle cx="7" cy="0" r="5" fill="#f48fb1"/>'
+      + '<circle cx="0" cy="7" r="5" fill="#f48fb1"/><circle cx="-7" cy="0" r="5" fill="#f48fb1"/>'
+      + '<circle cx="0" cy="0" r="4" fill="#fff59d"/>'
+      + '</g>';
   }
 
   function renderDecorations(decorations) {
