@@ -130,13 +130,21 @@
   }
 
   // ---- 3. Decorative effect (optional per theme) -----------------------
-  if (theme.effect) {
+  // Login page only — inside the HRIS the falling petals/snow drift over
+  // tables and forms while people are working.
+  if (theme.effect && isLoginPage) {
     startEffect(theme.effect);
   }
 
   // ---- 3b. Themed corner decorations (tree+Santa, ghost+pumpkin, etc.) --
-  if (theme.decorations && theme.decorations.length) {
-    renderDecorations(theme.decorations);
+  // Inside the HRIS, anything pinned to a top corner lands on the header
+  // (the ghost was covering the Sign Out button), so only bottom-corner
+  // decorations are shown there. The login page keeps all of them.
+  var cornerDecos = (theme.decorations || []).filter(function (d) {
+    return isLoginPage || String(d.corner).indexOf('top') !== 0;
+  });
+  if (cornerDecos.length) {
+    renderDecorations(cornerDecos);
   }
 
   // ---- 3c. A large, rich illustrated corner scene (pine branches +
