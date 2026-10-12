@@ -24,7 +24,7 @@ body{
 .logo-box{width:54px;height:54px;background:var(--navy);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}
 .logo-text{font-size:17px;font-weight:700;color:#fff;letter-spacing:1px}
 .brand-name{font-size:22px;font-weight:700;color:var(--navy)}
-.brand-sub{font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-top:3px}
+.brand-sub{font-size:10px;color:#475569;letter-spacing:3px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-top:3px}
 
 .card{
   background:#fff;
@@ -42,6 +42,10 @@ input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,1
 .btn:hover{background:#0d47a1}
 .btn:disabled{opacity:0.65;cursor:not-allowed}
 .err{background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:8px;padding:9px 13px;font-size:13px;margin-bottom:.95rem;display:none}
+/* Dark seasonal pictures: switch the logo text to light so it stays readable */
+.bg-dark .brand-name{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.55)}
+.bg-dark .brand-sub{color:rgba(255,255,255,.85);text-shadow:0 1px 6px rgba(0,0,0,.55)}
+.bg-dark .logo-box{box-shadow:0 0 0 2px rgba(255,255,255,.28)}
 .success{background:#e8f5e9;color:var(--green);border:1px solid #a5d6a7;border-radius:8px;padding:9px 13px;font-size:13px;margin-bottom:.95rem;display:none}
 </style>
 </head>
