@@ -26,6 +26,13 @@
 (function () {
   'use strict';
 
+  // MASTER SWITCH. false = the whole seasonal layer is off (no theme colors,
+  // background, petals/snow, decorations, greeting, countdown or costume) and
+  // every page keeps its plain, professional look. Set to true to bring the
+  // seasonal theme back — nothing else needs to change.
+  var SEASONAL_THEME_ENABLED = false;
+  if (!SEASONAL_THEME_ENABLED) return;
+
   // ---- 1. Season calendar --------------------------------------------
   // Checked in order; the first match wins. Short, specific occasions
   // are listed before the long background seasons so e.g. Halloween
