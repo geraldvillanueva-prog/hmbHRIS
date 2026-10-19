@@ -705,6 +705,29 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
 .clock-cursor{display:none!important}
 .punch-primary:not(:disabled):not(.done){background-size:auto!important}
 
+
+/* ── Wider content on every tab EXCEPT the dashboard ──
+   The old per-panel caps (460–900px, some set inline) left the right-hand side of the
+   screen empty. Direct children of each tab now fill the available width, up to a
+   comfortable maximum on very large screens. Pop-up dialogs (ids ending in -modal) and
+   the dashboard grid are left alone. */
+.tab-content:not(#tab-dashboard) > div:not([id$="modal"]):not(.alert){max-width:1520px!important;width:100%}
+
+
+/* Tabs that are "a form + a list": put them side by side instead of stacked, so the form
+   keeps a comfortable width and the list/table gets the wide right-hand side.
+   (Only on screens at least 1280px wide; on phones, tablets and small laptops they stay stacked.) */
+@media (min-width:1280px){
+  #tab-leavefile.on,#tab-evr.on{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px;align-items:start}
+  #tab-account.on{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+  #tab-leavefile.on>*,#tab-evr.on>*,#tab-account.on>*{margin:0!important}
+  /* supervisor "File My Leave" has a third block (balance cards) that belongs under the form */
+  #tab-leavefile.on>div:not(.panel){grid-column:1;grid-row:2}
+  #tab-leavefile.on>.panel:last-child{grid-column:2;grid-row:1 / span 2}
+}
+/* the six punch buttons fit on one row once the clock card is wide */
+@media (min-width:1200px){.punch-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+
 /* ── Dashboard ── */
 .dash-grid{width:100%;display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:20px;align-items:start}
 .dash-main,.dash-side{display:flex;flex-direction:column;gap:20px;min-width:0}
@@ -796,6 +819,8 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
   .tab-content{padding:16px 14px!important}
   .emp-name,.sup-name,.role-pill,.top-date{display:none}
   .dash-two{grid-template-columns:minmax(0,1fr)}
+  /* wide tables scroll inside their own card instead of pushing the whole page sideways */
+  .tab-content:not(#tab-dashboard) > .panel{overflow-x:auto}
   .dash-hero{padding:20px}
 }
 
@@ -1081,7 +1106,7 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
     </div>
 
     <button class="btn bp" onclick="submitEvr()" id="evr-submit-btn" style="width:100%;justify-content:center;padding:11px">📤 Submit EVR</button>
-    <span class="ok-msg" id="evr-ok" style="display:block;text-align:center;margin-top:8px">✅ Submitted!</span>
+    <span class="ok-msg" id="evr-ok" style="display:none;text-align:center;margin-top:8px">✅ Submitted!</span>
   </div>
 
   <div class="panel wide">
