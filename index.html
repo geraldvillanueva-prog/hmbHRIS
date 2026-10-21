@@ -79,7 +79,7 @@ input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,1
 
 <script>
 function redirect(role){
-  if(role==='admin'||role==='management')window.location.href='/admin.html';
+  if(role==='admin'||role==='admin_readonly'||role==='management')window.location.href='/admin.html';
   else if(role==='supervisor')window.location.href='/supervisor.html';
   else window.location.href='/employee.html';
 }
