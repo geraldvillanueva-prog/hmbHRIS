@@ -1443,7 +1443,7 @@ async function init(){
     var res=await fetch('/api/me');
     var data=await res.json();
     if(!data||!data.id){window.location.href='/';return;}
-    if(data.role==='admin'||data.role==='hr_intern'){window.location.href='/admin.html';return;}
+    if(data.role==='admin'||data.role==='admin_readonly'||data.role==='hr_intern'){window.location.href='/admin.html';return;}
     if(data.role==='employee'){window.location.href='/employee.html';return;}
     user=data;
     document.getElementById('sup-name-display').textContent=data.username;

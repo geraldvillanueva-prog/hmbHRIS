@@ -208,6 +208,11 @@ tr:hover td{background:#fafcff}
 .ann-grid{display:grid;gap:10px}
 
 
+
+/* ── read-only admin ── */
+.ro-hide{display:none!important}
+.ro-pill{font-size:11px;font-weight:700;color:#4a148c;background:#f3e5f5;border:1px solid #ce93d8;border-radius:20px;padding:3px 10px;white-space:nowrap}
+body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:disabled{cursor:not-allowed;opacity:.75}
 </style>
 </head>
 <body>
@@ -269,6 +274,7 @@ tr:hover td{background:#fafcff}
       <button class="btn bs bp" onclick="exportData()">⬇ Export Backup</button>
       <button class="btn bs" onclick="document.getElementById('import-file').click()">⬆ Import</button>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+      <span class="ro-pill" id="ro-pill" style="display:none" title="You can view everything but cannot make changes">🔒 Read-only</span>
       <span style="font-size:12px;color:var(--muted);padding:0 4px" id="admin-username-display"></span>
       <button class="btn bs br" onclick="doLogout()">Sign Out</button>
     </div>
@@ -1349,6 +1355,7 @@ tr:hover td{background:#fafcff}
       <div class="card-title">➕ Create Account</div>
       <div class="infobox">
         <strong>Admin</strong> — Full HRIS access. &nbsp;|&nbsp;
+        <strong>Admin (Read-only)</strong> — Sees every module exactly like an Admin but cannot add, edit, delete, approve or send anything. Only an Admin with editing rights can grant or remove this. &nbsp;|&nbsp;
         <strong>Management</strong> — View payroll, approve payslip sending, approve/deny supervisor leave requests. &nbsp;|&nbsp;
         <strong>Supervisor</strong> — Can approve/deny leaves of assigned subordinates + Time In/Out. &nbsp;|&nbsp;
         <strong>Employee</strong> — Time In/Out and leave filing only.
@@ -1363,6 +1370,7 @@ tr:hover td{background:#fafcff}
             <option value="management">Management (Payroll Review + Leave Approval)</option>
             <option value="hr_intern">HR Intern (View-only: Time Logs + Leave Management)</option>
             <option value="admin">Admin (Full HRIS Access)</option>
+            <option value="admin_readonly">Admin (Read-only — view everything, change nothing)</option>
           </select>
         </div>
         <div class="f" id="ua-emp-wrap"><label>Link to employee record</label>
@@ -1711,14 +1719,15 @@ var nextShiftId=1;
 
 // ==================== AUTH =====================
 var currentUserRole = 'admin'; // will be overwritten on load
+var currentUserId = null;
 
 async function checkAuth(){
   try{
     var r=await fetch('/api/me');
     var u=await r.json();
-    if(!u||!u.id||(u.role!=='admin'&&u.role!=='management'&&u.role!=='hr_intern')){window.location.href='/';return false;}
-    currentUserRole = u.role;
-    var roleLabel = u.role==='management' ? '🏢 '+u.username+' (Management)' : (u.role==='hr_intern' ? '🎓 '+u.username+' (HR Intern)' : '👤 '+u.username);
+    if(!u||!u.id||(u.role!=='admin'&&u.role!=='admin_readonly'&&u.role!=='management'&&u.role!=='hr_intern')){window.location.href='/';return false;}
+    currentUserRole = u.role; currentUserId = u.id;
+    var roleLabel = u.role==='management' ? '🏢 '+u.username+' (Management)' : (u.role==='hr_intern' ? '🎓 '+u.username+' (HR Intern)' : (u.role==='admin_readonly' ? '👁 '+u.username+' (Read-only)' : '👤 '+u.username));
     document.getElementById('admin-username-display').textContent=roleLabel;
     applyRoleUI();
     return true;
@@ -1775,6 +1784,10 @@ function applyRoleUI(){
     // render. A short delay lets the section's own render functions run
     // first, since some of these buttons are (re)created dynamically.
     setTimeout(hideHrInternWriteControls, 400);
+  }
+  else if(currentUserRole==='admin_readonly'){
+    // Same menu and same data as an Admin; every control that changes something is removed.
+    enableReadOnlyMode();
   }
   // Admin: management/hr_intern-only nav stays hidden (already hidden by default)
 }
@@ -5211,7 +5224,7 @@ var currentSubSupervisorId = null;
 function toggleEmpLink(){
   var role = v('ua-role');
   var wrap = document.getElementById('ua-emp-wrap');
-  wrap.style.display = (role === 'admin' || role === 'management') ? 'none' : '';
+  wrap.style.display = (role === 'admin' || role === 'admin_readonly' || role === 'management') ? 'none' : '';
 }
 async function createUser(){
   var username=v('ua-user'),password=v('ua-pass'),role=v('ua-role'),empId=v('ua-emp');
@@ -5227,8 +5240,20 @@ async function createUser(){
 }
 async function deleteUser(id){
   if(!confirm('Delete this user account?'))return;
-  await api('DELETE','/api/users/'+id);
+  var r=await api('DELETE','/api/users/'+id);
+  if(r&&r.success===false){alert(r.error||'Could not delete this account.');return;}
   if(currentSubSupervisorId===id){hideSubPanel();}
+  loadUsers();
+}
+// Only an Admin with editing rights sees the button that calls this, and the server
+// refuses it from anyone else. Takes effect at once, even if that person is signed in.
+async function setAdminPermission(id,newRole,username){
+  var msg=newRole==='admin_readonly'
+    ? 'Make "'+username+'" READ-ONLY?\n\nThey will still be able to view every module, but will not be able to add, edit, delete, approve or send anything. This takes effect immediately, even if they are signed in right now.'
+    : 'Give "'+username+'" EDITING rights?\n\nThey will be able to add, edit, delete, approve and send in every module.';
+  if(!confirm(msg))return;
+  var r=await api('PUT','/api/users/'+id+'/role',{role:newRole});
+  if(!r||!r.success){alert((r&&r.error)||'Could not change this permission.');return;}
   loadUsers();
 }
 async function resetPassword(id){
@@ -5241,17 +5266,23 @@ async function loadUsers(){
   var users=await api('GET','/api/users');
   var w=document.getElementById('users-wrap');
   if(!users||!users.length){w.innerHTML='<div class="empty">No users found.</div>';return;}
-  var roleColors={'admin':'badge-blue','supervisor':'badge-orange','employee':'badge-green','management':'badge-purple','hr_intern':'badge-accent'};
+  var roleColors={'admin':'badge-blue','admin_readonly':'badge-gray','supervisor':'badge-orange','employee':'badge-green','management':'badge-purple','hr_intern':'badge-accent'};
+  var roleNames={'admin_readonly':'admin (read-only)'};
   w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Username</th><th>Role</th><th>Linked Employee</th><th>Created</th><th></th></tr></thead><tbody>'
   +users.map(u=>{
     var emp=u.employee_id?employees.find(e=>e.id==u.employee_id):null;
     var rc=roleColors[u.role]||'badge-gray';
     return'<tr><td><strong>'+u.username+'</strong></td>'
-    +'<td><span class="badge '+rc+'">'+u.role+'</span></td>'
+    +'<td><span class="badge '+rc+'">'+(roleNames[u.role]||u.role)+'</span></td>'
     +'<td>'+(emp?emp.name:'<span style="color:var(--muted)">—</span>')+'</td>'
     +'<td style="font-size:11px">'+fmtDate(u.created_at)+'</td>'
     +'<td style="display:flex;gap:4px;flex-wrap:wrap">'
     +(u.role==='supervisor'?'<button class="btn bs ba" onclick="showSubPanel('+u.id+',\''+u.username+'\')">👥 Subordinates</button>':'')
+    +((currentUserRole==='admin'&&u.id!==currentUserId&&(u.role==='admin'||u.role==='admin_readonly'))
+      ?(u.role==='admin'
+        ?'<button class="btn bs" onclick="setAdminPermission('+u.id+',\'admin_readonly\',\''+u.username+'\')" style="color:#6a1b9a">🔒 Make read-only</button>'
+        :'<button class="btn bs" onclick="setAdminPermission('+u.id+',\'admin\',\''+u.username+'\')" style="color:var(--green)">✏️ Allow editing</button>')
+      :'')
     +'<button class="btn bs" onclick="resetPassword('+u.id+')" style="color:var(--blue)">🔑 Reset PW</button>'
     +'<button class="btn bs br" onclick="deleteUser('+u.id+')">🗑</button></td></tr>';
   }).join('')
@@ -6406,5 +6437,129 @@ window.addEventListener('DOMContentLoaded',async function(){
 });
 </script>
 <script src="/seasonal-theme.js"></script>
+<script>
+/* ════════════ READ-ONLY ADMIN MODE ════════════
+   For accounts with the "admin_readonly" role. The SERVER is what actually enforces this
+   (every non-GET request from such an account is refused), so nothing here is a security
+   boundary — it exists so the page looks and behaves honestly:
+     • write controls are hidden/disabled in every module, including ones drawn later;
+     • pop-up forms open as view-only;
+     • any write that still slipped through is stopped before it is sent, with a clear message.
+   RO_WRITERS is generated by analysing this page's own code: every function that makes a
+   POST/PUT/PATCH/DELETE request, plus every function that calls one. */
+var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
+// Start an edit but don't write by themselves (they just load a form), or import a file:
+var RO_HIDE_EXTRA = new Set(['annEdit','annCancelEdit','editHoliday','cancelHolidayEdit','editLeave','cancelLeaveEdit','editOffset','cancelOffsetEdit','importPayrollExcel']);
+// Open a detail pop-up that is still worth viewing: kept, relabelled "View", fields locked.
+var RO_VIEW_OPENERS = new Set(['openEditEmp','openEditTimeLog','openEvrReviewModal','openLocEdit','openBenefitTypeModal']);
+// Sub-tabs (group:name) that only lead to an add/entry form
+var RO_HIDE_TABS = ['leave:file','perf:add','disc:add'];
+var RO_KEEP = new Set(['doLogout']);
+var RO_MESSAGE = 'Read-only account — you can view this but not change it.';
+var RO_ATTRS = ['onclick','onchange','oninput','onsubmit','onkeydown','onkeyup'];
+var RO_SELECTOR = RO_ATTRS.map(function(a){return '['+a+']';}).join(',');
+var roActive = false;
+
+function roCalled(code){
+  var out=[], re=/([A-Za-z_$][\w$]*)\s*\(/g, m;
+  while((m=re.exec(code))) out.push(m[1]);
+  return out;
+}
+function roRelabelView(el){
+  if(el.children.length) return;
+  var t=el.textContent;
+  var n=t.replace(/✏️?/g,'👁').replace(/\b(Edit|Review)\b/,'View');
+  if(n!==t) el.textContent=n;
+}
+function roBlocked(names){
+  return names.some(function(n){return (RO_WRITERS.has(n)||RO_HIDE_EXTRA.has(n)) && !RO_KEEP.has(n);});
+}
+function roProcess(el){
+  var codes=[], names=[];
+  for(var i=0;i<RO_ATTRS.length;i++){var v=el.getAttribute(RO_ATTRS[i]); if(v){codes.push(v); names=names.concat(roCalled(v));}}
+  if(!codes.length) return false;
+  var all=codes.join(' '), hide=false;
+  // (1) detail pop-ups stay (relabelled "View") when given a record id; the same function
+  //     called with no id means "add a new one" — that is hidden.
+  RO_VIEW_OPENERS.forEach(function(fn){
+    var m=new RegExp('\\b'+fn+'\\(\\s*([^)]*)\\)').exec(all);
+    if(m){ var arg=m[1].trim(); if(arg===''||arg==='null'||/File Punch/i.test(el.textContent)) hide=true; else roRelabelView(el); }   // "File Punch" creates a record, so it is an add, not a view
+  });
+  if(!hide){
+    // (2) anything that writes, or starts an edit
+    if(roBlocked(names)) hide=true;
+    // (3) a tab that leads to an add/entry form
+    var t=/goITab\(\s*'(\w+)'\s*,\s*'(\w+)'/.exec(all);
+    if(t && RO_HIDE_TABS.indexOf(t[1]+':'+t[2])>-1) hide=true;
+    // (4) a button whose only job is to open a hidden file picker that feeds a blocked action
+    var f=/getElementById\(\s*['"]([^'"]+)['"]\s*\)\.click\(\)/.exec(all);
+    if(f){
+      var inp=document.getElementById(f[1]);
+      if(inp && inp.tagName==='INPUT' && inp.type==='file' && roBlocked(roCalled(inp.getAttribute('onchange')||''))) hide=true;
+    }
+  }
+  if(!hide) return false;
+  var tag=el.tagName;
+  if(tag==='INPUT' && el.type==='file'){ (el.closest('label')||el).classList.add('ro-hide'); return true; }
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA'){ el.disabled=true; el.title=RO_MESSAGE; return true; }
+  el.classList.add('ro-hide'); return true;
+}
+// Fields inside data tables are editing cells (payroll grid, per-row toggles) and fields inside
+// pop-up forms are edit forms — lock them, so nothing can even be typed.
+function roLockFields(root){
+  var sel='td input,td select,td textarea,.modal-overlay input,.modal-overlay select,.modal-overlay textarea,#edit-emp-modal input,#edit-emp-modal select,#edit-emp-modal textarea';
+  var list=(root.matches&&root.matches(sel)?[root]:[]).concat([].slice.call(root.querySelectorAll(sel)));
+  list.forEach(function(f){ if(!f.disabled){ f.disabled=true; f.title=RO_MESSAGE; } });
+}
+// A card that is only an add/edit form (inputs, but every button on it was hidden) is just
+// a dead form for this account — hide the whole card.
+function roHideDeadForms(root){
+  var cards=[].slice.call((root.matches&&root.matches('.card')?[root]:[]).concat([].slice.call(root.querySelectorAll('.card'))));
+  cards.forEach(function(c){
+    if(c.classList.contains('ro-hide')) return;
+    var live=c.querySelectorAll('input:not([disabled]):not([type=hidden]):not([type=file]),select:not([disabled]),textarea:not([disabled])');
+    if(!live.length) return;
+    var btns=[].slice.call(c.querySelectorAll('button,.btn,a.btn')).filter(function(b){return !b.classList.contains('ro-hide')&&!b.closest('.ro-hide');});
+    var hiddenAny=c.querySelector('.ro-hide');
+    if(hiddenAny && !btns.length) c.classList.add('ro-hide');
+  });
+}
+function roFixTabs(){
+  [].slice.call(document.querySelectorAll('.itab.on.ro-hide')).forEach(function(t){
+    var sec=t.closest('.sec'); if(!sec) return;
+    var next=[].slice.call(sec.querySelectorAll('.itab')).filter(function(x){return !x.classList.contains('ro-hide');})[0];
+    if(next) next.click();
+  });
+}
+function roScan(root){
+  if(!root||root.nodeType!==1) return;
+  if(root.matches&&root.matches(RO_SELECTOR)) roProcess(root);
+  [].slice.call(root.querySelectorAll(RO_SELECTOR)).forEach(roProcess);
+  roLockFields(root);
+  roHideDeadForms(root);
+  roFixTabs();
+}
+function enableReadOnlyMode(){
+  if(roActive) return; roActive=true;
+  document.body.classList.add('ro-mode');
+  var pill=document.getElementById('ro-pill'); if(pill) pill.style.display='';
+  // top-bar Import opens a file picker through a generic call, so name-matching can't see it
+  [].slice.call(document.querySelectorAll('.topbar-right button')).forEach(function(b){ if(/Import/.test(b.textContent)) b.classList.add('ro-hide'); });
+  // last line of defence: refuse to even send a write request
+  var nativeFetch=window.fetch;
+  window.fetch=function(input,init){
+    var method=((init&&init.method)||(input&&input.method)||'GET').toUpperCase();
+    var url=typeof input==='string'?input:(input&&input.url)||'';
+    if(method!=='GET'&&method!=='HEAD'&&method!=='OPTIONS'&&url.indexOf('/api/')>-1&&!/\/api\/(logout|change-password)(\?|$)/.test(url)){
+      return Promise.resolve(new Response(JSON.stringify({success:false,error:RO_MESSAGE}),{status:403,headers:{'Content-Type':'application/json'}}));
+    }
+    return nativeFetch.apply(this,arguments);
+  };
+  roScan(document.body);
+  new MutationObserver(function(muts){
+    muts.forEach(function(m){ [].slice.call(m.addedNodes).forEach(roScan); });
+  }).observe(document.body,{childList:true,subtree:true});
+}
+</script>
 </body>
 </html>

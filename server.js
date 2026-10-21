@@ -129,7 +129,7 @@ const clients = new Map();
 function broadcastPunch(payload) {
   for (const [ws, meta] of clients) {
     if (ws.readyState !== 1) continue; // 1 = OPEN
-    const isAdmin = meta.role === 'admin';
+    const isAdmin = isAdminRole(meta.role);
     const isSupervisorOfEmployee =
       meta.role === 'supervisor' &&
       meta.supervisorSubIds &&
@@ -547,29 +547,85 @@ wss.on('connection', (ws, req) => {
 });
 
 // ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
+// Roles: admin (full access) · admin_readonly (sees everything an admin sees but can
+// change nothing) · management · supervisor · employee · hr_intern.
+//
+// admin_readonly is enforced on the server in three layers, so it never depends on what
+// the page chooses to show:
+//   1. refreshAdminRole — re-reads the role from the database on every request, so when a
+//      full admin changes someone's permission it takes effect immediately (no re-login).
+//   2. readOnlyGuard    — rejects EVERY non-GET request from a read-only admin, on every
+//      route (only logout and changing their own password are exempt).
+//   3. the require* guards below also let a read-only admin through on GET requests only.
+const ROLE_ADMIN = 'admin';
+const ROLE_ADMIN_RO = 'admin_readonly';
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const RO_ALLOWED_WRITES = new Set(['/api/logout', '/api/change-password']);
+const RO_MESSAGE = 'Read-only account — you can view this but not change it.';
+// "Admin-level" for the purpose of what data a user may SEE (full admin or read-only admin).
+function isAdminRole(role) { return role === ROLE_ADMIN || role === ROLE_ADMIN_RO; }
+// May `role` pass a guard that names `allowed` roles? A read-only admin passes wherever a
+// full admin would, but only for GET/HEAD/OPTIONS.
+function roleAllowed(role, allowed, method) {
+  if (allowed.includes(role)) return true;
+  return role === ROLE_ADMIN_RO && allowed.includes(ROLE_ADMIN) && SAFE_METHODS.has(method);
+}
+function denyFor(u, fallback) {
+  return { success: false, error: u && u.role === ROLE_ADMIN_RO ? RO_MESSAGE : fallback };
+}
+
 function requireAuth(req, res, next) {
   if (!req.session.user) return res.status(401).json({ error: 'Not authenticated' });
   next();
 }
 function requireAdmin(req, res, next) {
-  if (!req.session.user || req.session.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+  const u = req.session.user;
+  if (!u || !roleAllowed(u.role, ['admin'], req.method)) return res.status(403).json(denyFor(u, 'Admin only'));
   next();
 }
 function requireAdminOrManagement(req, res, next) {
-  if (!req.session.user || !['admin','management'].includes(req.session.user.role)) return res.status(403).json({ error: 'Not authorized' });
+  const u = req.session.user;
+  if (!u || !roleAllowed(u.role, ['admin', 'management'], req.method)) return res.status(403).json(denyFor(u, 'Not authorized'));
   next();
 }
 function requireAdminOrSupervisor(req, res, next) {
-  if (!req.session.user || !['admin','supervisor'].includes(req.session.user.role)) return res.status(403).json({ error: 'Not authorized' });
+  const u = req.session.user;
+  if (!u || !roleAllowed(u.role, ['admin', 'supervisor'], req.method)) return res.status(403).json(denyFor(u, 'Not authorized'));
   next();
 }
 // HR Intern accounts are otherwise view-only, but are specifically allowed
 // to edit Employee Time Logs (per explicit request) — used only on the
-// timelog edit/file-punch routes below, nowhere else.
+// timelog edit/file-punch routes below, nowhere else. (A read-only admin is
+// deliberately NOT allowed here: these routes are all writes.)
 function requireAdminOrHrIntern(req, res, next) {
-  if (!req.session.user || !['admin','hr_intern'].includes(req.session.user.role)) return res.status(403).json({ error: 'Not authorized' });
+  const u = req.session.user;
+  if (!u || !['admin', 'hr_intern'].includes(u.role)) return res.status(403).json(denyFor(u, 'Not authorized'));
   next();
 }
+
+// Layer 1: keep an admin session's role in step with the database.
+function refreshAdminRole(req, res, next) {
+  const u = req.session && req.session.user;
+  if (u && isAdminRole(u.role)) {
+    const row = db.prepare('SELECT role FROM users WHERE id = ?').get(u.id);
+    if (!row) { // account was deleted while signed in
+      return req.session.destroy(() => res.status(401).json({ error: 'Not authenticated' }));
+    }
+    if (row.role !== u.role) u.role = row.role; // permission changed by a full admin
+  }
+  next();
+}
+// Layer 2: a read-only admin can never write, whatever the route.
+function readOnlyGuard(req, res, next) {
+  const u = req.session && req.session.user;
+  if (u && u.role === ROLE_ADMIN_RO && !SAFE_METHODS.has(req.method)) {
+    const p = req.originalUrl.split('?')[0].replace(/\/+$/, '');
+    if (!RO_ALLOWED_WRITES.has(p)) return res.status(403).json({ success: false, error: RO_MESSAGE });
+  }
+  next();
+}
+app.use('/api', refreshAdminRole);
+app.use('/api', readOnlyGuard);
 
 // ─── AUTH ROUTES ──────────────────────────────────────────────────────────────
 app.post('/api/login', (req, res) => {
@@ -625,9 +681,11 @@ app.get('/api/users', requireAdminOrManagement, (req, res) => {
   res.json(users);
 });
 
+const KNOWN_ROLES = ['admin', 'admin_readonly', 'management', 'supervisor', 'employee', 'hr_intern'];
 app.post('/api/users', requireAdmin, (req, res) => {
   const { username, password, role, employee_id } = req.body;
   if (!username || !password) return res.json({ success: false, error: 'Username and password required' });
+  if (role && !KNOWN_ROLES.includes(role)) return res.json({ success: false, error: 'Unknown role.' });
   const hash = bcrypt.hashSync(password, 10);
   try {
     db.prepare('INSERT INTO users (username, password, role, employee_id) VALUES (?, ?, ?, ?)').run(username, hash, role || 'employee', employee_id || null);
@@ -651,8 +709,37 @@ app.put('/api/users/:id/password', requireAdmin, (req, res) => {
 });
 
 app.delete('/api/users/:id', requireAdmin, (req, res) => {
+  const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(req.params.id);
+  if (target && target.id === req.session.user.id) {
+    return res.json({ success: false, error: 'You cannot delete your own account.' });
+  }
+  if (target && target.role === ROLE_ADMIN) {
+    const fullAdmins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n;
+    if (fullAdmins <= 1) return res.json({ success: false, error: 'This is the only admin who can edit — it cannot be deleted.' });
+  }
   db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
   res.json({ success: true });
+});
+
+// Set another admin account to read-only, or give it editing rights back.
+// Only a full admin can reach this (requireAdmin turns a read-only admin away), and a
+// full admin cannot change their own account or remove the last admin who can edit.
+app.put('/api/users/:id/role', requireAdmin, (req, res) => {
+  const newRole = req.body && req.body.role;
+  if (![ROLE_ADMIN, ROLE_ADMIN_RO].includes(newRole)) {
+    return res.json({ success: false, error: 'Role must be admin or admin_readonly.' });
+  }
+  const target = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(req.params.id);
+  if (!target) return res.json({ success: false, error: 'User not found.' });
+  if (!isAdminRole(target.role)) return res.json({ success: false, error: 'Only admin accounts can be switched between editing and read-only.' });
+  if (target.id === req.session.user.id) return res.json({ success: false, error: 'You cannot change your own permission.' });
+  if (target.role === newRole) return res.json({ success: true, role: newRole, unchanged: true });
+  if (newRole === ROLE_ADMIN_RO) {
+    const fullAdmins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n;
+    if (fullAdmins <= 1) return res.json({ success: false, error: 'At least one admin must keep editing rights.' });
+  }
+  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(newRole, target.id);
+  res.json({ success: true, role: newRole });
 });
 
 // ─── SUPERVISOR: SUBORDINATE MANAGEMENT (Admin assigns) ───────────────────────
@@ -687,7 +774,7 @@ app.delete('/api/supervisor/:userId/subordinates/:empId', requireAdmin, (req, re
 
 // ─── SUPERVISOR: GET THEIR OWN SUBORDINATE LIST ────────────────────────────────
 app.get('/api/my/subordinates', requireAdminOrSupervisor, (req, res) => {
-  if (req.session.user.role === 'admin') {
+  if (isAdminRole(req.session.user.role)) {
     // Admin sees all employees
     const emps = db.prepare('SELECT * FROM employees WHERE active=1 ORDER BY name').all();
     return res.json(emps.map(mapEmployee));
@@ -704,7 +791,7 @@ app.get('/api/my/subordinates', requireAdminOrSupervisor, (req, res) => {
 // ─── SUPERVISOR: GET LEAVES OF SUBORDINATES ────────────────────────────────────
 app.get('/api/my/leaves', requireAdminOrSupervisor, (req, res) => {
   let empIds;
-  if (req.session.user.role === 'admin') {
+  if (isAdminRole(req.session.user.role)) {
     empIds = db.prepare('SELECT id FROM employees WHERE active=1').all().map(e => e.id);
   } else {
     empIds = db.prepare('SELECT employee_id FROM supervisor_subordinates WHERE supervisor_user_id=?').all(req.session.user.id).map(r => r.employee_id);
@@ -1224,7 +1311,7 @@ app.get('/api/admin/fix-gerald-timelogs', (req, res) => {
 // Get logs — admin gets all with filters, employees/supervisors get their own
 app.get('/api/timelogs', requireAuth, (req, res) => {
   let rows;
-  if (['admin','hr_intern'].includes(req.session.user.role)) {
+  if (['admin','admin_readonly','hr_intern'].includes(req.session.user.role)) {
     const { employee_id, from, to } = req.query;
     let q = 'SELECT t.*, e.name as emp_name FROM time_logs t JOIN employees e ON t.employee_id=e.id WHERE 1=1';
     const params = [];
@@ -1410,7 +1497,7 @@ app.get('/api/leave', requireAuth, (req, res) => {
   // Admin, Management, HR Intern: all leaves (HR Intern is read-only — enforced
   // by requireAdmin/requireAdminOrSupervisor on every mutation route below,
   // not by anything client-side)
-  if (['admin','management','hr_intern'].includes(role)) {
+  if (['admin','admin_readonly','management','hr_intern'].includes(role)) {
     const rows = db.prepare('SELECT l.*, e.name as emp_name FROM leave_records l JOIN employees e ON l.employee_id=e.id ORDER BY l.filed_at DESC').all();
     return res.json(rows.map(r => ({ id: r.id, empId: r.employee_id, empName: r.emp_name, type: r.type, from: r.from_date, to: r.to_date, days: r.days, reason: r.reason, status: r.status, pay: r.pay, halfDay: !!r.half_day, filedAt: r.filed_at })));
   }
@@ -1574,7 +1661,7 @@ app.get('/api/disciplinary/mine', requireAuth, (req, res) => {
 // Supervisor: view disciplinary records for their own team (monitoring only)
 app.get('/api/disciplinary/team', requireAdminOrSupervisor, (req, res) => {
   let empIds;
-  if (req.session.user.role === 'admin') {
+  if (isAdminRole(req.session.user.role)) {
     empIds = db.prepare('SELECT id FROM employees WHERE active=1').all().map(e => e.id);
   } else {
     empIds = db.prepare('SELECT employee_id FROM supervisor_subordinates WHERE supervisor_user_id=?').all(req.session.user.id).map(r => r.employee_id);
@@ -1619,7 +1706,7 @@ function mapEvr(r){
 }
 app.get('/api/evr-submissions', requireAdminOrSupervisor, (req, res) => {
   let rows;
-  if (req.session.user.role === 'admin') {
+  if (isAdminRole(req.session.user.role)) {
     rows = db.prepare(`
       SELECT ev.*, e.name as emp_name, u.username as filed_by_name
       FROM evr_submissions ev
@@ -1812,7 +1899,7 @@ app.delete('/api/shifts/:id', requireAdmin, (req, res) => {
 app.get('/api/timelogs/live', requireAdminOrSupervisor, (req, res) => {
   const today = todayPH();
   let empIds;
-  if (req.session.user.role === 'admin') {
+  if (isAdminRole(req.session.user.role)) {
     empIds = db.prepare('SELECT id FROM employees WHERE active=1').all().map(e => e.id);
   } else {
     empIds = db.prepare(
@@ -1874,7 +1961,7 @@ app.get('/api/timelogs/live', requireAdminOrSupervisor, (req, res) => {
 
 // GET all announcements (with employee name + attachments)
 app.get('/api/announcements', requireAuth, (req, res) => {
-  const isAdmin = req.session.user.role === 'admin';
+  const isAdmin = isAdminRole(req.session.user.role);
   const rows = db.prepare(`
     SELECT a.*, e.name AS employee_name, u.username AS created_by_name
     FROM announcements a
