@@ -50,7 +50,7 @@ const upload = multer({
 // account as Editor), since a bare service account has no storage quota of
 // its own. Set the target folder's ID below once you've created and shared it.
 const { google } = require('googleapis');
-const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || 'PASTE_YOUR_FOLDER_ID_HERE';
+const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '163AE2bD0jpYvrywV5a1MvR_qZSeWOubk';
 const GOOGLE_KEY_PATH = path.join(__dirname, 'google-drive-key.json');
 let driveClient = null;
 function getDriveClient() {
@@ -103,8 +103,7 @@ const careersUpload = multer({
 // this server), so the browser needs explicit permission to call this API.
 // Restricted to specific known origins rather than a wildcard.
 const CAREERS_ALLOWED_ORIGINS = [
-  'https://geraldvillanueva-prog.github.io',
-  'https://careers.hmbtaxfirm.com'
+  'https://careers.hmbconsultancy.ph'
 ];
 function careersCors(req, res, next) {
   const origin = req.headers.origin;
