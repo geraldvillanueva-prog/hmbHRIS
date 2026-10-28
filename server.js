@@ -1759,6 +1759,223 @@ app.delete('/api/evr-submissions/:id', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
+// ─── 13TH MONTH PAY TRACKER ───────────────────────────────────────────────────────
+// Mirrors the "13th Month Tracker (Bi-Monthly)" workbook: one tracker per year, one row per
+// employee, one column per payroll date. HRIS supplies ONLY each employee's name, position and
+// status (active / resigned) — they are read live, so a resignation or rename shows up here
+// automatically. Every AMOUNT is typed in or imported on this page and is never taken from
+// payroll, salary or attendance data. The 13th month itself (total basic pay ÷ 12) is
+// calculated by the page and never stored.
+// All routes require a full admin; a read-only admin can read but not change (see requireAdmin).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS thirteenth_trackers (
+    year INTEGER PRIMARY KEY,
+    columns_json TEXT NOT NULL DEFAULT '[]',
+    next_col INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS thirteenth_rows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    year INTEGER NOT NULL,
+    employee_id INTEGER NOT NULL,
+    name TEXT,
+    position TEXT,
+    status TEXT,
+    amounts_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(year, employee_id)
+  );
+`);
+const TM_MAX_COLUMNS = 60;
+function tmYear(v) { const y = parseInt(v, 10); return Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : null; }
+function tmJson(s, fallback) { try { const v = JSON.parse(s); return v && typeof v === 'object' ? v : fallback; } catch (e) { return fallback; } }
+// '', null → null (clears the cell) · "8,113.64" / "₱8113.64" → 8113.64 · anything else → NaN (rejected)
+function tmAmount(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(String(v).replace(/[₱,\s]/g, ''));
+  if (!Number.isFinite(n) || Math.abs(n) > 1e9) return NaN;
+  return Math.round(n * 100) / 100;
+}
+function tmLabelFor(date) {
+  const d = new Date(date + 'T00:00:00Z');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+// Validates a list of payroll-date columns. Existing ids are kept (so amounts stay attached);
+// new ones get fresh ids. Throws an Error with a user-facing message.
+function tmCleanColumns(list, existing, nextCol) {
+  if (!Array.isArray(list)) throw new Error('Payroll dates must be a list.');
+  if (list.length > TM_MAX_COLUMNS) throw new Error('A tracker can have at most ' + TM_MAX_COLUMNS + ' payroll dates.');
+  const known = new Set((existing || []).map(c => c.id));
+  const seen = new Set(); const out = [];
+  for (const c of list) {
+    const date = c && c.date ? String(c.date).trim() : '';
+    if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date + 'T00:00:00Z')))) throw new Error('"' + date + '" is not a valid date.');
+    let label = c && c.label ? String(c.label).trim().slice(0, 40) : '';
+    if (!date && !label) throw new Error('Every payroll date needs a date or a label.');
+    if (!label) label = tmLabelFor(date);
+    let id = c && c.id && known.has(c.id) && !seen.has(c.id) ? c.id : null;
+    if (!id) id = 'c' + (nextCol++);
+    seen.add(id); out.push({ id, date, label });
+  }
+  return { columns: out, nextCol };
+}
+function tmLoadTracker(year) {
+  const t = db.prepare('SELECT * FROM thirteenth_trackers WHERE year = ?').get(year);
+  if (!t) return null;
+  const emps = new Map(db.prepare('SELECT id, name, pos, active FROM employees').all().map(e => [e.id, e]));
+  const rows = db.prepare('SELECT * FROM thirteenth_rows WHERE year = ?').all(year).map(r => {
+    const e = emps.get(r.employee_id);
+    return {
+      id: r.id, employee_id: r.employee_id,
+      name: e ? e.name : (r.name || ''), position: e ? (e.pos || '') : (r.position || ''),
+      status: e ? (e.active === 0 ? 'RESIGNED' : 'ACTIVE') : (r.status || 'RESIGNED'),
+      inHris: !!e, amounts: tmJson(r.amounts_json, {})
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+  return { year, exists: true, columns: tmJson(t.columns_json, []), rows };
+}
+function tmAddEmployees(year, ids) {
+  const get = db.prepare('SELECT id, name, pos, active FROM employees WHERE id = ?');
+  const ins = db.prepare('INSERT OR IGNORE INTO thirteenth_rows (year, employee_id, name, position, status) VALUES (?,?,?,?,?)');
+  let added = 0; const skipped = [];
+  for (const raw of ids) {
+    const e = get.get(+raw);
+    if (!e) { skipped.push(raw); continue; }
+    if (ins.run(year, e.id, e.name, e.pos || '', e.active === 0 ? 'RESIGNED' : 'ACTIVE').changes) added++;
+  }
+  return { added, skipped };
+}
+function tmApplyAmounts(row, columnIds, changes) {
+  const amounts = tmJson(row.amounts_json, {});
+  for (const [col, val] of Object.entries(changes || {})) {
+    if (!columnIds.has(col)) throw new Error('Unknown payroll date column.');
+    const n = tmAmount(val);
+    if (Number.isNaN(n)) throw new Error('"' + val + '" is not a valid amount.');
+    if (n === null) delete amounts[col]; else amounts[col] = n;
+  }
+  return amounts;
+}
+
+// HRIS employee DETAILS only — name, position, status and whether they are in payroll — for
+// EVERYONE, including resigned employees (which /api/employees leaves out). Used to pick employees
+// for the tracker and to match names when importing. Never includes pay, contribution, bank or contact fields.
+app.get('/api/thirteenth/employees', requireAdmin, (req, res) => {
+  res.json(db.prepare('SELECT id, name, pos, active, include_in_payroll FROM employees ORDER BY name').all().map(e => ({
+    id: e.id, name: e.name, position: e.pos || '', status: e.active === 0 ? 'RESIGNED' : 'ACTIVE', inPayroll: e.include_in_payroll !== 0
+  })));
+});
+app.get('/api/thirteenth/years', requireAdmin, (req, res) => {
+  res.json(db.prepare(`SELECT t.year AS year, (SELECT COUNT(*) FROM thirteenth_rows r WHERE r.year = t.year) AS rows
+                       FROM thirteenth_trackers t ORDER BY t.year DESC`).all());
+});
+app.get('/api/thirteenth/:year', requireAdmin, (req, res) => {
+  const year = tmYear(req.params.year);
+  if (!year) return res.status(400).json({ success: false, error: 'Invalid year.' });
+  res.json(tmLoadTracker(year) || { year, exists: false, columns: [], rows: [] });
+});
+// Create a year's tracker, optionally with payroll dates and the HRIS employees to list.
+app.post('/api/thirteenth/:year', requireAdmin, (req, res) => {
+  const year = tmYear(req.params.year);
+  if (!year) return res.status(400).json({ success: false, error: 'Invalid year.' });
+  if (db.prepare('SELECT 1 FROM thirteenth_trackers WHERE year = ?').get(year)) {
+    return res.status(409).json({ success: false, error: 'A ' + year + ' tracker already exists.' });
+  }
+  const include = (req.body && req.body.include) || 'none';          // none | active | all
+  try {
+    const cols = tmCleanColumns((req.body && req.body.columns) || [], [], 1);
+    db.transaction(() => {
+      db.prepare('INSERT INTO thirteenth_trackers (year, columns_json, next_col) VALUES (?,?,?)').run(year, JSON.stringify(cols.columns), cols.nextCol);
+      if (include !== 'none') {
+        const ids = db.prepare(`SELECT id FROM employees WHERE COALESCE(include_in_payroll,1) <> 0
+                                AND (? = 'all' OR COALESCE(active,1) <> 0)`).all(include).map(r => r.id);
+        tmAddEmployees(year, ids);
+      }
+    })();
+    res.json({ success: true, tracker: tmLoadTracker(year) });
+  } catch (e) { res.status(400).json({ success: false, error: e.message }); }
+});
+app.delete('/api/thirteenth/:year', requireAdmin, (req, res) => {
+  const year = tmYear(req.params.year);
+  if (!year) return res.status(400).json({ success: false, error: 'Invalid year.' });
+  db.transaction(() => {
+    db.prepare('DELETE FROM thirteenth_rows WHERE year = ?').run(year);
+    db.prepare('DELETE FROM thirteenth_trackers WHERE year = ?').run(year);
+  })();
+  res.json({ success: true });
+});
+// Replace the list of payroll dates. Columns keep their id (and amounts) when they are kept;
+// columns left out of the list are removed along with the amounts typed in them.
+app.put('/api/thirteenth/:year/columns', requireAdmin, (req, res) => {
+  const year = tmYear(req.params.year);
+  const t = year && db.prepare('SELECT * FROM thirteenth_trackers WHERE year = ?').get(year);
+  if (!t) return res.status(404).json({ success: false, error: 'Tracker not found.' });
+  try {
+    const cols = tmCleanColumns(req.body && req.body.columns, tmJson(t.columns_json, []), t.next_col);
+    const keep = new Set(cols.columns.map(c => c.id));
+    db.transaction(() => {
+      for (const r of db.prepare('SELECT id, amounts_json FROM thirteenth_rows WHERE year = ?').all(year)) {
+        const amounts = tmJson(r.amounts_json, {}); let changed = false;
+        for (const k of Object.keys(amounts)) if (!keep.has(k)) { delete amounts[k]; changed = true; }
+        if (changed) db.prepare("UPDATE thirteenth_rows SET amounts_json = ?, updated_at = datetime('now') WHERE id = ?").run(JSON.stringify(amounts), r.id);
+      }
+      db.prepare("UPDATE thirteenth_trackers SET columns_json = ?, next_col = ?, updated_at = datetime('now') WHERE year = ?").run(JSON.stringify(cols.columns), cols.nextCol, year);
+    })();
+    res.json({ success: true, columns: cols.columns });
+  } catch (e) { res.status(400).json({ success: false, error: e.message }); }
+});
+// List employees from HRIS in this tracker (only their details are copied — never any amount).
+app.post('/api/thirteenth/:year/employees', requireAdmin, (req, res) => {
+  const year = tmYear(req.params.year);
+  if (!year || !db.prepare('SELECT 1 FROM thirteenth_trackers WHERE year = ?').get(year)) return res.status(404).json({ success: false, error: 'Tracker not found.' });
+  const ids = req.body && req.body.employee_ids;
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ success: false, error: 'Choose at least one employee.' });
+  const r = db.transaction(() => tmAddEmployees(year, ids))();
+  res.json({ success: true, added: r.added, skipped: r.skipped });
+});
+// Bulk set amounts (used by Excel import). Rows are created for HRIS employees not yet listed.
+app.put('/api/thirteenth/:year/bulk', requireAdmin, (req, res) => {
+  const year = tmYear(req.params.year);
+  const t = year && db.prepare('SELECT * FROM thirteenth_trackers WHERE year = ?').get(year);
+  if (!t) return res.status(404).json({ success: false, error: 'Tracker not found.' });
+  const rows = req.body && req.body.rows;
+  if (!Array.isArray(rows)) return res.status(400).json({ success: false, error: 'Nothing to import.' });
+  const columnIds = new Set(tmJson(t.columns_json, []).map(c => c.id));
+  try {
+    const out = db.transaction(() => {
+      let updated = 0, created = 0; const skipped = [];
+      for (const item of rows) {
+        const empId = +(item && item.employee_id);
+        let row = db.prepare('SELECT * FROM thirteenth_rows WHERE year = ? AND employee_id = ?').get(year, empId);
+        if (!row) {
+          if (!tmAddEmployees(year, [empId]).added) { skipped.push(empId); continue; }
+          row = db.prepare('SELECT * FROM thirteenth_rows WHERE year = ? AND employee_id = ?').get(year, empId); created++;
+        }
+        const amounts = tmApplyAmounts(row, columnIds, item.amounts);
+        db.prepare("UPDATE thirteenth_rows SET amounts_json = ?, updated_at = datetime('now') WHERE id = ?").run(JSON.stringify(amounts), row.id);
+        updated++;
+      }
+      return { updated, created, skipped };
+    })();
+    res.json({ success: true, ...out });
+  } catch (e) { res.status(400).json({ success: false, error: e.message }); }   // nothing is saved if any amount is invalid
+});
+app.put('/api/thirteenth/rows/:id', requireAdmin, (req, res) => {
+  const row = db.prepare('SELECT * FROM thirteenth_rows WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ success: false, error: 'Row not found.' });
+  const t = db.prepare('SELECT columns_json FROM thirteenth_trackers WHERE year = ?').get(row.year);
+  try {
+    const amounts = tmApplyAmounts(row, new Set(tmJson(t && t.columns_json, []).map(c => c.id)), req.body && req.body.amounts);
+    db.prepare("UPDATE thirteenth_rows SET amounts_json = ?, updated_at = datetime('now') WHERE id = ?").run(JSON.stringify(amounts), row.id);
+    res.json({ success: true, amounts });
+  } catch (e) { res.status(400).json({ success: false, error: e.message }); }
+});
+app.delete('/api/thirteenth/rows/:id', requireAdmin, (req, res) => {
+  db.prepare('DELETE FROM thirteenth_rows WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
 // ─── PAYSLIP HISTORY ─────────────────────────────────────────────────────────
 app.get('/api/payslips', requireAdminOrManagement, (req, res) => {
   const rows = db.prepare('SELECT * FROM payslip_history ORDER BY sent_at DESC').all();

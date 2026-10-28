@@ -213,6 +213,42 @@ tr:hover td{background:#fafcff}
 .ro-hide{display:none!important}
 .ro-pill{font-size:11px;font-weight:700;color:#4a148c;background:#f3e5f5;border:1px solid #ce93d8;border-radius:20px;padding:3px 10px;white-space:nowrap}
 body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:disabled{cursor:not-allowed;opacity:.75}
+  /* ── 13th Month Pay ── */
+  /* contain:inline-size stops this wide table from stretching the page — it scrolls inside its own box instead */
+  .tm-wrap{overflow:auto;max-height:66vh;border:1px solid var(--border);border-radius:8px;background:#fff;width:100%;max-width:100%;contain:inline-size}
+  .tm-table{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;min-width:100%}
+  .tm-table th,.tm-table td{padding:6px 8px;border-bottom:1px solid #edf0f5;border-right:1px solid #f1f4f8;white-space:nowrap;background:#fff}
+  .tm-table thead th{position:sticky;top:0;z-index:3;background:#f4f7fb;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left}
+  .tm-table tfoot td{position:sticky;bottom:0;z-index:2;background:#f4f7fb;font-weight:700}
+  .tm-s{position:sticky;z-index:2}
+  .tm-s1{left:0;min-width:92px;max-width:92px}
+  .tm-s2{left:92px;min-width:46px;max-width:46px;text-align:center}
+  .tm-s3{left:138px;min-width:230px;max-width:230px;overflow:hidden;text-overflow:ellipsis;border-right:2px solid #dbe3ee!important}
+  .tm-table thead th.tm-s{z-index:4}
+  .tm-table tfoot td.tm-s{z-index:3}
+  .tm-resigned td{background:#fffaf2}
+  .tm-in{width:98px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;padding:5px 6px;border:1px solid transparent;border-radius:4px;background:transparent}
+  .tm-in:hover:not(:disabled){border-color:var(--border);background:#fff}
+  .tm-in:focus{border-color:var(--blue);background:#fff;outline:none;box-shadow:0 0 0 2px rgba(21,101,192,.14)}
+  .tm-bad{border-color:var(--red)!important;background:#ffebee!important}
+  .tm-num{text-align:right;font-family:'IBM Plex Mono',monospace}
+  .tm-tot{font-weight:700;background:#f9fbfd!important}
+  .tm-13{font-weight:700;background:#e8f5e9!important;color:#1b5e20}
+  .tm-state{font-size:12px;min-height:16px;margin-top:6px;color:var(--muted)}
+  .tm-state.ok{color:var(--green)} .tm-state.err{color:var(--red);font-weight:600}
+  .tm-err{background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:6px;padding:8px 12px;font-size:12.5px;margin:8px 0}
+  .tm-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:4px}
+  .tm-opt{display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer;flex-wrap:wrap}
+  .tm-opt input[type=radio],.tm-opt input[type=checkbox],.tm-pick input[type=checkbox]{width:auto;padding:0;margin:0;flex:none}
+  .tm-day{width:64px!important;text-align:center}
+  .tm-pick{max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:8px;margin-top:6px}
+  .tm-pick-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #edf0f5;font-size:13px;cursor:pointer}
+  .tm-pick-row:last-child{border-bottom:none}.tm-pick-row:hover{background:#f6f9fd}
+  .tm-col-row{display:grid;grid-template-columns:30px 170px 1fr auto;gap:8px;align-items:center;margin-bottom:6px}
+  .tm-col-head{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+  .tm-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:4px 0 12px}
+  .tm-note{font-size:12px;color:var(--muted);margin:8px 2px}
+  .tm-sum{max-width:640px}.tm-sum table{background:#fff;border:1px solid var(--border);border-radius:8px}
 </style>
 </head>
 <body>
@@ -236,6 +272,7 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
   <div id="nav-payroll" class="nav-item" onclick="goSec('payroll',this)"><span class="nav-icon">💰</span>Payroll Summary</div>
   <div id="nav-send" class="nav-item" onclick="goSec('send',this)"><span class="nav-icon">📧</span>Send Pay Slips</div>
   <div id="nav-commission" class="nav-item" onclick="goSec('commission',this)"><span class="nav-icon">💵</span>Weekly Commission</div>
+  <div id="nav-thirteenth" class="nav-item" onclick="goSec('thirteenth',this)"><span class="nav-icon">🎁</span>13th Month Pay</div>
   <div id="nav-history" class="nav-item" onclick="goSec('history',this)"><span class="nav-icon">🗂</span>Slip History</div>
   <div id="nav-2316" class="nav-item" onclick="goSec('bir2316',this)"><span class="nav-icon">📄</span>BIR Form 2316</div>
   <div class="sidebar-section">Communications</div>
@@ -821,6 +858,89 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
       <div class="card-title">📧 Send Commission Notices</div>
       <div style="margin-bottom:10px"><button class="btn bp" id="comm-send-all-btn" onclick="sendAllWeeklyCommissions()">📧 Send All</button> <span id="comm-send-all-status" style="font-size:12px;color:var(--muted);margin-left:8px"></span></div>
       <div id="comm-send-wrap"><div class="empty">Select a week and save amounts first.</div></div>
+    </div>
+  </div>
+
+  <!-- 13TH MONTH PAY -->
+  <div id="sec-thirteenth" class="sec">
+    <div class="page-title">🎁 13th Month Pay</div>
+    <div class="page-sub">Tracks the basic pay received on each payroll date and works out the 13th month (total basic pay ÷ 12). Names, positions and status come from HRIS — the amounts are entered here.</div>
+    <div class="card no-print">
+      <div class="row">
+        <div class="f" style="max-width:120px"><label>Year</label><select id="tm-year" onchange="tmYearChange()"></select></div>
+        <div class="f" style="max-width:170px"><label>Show</label>
+          <select id="tm-filter" onchange="tmSetFilter()"><option value="all">All employees</option><option value="ACTIVE">Active only</option><option value="RESIGNED">Resigned only</option></select>
+        </div>
+        <button class="btn" onclick="tmOpenCreate()" style="align-self:flex-end">＋ New year</button>
+        <div style="flex:1"></div>
+        <button class="btn" onclick="tmOpenAddEmp()" style="align-self:flex-end">👥 Add employees</button>
+        <button class="btn" onclick="tmOpenColumns()" style="align-self:flex-end">📅 Payroll dates</button>
+        <button class="btn" onclick="document.getElementById('tm-import-file').click()" style="align-self:flex-end">⬆ Import Excel</button>
+        <input type="file" id="tm-import-file" accept=".xlsx,.xls" style="display:none" onchange="tmImportFile(event)">
+        <button class="btn bp" onclick="tmExport()" style="align-self:flex-end">⬇ Export Excel</button>
+      </div>
+      <div id="tm-save-state" class="tm-state"></div>
+    </div>
+    <div id="tm-body"><div class="empty">Loading…</div></div>
+  </div>
+
+  <div id="tm-create-modal" class="modal-overlay" onclick="if(event.target.id==='tm-create-modal')tmCloseModal('tm-create-modal')">
+    <div class="modal-box" style="max-width:560px">
+      <div class="modal-title"><span>🎁 New 13th Month Tracker</span><button class="modal-close" onclick="tmCloseModal('tm-create-modal')">✕</button></div>
+      <div class="f" style="max-width:140px;margin-bottom:12px"><label>Year</label><input type="number" id="tm-c-year" min="2000" max="2100"></div>
+      <div class="tm-lbl">Payroll dates</div>
+      <label class="tm-opt"><input type="radio" name="tm-c-dates" value="semi" checked> Two payroll dates every month, on days
+        <input type="number" id="tm-c-d1" value="5" min="1" max="31" class="tm-day"> and <input type="number" id="tm-c-d2" value="20" min="1" max="31" class="tm-day"></label>
+      <label class="tm-opt"><input type="radio" name="tm-c-dates" value="none"> Start empty — I will add the dates myself</label>
+      <div class="tm-lbl" style="margin-top:12px">Employees to list</div>
+      <label class="tm-opt"><input type="radio" name="tm-c-inc" value="active" checked> Active employees included in payroll</label>
+      <label class="tm-opt"><input type="radio" name="tm-c-inc" value="all"> Active and resigned employees</label>
+      <label class="tm-opt"><input type="radio" name="tm-c-inc" value="none"> None — I will add them later</label>
+      <div class="infobox" style="margin-top:12px">Only each employee's name, position and status are copied from HRIS. Every amount starts blank — nothing is taken from payroll.</div>
+      <div id="tm-c-err" class="tm-err" style="display:none"></div>
+      <div class="row" style="margin-top:6px"><button class="btn bp" onclick="tmCreate()">Create tracker</button><button class="btn" onclick="tmCloseModal('tm-create-modal')">Cancel</button></div>
+    </div>
+  </div>
+
+  <div id="tm-cols-modal" class="modal-overlay" onclick="if(event.target.id==='tm-cols-modal')tmCloseModal('tm-cols-modal')">
+    <div class="modal-box" style="max-width:700px;max-height:90vh;overflow-y:auto">
+      <div class="modal-title"><span id="tm-cols-title">📅 Payroll dates</span><button class="modal-close" onclick="tmCloseModal('tm-cols-modal')">✕</button></div>
+      <div class="infobox">Each date is one column of the tracker. Deleting a date also deletes the amounts typed under it.</div>
+      <div class="row" style="align-items:center">
+        <span style="font-size:12.5px">Add two dates a month on days</span>
+        <input type="number" id="tm-g-d1" value="5" min="1" max="31" class="tm-day"> <span style="font-size:12.5px">and</span> <input type="number" id="tm-g-d2" value="20" min="1" max="31" class="tm-day">
+        <button class="btn bs" onclick="tmColGenerate()">Add for the whole year</button>
+      </div>
+      <div class="tm-col-row tm-col-head"><span>#</span><span>Date</span><span>Column heading</span><span></span></div>
+      <div id="tm-cols-list"></div>
+      <button class="btn bs" onclick="tmColAdd()" style="margin:6px 0 10px">＋ Add a date</button>
+      <div id="tm-cols-err" class="tm-err" style="display:none"></div>
+      <div class="row"><button class="btn bp" onclick="tmColsSave()">Save payroll dates</button><button class="btn" onclick="tmCloseModal('tm-cols-modal')">Cancel</button></div>
+    </div>
+  </div>
+
+  <div id="tm-addemp-modal" class="modal-overlay" onclick="if(event.target.id==='tm-addemp-modal')tmCloseModal('tm-addemp-modal')">
+    <div class="modal-box" style="max-width:620px">
+      <div class="modal-title"><span>👥 Add employees from HRIS</span><button class="modal-close" onclick="tmCloseModal('tm-addemp-modal')">✕</button></div>
+      <div class="infobox">Only name, position and status are copied. Employees already in this tracker and employees excluded from payroll are not listed.</div>
+      <div class="row" style="align-items:center">
+        <input type="text" id="tm-ae-search" placeholder="Search by name or position…" oninput="tmAddEmpRender()" style="max-width:260px">
+        <button class="btn bs" onclick="tmAddEmpPick('active')">Select all active</button>
+        <button class="btn bs" onclick="tmAddEmpPick('all')">Select all</button>
+        <button class="btn bs" onclick="tmAddEmpPick('none')">Clear</button>
+      </div>
+      <div id="tm-addemp-list" class="tm-pick"></div>
+      <div id="tm-ae-err" class="tm-err" style="display:none"></div>
+      <div class="row" style="margin-top:10px"><button class="btn bp" onclick="tmAddEmpSubmit()">Add selected (<span id="tm-ae-count">0</span>)</button><button class="btn" onclick="tmCloseModal('tm-addemp-modal')">Cancel</button></div>
+    </div>
+  </div>
+
+  <div id="tm-import-modal" class="modal-overlay" onclick="if(event.target.id==='tm-import-modal')tmCloseModal('tm-import-modal')">
+    <div class="modal-box" style="max-width:640px;max-height:90vh;overflow-y:auto">
+      <div class="modal-title"><span>⬆ Import from Excel</span><button class="modal-close" onclick="tmCloseModal('tm-import-modal')">✕</button></div>
+      <div id="tm-import-summary"></div>
+      <div id="tm-import-err" class="tm-err" style="display:none"></div>
+      <div class="row" style="margin-top:10px"><button class="btn bp" id="tm-import-go" onclick="tmImportApply()">Import</button><button class="btn" onclick="tmCloseModal('tm-import-modal')">Cancel</button></div>
     </div>
   </div>
 
@@ -2273,6 +2393,7 @@ function goSec(name,el){
     if(wp&&!wp.value){wp.value=fmtISODate(new Date());loadCommissionWeek();}
     else if(window._commWeekStart&&window._commWeekEnd){renderCommissionEntryGrid(window._commWeekStart,window._commWeekEnd);renderCommissionSendList(window._commWeekStart,window._commWeekEnd);}
   }
+  if(name==='thirteenth')tmOpen();
   if(name==='history'){populateHistFilters();renderHistory();}
   if(name==='bir2316'){populateBir2316Selects();}
   if(name==='payroll-att')renderPayrollAttGrid();
@@ -6438,6 +6559,579 @@ window.addEventListener('DOMContentLoaded',async function(){
 </script>
 <script src="/seasonal-theme.js"></script>
 <script>
+/* ════════════ 13TH MONTH PAY ════════════
+   One tracker per year: a row per employee, a column per payroll date, laid out like the
+   "13th Month Tracker (Bi-Monthly)" workbook. HRIS supplies only each employee's name,
+   position and status (the server reads them live); every amount is typed, pasted or imported
+   here. 13th month = total basic pay ÷ 12 (worked out on screen, never stored). */
+var TM={hris:[],year:null,years:[],tracker:null,view:'tracker',filter:'all',peRow:null,dirty:{},saveTimer:null,saving:false,colEdit:[],aePick:{},imp:null};
+
+function tmEsc(s){return escHtml(s==null?'':String(s));}
+function tmFmt(n){return(n==null||n==='')?'':Number(n).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function tmMoney(n){return '₱'+Number(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});}
+// '8,113.64' / '₱8113.64' / '(500)' → number · '' → null (empty cell) · anything else → NaN
+function tmParse(txt){
+  var s=String(txt==null?'':txt).replace(/[₱,\s]/g,'');
+  if(s==='')return null;
+  if(/^\(.*\)$/.test(s))s='-'+s.slice(1,-1);
+  var n=Number(s);
+  return isFinite(n)?Math.round(n*100)/100:NaN;
+}
+function tmAutoLabel(d){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d||''))return '';
+  return new Date(d+'T00:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+}
+function tmRowTotal(r){
+  var t=0;((TM.tracker&&TM.tracker.columns)||[]).forEach(function(c){var v=r.amounts[c.id];if(typeof v==='number')t+=v;});
+  return Math.round(t*100)/100;
+}
+function tm13(total){return Math.round(total/12*100)/100;}
+function tmRowById(id){return((TM.tracker&&TM.tracker.rows)||[]).find(function(r){return r.id===id;});}
+// Rows shown = the chosen status filter; Active first, then Resigned, each A–Z
+function tmRows(){
+  var f=TM.filter;
+  return((TM.tracker&&TM.tracker.rows)||[]).filter(function(r){return f==='all'||r.status===f;}).sort(function(a,b){
+    if(a.status!==b.status)return a.status==='ACTIVE'?-1:1;
+    return a.name.localeCompare(b.name);
+  });
+}
+function tmSetState(kind,text){
+  var el=document.getElementById('tm-save-state');if(!el)return;
+  el.className='tm-state'+(kind?' '+kind:'');el.innerHTML=text||'';
+}
+function tmCloseModal(id){var m=document.getElementById(id);if(m)m.classList.remove('open');}
+function tmShowErr(id,msg){var e=document.getElementById(id);if(e){e.textContent=msg;e.style.display=msg?'block':'none';}}
+
+// ── Opening the module / switching year ──────────────────────────────────────────
+async function tmOpen(){
+  var ys=await api('GET','/api/thirteenth/years');
+  TM.years=Array.isArray(ys)?ys.map(function(y){return y.year;}):[];
+  if(!TM.year)TM.year=TM.years.length?TM.years[0]:new Date().getFullYear();
+  tmFillYearSelect();
+  await tmLoad();
+}
+function tmFillYearSelect(){
+  var sel=document.getElementById('tm-year');if(!sel)return;
+  var now=new Date().getFullYear(),set={};
+  TM.years.concat([TM.year,now]).forEach(function(y){set[y]=1;});
+  var list=Object.keys(set).map(Number).sort(function(a,b){return b-a;});
+  sel.innerHTML=list.map(function(y){return '<option value="'+y+'"'+(y===TM.year?' selected':'')+'>'+y+(TM.years.indexOf(y)>-1?'':' (not started)')+'</option>';}).join('');
+}
+async function tmYearChange(){
+  if(TM.flushFn)await TM.flushFn();     // save pending edits first (reached indirectly so that merely CHANGING the year is not treated as a write)
+  TM.year=+document.getElementById('tm-year').value;
+  await tmLoad();
+}
+function tmSetFilter(){TM.filter=document.getElementById('tm-filter').value;TM.peRow=null;tmRender();}
+async function tmLoad(){
+  tmSetState('','');
+  document.getElementById('tm-body').innerHTML='<div class="empty">Loading…</div>';
+  var t=await api('GET','/api/thirteenth/'+TM.year);
+  if(!t||t.success===false){document.getElementById('tm-body').innerHTML='<div class="empty">Could not load the tracker'+(t&&t.error?': '+tmEsc(t.error):'.')+'</div>';return;}
+  TM.tracker=t;TM.dirty={};TM.peRow=null;
+  tmRender();
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────────
+function tmRender(){
+  var body=document.getElementById('tm-body'),t=TM.tracker;
+  if(!t||!t.exists){
+    body.innerHTML='<div class="empty">No 13th month tracker for '+TM.year+' yet.<br><br><button class="btn bp" onclick="tmOpenCreate()">＋ Create the '+TM.year+' tracker</button></div>';
+    return;
+  }
+  var tabs=[['tracker','Tracker'],['combined','Combined Summary'],['person','Per-Employee Summary']];
+  body.innerHTML='<div class="metrics" id="tm-metrics"></div>'
+    +'<div class="tm-tabs no-print">'+tabs.map(function(x){return '<button class="itab'+(TM.view===x[0]?' on':'')+'" onclick="tmView(\''+x[0]+'\',this)">'+x[1]+'</button>';}).join('')+'</div>'
+    +'<div id="tm-view"></div>';
+  tmRenderView();
+  tmRefreshFooter();
+}
+function tmView(name,el){
+  TM.view=name;
+  [].slice.call(document.querySelectorAll('.tm-tabs .itab')).forEach(function(b){b.classList.remove('on');});
+  if(el)el.classList.add('on');
+  tmRenderView();
+}
+function tmRenderView(){
+  var box=document.getElementById('tm-view');if(!box)return;
+  if(TM.view==='combined')box.innerHTML=tmCombinedHtml();
+  else if(TM.view==='person')box.innerHTML=tmPersonHtml();
+  else box.innerHTML=tmTrackerHtml();
+}
+function tmStatusBadge(r){
+  return '<span class="badge '+(r.status==='ACTIVE'?'badge-green':'badge-orange')+'">'+r.status+'</span>';
+}
+function tmTrackerHtml(){
+  var t=TM.tracker,cols=t.columns,rows=tmRows();
+  if(!rows.length)return '<div class="empty">'+(t.rows.length?'No employees match this filter.':'No employees listed yet.<br><br><button class="btn bp" onclick="tmOpenAddEmp()">👥 Add employees from HRIS</button>')+'</div>';
+  if(!cols.length)return '<div class="empty">No payroll dates yet.<br><br><button class="btn bp" onclick="tmOpenColumns()">📅 Add payroll dates</button></div>';
+  var h='<div class="tm-wrap"><table class="tm-table"><thead><tr>'
+    +'<th class="tm-s tm-s1">Status</th><th class="tm-s tm-s2">No.</th><th class="tm-s tm-s3">Employee name</th><th>Position</th>'
+    +cols.map(function(c){return '<th style="text-align:right" title="'+tmEsc(c.date)+'">'+tmEsc(c.label)+'</th>';}).join('')
+    +'<th style="text-align:right">Total basic pay</th><th style="text-align:right">13th month</th><th class="no-print"></th></tr></thead><tbody>';
+  rows.forEach(function(r,i){
+    var tot=tmRowTotal(r);
+    h+='<tr class="'+(r.status==='RESIGNED'?'tm-resigned':'')+'" data-row="'+r.id+'">'
+      +'<td class="tm-s tm-s1">'+tmStatusBadge(r)+'</td><td class="tm-s tm-s2">'+(i+1)+'</td>'
+      +'<td class="tm-s tm-s3" title="'+tmEsc(r.name)+'"><b>'+tmEsc(r.name)+'</b>'+(r.inHris?'':' <span class="badge badge-gray" title="This employee is no longer in HRIS">not in HRIS</span>')+'</td>'
+      +'<td>'+tmEsc(r.position)+'</td>';
+    cols.forEach(function(c,j){
+      h+='<td class="tm-num"><input class="tm-in" data-r="'+i+'" data-c="'+j+'" data-row="'+r.id+'" data-col="'+c.id+'" value="'+tmFmt(r.amounts[c.id])+'" inputmode="decimal" autocomplete="off"'
+        +' onfocus="this.select()" onchange="tmCellChange(this)" onkeydown="tmCellKey(event,this)" onpaste="tmPaste(event,this)"></td>';
+    });
+    h+='<td class="tm-num tm-tot" id="tm-tot-'+r.id+'">'+tmFmt(tot)+'</td><td class="tm-num tm-13" id="tm-13-'+r.id+'">'+tmFmt(tm13(tot))+'</td>'
+      +'<td class="no-print"><button class="btn bs" style="color:var(--red)" title="Remove from this tracker" onclick="tmRemoveRow('+r.id+')">✕</button></td></tr>';
+  });
+  h+='</tbody><tfoot><tr><td class="tm-s tm-s1"></td><td class="tm-s tm-s2"></td><td class="tm-s tm-s3">TOTAL ('+rows.length+')</td><td></td>'
+    +cols.map(function(c){return '<td class="tm-num" id="tm-ft-'+c.id+'"></td>';}).join('')
+    +'<td class="tm-num" id="tm-ft-total"></td><td class="tm-num" id="tm-ft-13"></td><td class="no-print"></td></tr></tfoot></table></div>'
+    +'<div class="tm-note no-print">Type or paste amounts (you can paste a block copied from Excel). Enter moves down, Esc cancels a change. Changes save automatically. The 13th month is the total basic pay ÷ 12.</div>';
+  return h;
+}
+function tmCombinedHtml(){
+  var rows=tmRows();
+  if(!rows.length)return '<div class="empty">No employees to show.</div>';
+  var grand=0,h='<div class="tm-sum"><div class="row no-print" style="margin-bottom:8px"><button class="btn" onclick="tmPrint()">🖨 Print</button></div><table><thead><tr><th>Status</th><th style="text-align:center">No.</th><th>Employee name</th><th style="text-align:right">Total amount (13th month)</th></tr></thead><tbody>';
+  rows.forEach(function(r,i){var a=tm13(tmRowTotal(r));grand+=a;
+    h+='<tr><td>'+tmStatusBadge(r)+'</td><td style="text-align:center">'+(i+1)+'</td><td><b>'+tmEsc(r.name)+'</b></td><td class="tm-num">'+tmMoney(a)+'</td></tr>';});
+  h+='</tbody><tfoot><tr><td></td><td></td><td style="font-weight:700;text-align:right">Grand total</td><td class="tm-num" style="font-weight:700">'+tmMoney(Math.round(grand*100)/100)+'</td></tr></tfoot></table></div>';
+  return h;
+}
+function tmPersonHtml(){
+  var rows=tmRows();
+  if(!rows.length)return '<div class="empty">No employees to show.</div>';
+  var cur=rows.find(function(r){return r.id===TM.peRow;})||rows[0];TM.peRow=cur.id;
+  var total=tmRowTotal(cur);
+  var h='<div class="tm-sum"><div class="row no-print" style="align-items:flex-end"><div class="f"><label>Employee</label><select onchange="tmPeChange(this.value)">'
+    +rows.map(function(r){return '<option value="'+r.id+'"'+(r.id===cur.id?' selected':'')+'>'+tmEsc(r.name)+(r.status==='RESIGNED'?' (resigned)':'')+'</option>';}).join('')
+    +'</select></div><button class="btn" onclick="tmPrint()">🖨 Print</button></div>'
+    +'<div style="margin:6px 0 10px"><b>'+tmEsc(cur.name)+'</b> · '+tmEsc(cur.position)+' · '+tmStatusBadge(cur)+'</div>'
+    +'<table><thead><tr><th>Payroll date</th><th style="text-align:right">Basic pay</th></tr></thead><tbody>';
+  TM.tracker.columns.forEach(function(c){var v=cur.amounts[c.id];h+='<tr><td>'+tmEsc(c.label)+'</td><td class="tm-num">'+(typeof v==='number'?tmFmt(v):'—')+'</td></tr>';});
+  h+='</tbody><tfoot><tr><td style="font-weight:700">TOTAL BASIC</td><td class="tm-num" style="font-weight:700">'+tmMoney(total)+'</td></tr>'
+    +'<tr><td>DIVIDED BY</td><td class="tm-num">12 months</td></tr>'
+    +'<tr><td style="font-weight:700">13TH MONTH PAY</td><td class="tm-num tm-13" style="font-size:14px">'+tmMoney(tm13(total))+'</td></tr></tfoot></table></div>';
+  return h;
+}
+function tmPeChange(v){TM.peRow=+v;tmRenderView();}
+// Totals row + headline numbers (recomputed whenever a cell changes)
+function tmRefreshFooter(){
+  var t=TM.tracker;if(!t||!t.exists)return;
+  var rows=tmRows(),grandBasic=0,grand13=0;
+  t.columns.forEach(function(c){
+    var s=0;rows.forEach(function(r){var v=r.amounts[c.id];if(typeof v==='number')s+=v;});
+    var el=document.getElementById('tm-ft-'+c.id);if(el)el.textContent=tmFmt(Math.round(s*100)/100);
+  });
+  rows.forEach(function(r){var tt=tmRowTotal(r);grandBasic+=tt;grand13+=tm13(tt);});
+  var a=document.getElementById('tm-ft-total'),b=document.getElementById('tm-ft-13');
+  if(a)a.textContent=tmFmt(Math.round(grandBasic*100)/100);if(b)b.textContent=tmFmt(Math.round(grand13*100)/100);
+  var m=document.getElementById('tm-metrics');
+  if(m)m.innerHTML='<div class="mc"><div class="ml">Employees shown</div><div class="mv">'+rows.length+'</div></div>'
+    +'<div class="mc"><div class="ml">Total basic pay</div><div class="mv">'+tmMoney(Math.round(grandBasic*100)/100)+'</div></div>'
+    +'<div class="mc"><div class="ml">Total 13th month</div><div class="mv" style="color:var(--green)">'+tmMoney(Math.round(grand13*100)/100)+'</div></div>'
+    +'<div class="mc"><div class="ml">Payroll dates</div><div class="mv">'+t.columns.length+'</div></div>';
+}
+function tmRefreshRow(row){
+  var tot=tmRowTotal(row),a=document.getElementById('tm-tot-'+row.id),b=document.getElementById('tm-13-'+row.id);
+  if(a)a.textContent=tmFmt(tot);if(b)b.textContent=tmFmt(tm13(tot));
+}
+
+// ── Editing cells (type, paste, keyboard) and saving ───────────────────────────────
+function tmApplyCell(row,col,n,inp){
+  if(n==null)delete row.amounts[col];else row.amounts[col]=n;
+  if(inp)inp.value=n==null?'':tmFmt(n);
+  (TM.dirty[row.id]=TM.dirty[row.id]||{})[col]=(n==null?null:n);
+  tmRefreshRow(row);tmRefreshFooter();
+}
+function tmCellChange(inp){
+  var row=tmRowById(+inp.dataset.row);if(!row)return;
+  var n=tmParse(inp.value);
+  if(Number.isNaN(n)){
+    inp.classList.add('tm-bad');tmSetState('err','"'+tmEsc(inp.value)+'" is not a number — the cell was not changed.');
+    inp.value=tmFmt(row.amounts[inp.dataset.col]);setTimeout(function(){inp.classList.remove('tm-bad');},1600);return;
+  }
+  tmApplyCell(row,inp.dataset.col,n,inp);tmQueueSave();
+}
+function tmCellKey(e,inp){
+  if(e.key==='Enter'){
+    e.preventDefault();inp.blur();
+    var next=document.querySelector('.tm-in[data-r="'+(+inp.dataset.r+(e.shiftKey?-1:1))+'"][data-c="'+inp.dataset.c+'"]');
+    if(next)next.focus();
+  }else if(e.key==='Escape'){
+    var row=tmRowById(+inp.dataset.row);if(row)inp.value=tmFmt(row.amounts[inp.dataset.col]);inp.blur();
+  }
+}
+// A block copied from Excel lands starting at the clicked cell (blank pasted cells never erase anything)
+function tmPaste(e,inp){
+  var txt=(e.clipboardData||window.clipboardData).getData('text').replace(/\r/g,'').replace(/\n$/,'');
+  if(txt.indexOf('\t')<0&&txt.indexOf('\n')<0)return;
+  e.preventDefault();
+  var r0=+inp.dataset.r,c0=+inp.dataset.c,touched=0,bad=0;
+  txt.split('\n').forEach(function(line,di){line.split('\t').forEach(function(v,dj){
+    var cell=document.querySelector('.tm-in[data-r="'+(r0+di)+'"][data-c="'+(c0+dj)+'"]');if(!cell)return;
+    var n=tmParse(v);if(Number.isNaN(n)){bad++;return;}
+    if(n==null)return;
+    var row=tmRowById(+cell.dataset.row);if(!row)return;
+    tmApplyCell(row,cell.dataset.col,n,cell);touched++;
+  });});
+  if(touched)tmQueueSave();
+  tmSetState(bad?'err':'ok',touched+' cell'+(touched===1?'':'s')+' pasted'+(bad?' · '+bad+' value'+(bad===1?'':'s')+' skipped (not numbers)':'')+'.');
+}
+function tmQueueSave(){tmSetState('','Saving…');clearTimeout(TM.saveTimer);TM.saveTimer=setTimeout(tmFlush,450);}
+async function tmFlush(){
+  clearTimeout(TM.saveTimer);
+  if(TM.saving)return;
+  var ids=Object.keys(TM.dirty);if(!ids.length)return;
+  TM.saving=true;var failed=null;
+  for(var i=0;i<ids.length;i++){
+    var id=ids[i],changes=TM.dirty[id];delete TM.dirty[id];
+    var r=null;try{r=await api('PUT','/api/thirteenth/rows/'+id,{amounts:changes});}catch(e){r=null;}
+    if(!r||!r.success){
+      failed=(r&&r.error)||'Could not reach the server';
+      TM.dirty[id]=Object.assign(changes,TM.dirty[id]||{});
+    }
+  }
+  TM.saving=false;
+  if(failed){tmSetState('err','⚠ Not saved — '+tmEsc(failed)+'. <a href="#" onclick="tmFlush();return false">Try again</a>');return;}
+  if(Object.keys(TM.dirty).length){tmFlush();return;}
+  tmSetState('ok','✓ All changes saved');
+}
+TM.flushFn=tmFlush;
+async function tmRemoveRow(id){
+  var r=tmRowById(id);if(!r)return;
+  if(!confirm('Remove '+r.name+' from the '+TM.year+' tracker?\n\nTheir amounts here are deleted. Their HRIS record is not affected.'))return;
+  var res=await api('DELETE','/api/thirteenth/rows/'+id);
+  if(res&&res.success)await tmLoad();else alert((res&&res.error)||'Could not remove this row.');
+}
+
+// ── New year ────────────────────────────────────────────────────────────────────
+function tmOpenCreate(){
+  var y=TM.year;
+  if(TM.tracker&&TM.tracker.exists){var n=new Date().getFullYear();y=n;while(TM.years.indexOf(y)>-1)y++;}
+  document.getElementById('tm-c-year').value=y;
+  tmShowErr('tm-c-err','');
+  document.getElementById('tm-create-modal').classList.add('open');
+}
+function tmGenerateDates(year,d1,d2){
+  var out=[];
+  for(var m=0;m<12;m++){
+    var last=new Date(Date.UTC(year,m+1,0)).getUTCDate();
+    [d1,d2].forEach(function(d){
+      var day=Math.min(d,last);
+      out.push(year+'-'+String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0'));
+    });
+  }
+  return out;
+}
+async function tmCreate(){
+  var year=parseInt(document.getElementById('tm-c-year').value,10);
+  if(!(year>=2000&&year<=2100)){tmShowErr('tm-c-err','Enter a year between 2000 and 2100.');return;}
+  var mode=document.querySelector('input[name="tm-c-dates"]:checked').value;
+  var inc=document.querySelector('input[name="tm-c-inc"]:checked').value;
+  var columns=[];
+  if(mode==='semi'){
+    var d1=parseInt(document.getElementById('tm-c-d1').value,10),d2=parseInt(document.getElementById('tm-c-d2').value,10);
+    if(!(d1>=1&&d1<=31&&d2>=1&&d2<=31)||d1===d2){tmShowErr('tm-c-err','Enter two different days between 1 and 31.');return;}
+    columns=tmGenerateDates(year,d1,d2).map(function(d){return {date:d};});
+  }
+  var r=await api('POST','/api/thirteenth/'+year,{columns:columns,include:inc});
+  if(!r||!r.success){tmShowErr('tm-c-err',(r&&r.error)||'Could not create the tracker.');return;}
+  tmCloseModal('tm-create-modal');
+  TM.year=year;if(TM.years.indexOf(year)<0)TM.years.push(year);
+  tmFillYearSelect();await tmLoad();
+}
+
+// ── Payroll dates (columns) ─────────────────────────────────────────────────────
+function tmOpenColumns(){
+  if(!TM.tracker||!TM.tracker.exists){alert('Create the '+TM.year+' tracker first.');return;}
+  TM.colEdit=TM.tracker.columns.map(function(c){return {id:c.id,date:c.date||'',label:c.label||''};});
+  document.getElementById('tm-cols-title').textContent='📅 Payroll dates — '+TM.year;
+  tmShowErr('tm-cols-err','');tmColsRender();
+  document.getElementById('tm-cols-modal').classList.add('open');
+}
+function tmColsRender(){
+  var box=document.getElementById('tm-cols-list');
+  box.innerHTML=TM.colEdit.length?TM.colEdit.map(function(c,i){
+    return '<div class="tm-col-row"><span>'+(i+1)+'</span>'
+      +'<input type="date" value="'+tmEsc(c.date)+'" onchange="tmColEdit('+i+',\'date\',this.value)">'
+      +'<input type="text" value="'+tmEsc(c.label)+'" maxlength="40" placeholder="Heading, e.g. Jan 5, 2026" onchange="tmColEdit('+i+',\'label\',this.value)">'
+      +'<span style="white-space:nowrap"><button class="btn bs" onclick="tmColMove('+i+',-1)" title="Move up">↑</button> <button class="btn bs" onclick="tmColMove('+i+',1)" title="Move down">↓</button> <button class="btn bs" style="color:var(--red)" onclick="tmColDel('+i+')" title="Delete this date">✕</button></span></div>';
+  }).join(''):'<div class="empty" style="padding:1rem">No payroll dates yet.</div>';
+}
+function tmColEdit(i,field,v){
+  var c=TM.colEdit[i];if(!c)return;
+  if(field==='date'){var auto=(!c.label||c.label===tmAutoLabel(c.date));c.date=v;if(auto){c.label=tmAutoLabel(v);}}
+  else c.label=v;
+  tmColsRender();
+}
+function tmColAdd(){TM.colEdit.push({id:null,date:'',label:''});tmColsRender();}
+function tmColMove(i,d){var j=i+d;if(j<0||j>=TM.colEdit.length)return;var t=TM.colEdit[i];TM.colEdit[i]=TM.colEdit[j];TM.colEdit[j]=t;tmColsRender();}
+function tmColDel(i){TM.colEdit.splice(i,1);tmColsRender();}
+// Adds only the dates that are not already there (never replaces what you have)
+function tmColGenerate(){
+  var d1=parseInt(document.getElementById('tm-g-d1').value,10),d2=parseInt(document.getElementById('tm-g-d2').value,10);
+  if(!(d1>=1&&d1<=31&&d2>=1&&d2<=31)||d1===d2){tmShowErr('tm-cols-err','Enter two different days between 1 and 31.');return;}
+  tmShowErr('tm-cols-err','');
+  var have={};TM.colEdit.forEach(function(c){if(c.date)have[c.date]=1;});
+  tmGenerateDates(TM.year,d1,d2).forEach(function(d){if(!have[d])TM.colEdit.push({id:null,date:d,label:tmAutoLabel(d)});});
+  if(TM.colEdit.every(function(c){return c.date;}))TM.colEdit.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;});
+  tmColsRender();
+}
+async function tmColsSave(){
+  var list=TM.colEdit;
+  for(var i=0;i<list.length;i++){if(!list[i].date&&!(list[i].label||'').trim()){tmShowErr('tm-cols-err','Row '+(i+1)+' needs a date or a heading.');return;}}
+  var keep={};list.forEach(function(c){if(c.id)keep[c.id]=1;});
+  var removed=TM.tracker.columns.filter(function(c){return !keep[c.id];});
+  if(removed.length){
+    var lost=0;TM.tracker.rows.forEach(function(r){removed.forEach(function(c){if(typeof r.amounts[c.id]==='number')lost++;});});
+    if(lost&&!confirm('Deleting '+removed.length+' payroll date'+(removed.length===1?'':'s')+' will also delete '+lost+' amount'+(lost===1?'':'s')+' typed under '+(removed.length===1?'it':'them')+'.\n\nContinue?'))return;
+  }
+  await tmFlush();
+  var r=await api('PUT','/api/thirteenth/'+TM.year+'/columns',{columns:list.map(function(c){return {id:c.id||undefined,date:c.date,label:c.label};})});
+  if(!r||!r.success){tmShowErr('tm-cols-err',(r&&r.error)||'Could not save the payroll dates.');return;}
+  tmCloseModal('tm-cols-modal');await tmLoad();
+}
+
+// ── Add employees from HRIS ───────────────────────────────────────────────────────
+// HRIS details (name, position, status) for EVERY employee including resigned ones — /api/employees leaves resigned people out
+async function tmLoadHris(){
+  var r=await api('GET','/api/thirteenth/employees');
+  TM.hris=Array.isArray(r)?r:[];
+  return TM.hris;
+}
+function tmAddEmpCandidates(){
+  var have={};((TM.tracker&&TM.tracker.rows)||[]).forEach(function(r){have[r.employee_id]=1;});
+  return TM.hris.filter(function(e){return e.inPayroll&&!have[e.id];}).sort(function(a,b){
+    if(a.status!==b.status)return a.status==='ACTIVE'?-1:1;return String(a.name).localeCompare(String(b.name));
+  });
+}
+async function tmOpenAddEmp(){
+  if(!TM.tracker||!TM.tracker.exists){alert('Create the '+TM.year+' tracker first.');return;}
+  await tmLoadHris();
+  TM.aePick={};document.getElementById('tm-ae-search').value='';tmShowErr('tm-ae-err','');
+  tmAddEmpRender();document.getElementById('tm-addemp-modal').classList.add('open');
+}
+function tmAddEmpRender(){
+  var q=(document.getElementById('tm-ae-search').value||'').toLowerCase(),box=document.getElementById('tm-addemp-list');
+  var list=tmAddEmpCandidates().filter(function(e){return !q||(String(e.name)+' '+String(e.position||'')).toLowerCase().indexOf(q)>-1;});
+  box.innerHTML=list.length?list.map(function(e){
+    var act=e.status==='ACTIVE';
+    return '<label class="tm-pick-row"><input type="checkbox" '+(TM.aePick[e.id]?'checked':'')+' onchange="tmAddEmpToggle('+e.id+',this.checked)"> <span style="flex:1"><b>'+tmEsc(e.name)+'</b><br><span style="font-size:11px;color:var(--muted)">'+tmEsc(e.position||'')+'</span></span><span class="badge '+(act?'badge-green':'badge-orange')+'">'+(act?'ACTIVE':'RESIGNED')+'</span></label>';
+  }).join(''):'<div class="empty" style="border:none">'+(q?'No match.':'Everyone included in payroll is already in this tracker.')+'</div>';
+  tmAddEmpCount();
+}
+function tmAddEmpToggle(id,on){if(on)TM.aePick[id]=1;else delete TM.aePick[id];tmAddEmpCount();}
+function tmAddEmpCount(){document.getElementById('tm-ae-count').textContent=Object.keys(TM.aePick).length;}
+function tmAddEmpPick(mode){
+  TM.aePick={};
+  if(mode!=='none')tmAddEmpCandidates().forEach(function(e){if(mode==='all'||e.status==='ACTIVE')TM.aePick[e.id]=1;});
+  tmAddEmpRender();
+}
+async function tmAddEmpSubmit(){
+  var ids=Object.keys(TM.aePick).map(Number);
+  if(!ids.length){tmShowErr('tm-ae-err','Choose at least one employee.');return;}
+  var r=await api('POST','/api/thirteenth/'+TM.year+'/employees',{employee_ids:ids});
+  if(!r||!r.success){tmShowErr('tm-ae-err',(r&&r.error)||'Could not add the employees.');return;}
+  tmCloseModal('tm-addemp-modal');await tmLoad();
+  tmSetState('ok','✓ Added '+r.added+' employee'+(r.added===1?'':'s'));
+}
+
+// ── Printing the two summaries ───────────────────────────────────────────────────
+function tmPrint(){
+  var box=document.querySelector('#tm-view .tm-sum');if(!box)return;
+  var w=window.open('','_blank');if(!w){alert('Allow pop-ups to print.');return;}
+  var title='13th Month Pay — '+TM.year+(TM.filter==='all'?'':TM.filter==='ACTIVE'?' (Active)':' (Resigned)');
+  var clone=box.cloneNode(true);[].slice.call(clone.querySelectorAll('.no-print')).forEach(function(n){n.remove();});
+  w.document.write('<!DOCTYPE html><html><head><title>'+tmEsc(title)+'</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1a2332}h2{margin:0 0 14px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid #ccd5e0;padding:7px 10px;text-align:left}th{background:#f1f4f8}.tm-num{text-align:right;font-family:monospace}.badge{font-size:10px;font-weight:700}tfoot td{font-weight:700;background:#f7f9fb}</style></head><body><h2>'+tmEsc(title)+'</h2>'+clone.innerHTML+'<p style="font-size:11px;color:#667;margin-top:16px">Printed '+new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})+' · 13th month = total basic pay ÷ 12</p></body></html>');
+  w.document.close();w.focus();setTimeout(function(){w.print();},300);
+}
+
+// ── Export: rebuilds the workbook layout (with live formulas) ────────────────────────
+function tmExcelSerial(d){var p=d.split('-');return Math.round((Date.UTC(+p[0],+p[1]-1,+p[2])-Date.UTC(1899,11,30))/86400000);}
+function tmExport(){
+  if(typeof XLSX==='undefined'){alert('The Excel library has not loaded yet — please try again in a moment.');return;}
+  var t=TM.tracker;if(!t||!t.exists){alert('There is no tracker to export for '+TM.year+'.');return;}
+  var rows=tmRows(),cols=t.columns,n=cols.length,FIRST=10,LAST=FIRST+Math.max(rows.length,1)-1;
+  var colL=function(i){return XLSX.utils.encode_col(i);};
+  var TOTC=4+n,THC=5+n;                                   // 0-based column indexes of TOTAL BASIC PAY and 13TH MONTH
+  var TR="'13TH MONTH TRACKER BI-MONTHLY'";
+  function S(ws,addr,v,o){o=o||{};var c={};
+    if(typeof v==='number'){c.t='n';c.v=v;}else{c.t='s';c.v=String(v==null?'':v);}
+    if(o.f)c.f=o.f;if(o.z)c.z=o.z;if(o.date){c.t='n';c.v=o.date;c.z='mmm d, yyyy';}ws[addr]=c;}
+  var MONEY='#,##0.00';
+
+  // sheet 2: the tracker
+  var tr={};
+  S(tr,'A2','BASIC PAY-BI MONTHLY');S(tr,'A3',TM.year+' 13th month tracker');
+  var colSum=[];
+  cols.forEach(function(c,j){var s=0;rows.forEach(function(r){if(typeof r.amounts[c.id]==='number')s+=r.amounts[c.id];});colSum.push(s);});
+  ['STATUS','NO.','EMPLOYEE NAME','POSITION'].forEach(function(h,i){S(tr,colL(i)+'9',h);});
+  cols.forEach(function(c,j){
+    var a=colL(4+j)+'9';if(c.date)S(tr,a,'',{date:tmExcelSerial(c.date)});else S(tr,a,c.label);
+    S(tr,colL(4+j)+'8',Math.round(colSum[j]*100)/100,{f:'SUM('+colL(4+j)+FIRST+':'+colL(4+j)+LAST+')',z:MONEY});
+  });
+  S(tr,colL(TOTC)+'9','TOTAL BASIC PAY');S(tr,colL(THC)+'9','13TH MONTH');
+  var gT=0,g13=0;
+  rows.forEach(function(r,i){
+    var R=FIRST+i,tot=tmRowTotal(r),th=tm13(tot);gT+=tot;g13+=th;
+    S(tr,'A'+R,r.status);S(tr,'B'+R,i+1);S(tr,'C'+R,r.name);S(tr,'D'+R,r.position);
+    cols.forEach(function(c,j){var v=r.amounts[c.id];if(typeof v==='number')S(tr,colL(4+j)+R,v,{z:MONEY});});
+    S(tr,colL(TOTC)+R,tot,{f:n?'SUM('+colL(4)+R+':'+colL(3+n)+R+')':'0',z:MONEY});
+    S(tr,colL(THC)+R,th,{f:'ROUND('+colL(TOTC)+R+'/12,2)',z:MONEY});   // rounded to the centavo, exactly as shown on screen
+  });
+  S(tr,colL(TOTC)+'8',Math.round(gT*100)/100,{f:'SUM('+colL(TOTC)+FIRST+':'+colL(TOTC)+LAST+')',z:MONEY});
+  S(tr,colL(THC)+'8',Math.round(g13*100)/100,{f:'SUM('+colL(THC)+FIRST+':'+colL(THC)+LAST+')',z:MONEY});
+  tr['!ref']='A1:'+colL(THC)+LAST;
+  tr['!cols']=[{wch:12},{wch:6},{wch:36},{wch:26}].concat(cols.map(function(){return {wch:14};}),[{wch:18},{wch:16}]);
+  tr['!freeze']={xSplit:4,ySplit:9};
+
+  // sheet 1: combined summary (points at the tracker, like the original)
+  var cs={};
+  ['STATUS','No.','Employee Name','Total Amount'].forEach(function(h,i){S(cs,colL(i)+'1',h);});
+  rows.forEach(function(r,i){var R=i+2,src=FIRST+i;
+    S(cs,'A'+R,r.status);S(cs,'B'+R,i+1);S(cs,'C'+R,r.name,{f:TR+'!C'+src});S(cs,'D'+R,tm13(tmRowTotal(r)),{f:TR+'!'+colL(THC)+src,z:MONEY});});
+  var gr=rows.length+2;
+  S(cs,'C'+gr,'Grand Total');S(cs,'D'+gr,Math.round(g13*100)/100,{f:'SUM(D2:D'+(gr-1)+')',z:MONEY});
+  cs['!ref']='A1:D'+gr;cs['!cols']=[{wch:12},{wch:6},{wch:36},{wch:18}];
+
+  // sheet 3: per-employee summary (type another name in A3 to switch)
+  var pe={},first=rows[0],rng=TR+'!$C$'+FIRST+':$'+colL(THC)+'$'+LAST;
+  S(pe,'A1','13TH MONTH PAY — PER EMPLOYEE');S(pe,'A2','Type an employee name exactly as it appears in the tracker in cell A3.');
+  S(pe,'A3',first?first.name:'');S(pe,'A4','PAYROLL DATE');S(pe,'B4','BASIC PAY');
+  cols.forEach(function(c,j){var R=5+j;S(pe,'A'+R,c.label);
+    S(pe,'B'+R,first&&typeof first.amounts[c.id]==='number'?first.amounts[c.id]:0,{f:'VLOOKUP($A$3,'+rng+','+(3+j)+',FALSE)',z:MONEY});});
+  var r0=5+n;
+  S(pe,'A'+r0,'TOTAL BASIC');S(pe,'B'+r0,first?tmRowTotal(first):0,{f:n?'SUM(B5:B'+(r0-1)+')':'0',z:MONEY});
+  S(pe,'A'+(r0+1),'DIVIDED BY');S(pe,'B'+(r0+1),'12 MONTHS');
+  S(pe,'A'+(r0+2),'13TH MONTH PAY');S(pe,'B'+(r0+2),first?tm13(tmRowTotal(first)):0,{f:'ROUND(B'+r0+'/12,2)',z:MONEY});
+  pe['!ref']='A1:B'+(r0+2);pe['!cols']=[{wch:34},{wch:18}];
+
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,cs,'Combined Summary');
+  XLSX.utils.book_append_sheet(wb,tr,'13TH MONTH TRACKER BI-MONTHLY');
+  XLSX.utils.book_append_sheet(wb,pe,'13TH MONTH SUMMARY BI-MONTHLY');
+  var tag=TM.filter==='all'?'All':TM.filter==='ACTIVE'?'Active':'Inactive';
+  XLSX.writeFile(wb,TM.year+' - 13th Month Tracker - '+tag+'.xlsx');
+}
+
+// ── Import: reads the same layout back from an Excel file ────────────────────────────
+function tmNorm(s){return String(s||'').toUpperCase().replace(/[.,]/g,' ').replace(/\s+/g,' ').trim();}
+function tmTokens(s){return tmNorm(s).split(' ').filter(Boolean).sort().join(' ');}
+function tmHeaderDate(cell){
+  if(!cell)return {date:'',label:''};
+  if(cell.t==='n'&&cell.z&&XLSX.SSF.is_date(cell.z)){var p=XLSX.SSF.parse_date_code(cell.v);if(p)return {date:p.y+'-'+String(p.m).padStart(2,'0')+'-'+String(p.d).padStart(2,'0'),label:''};}
+  var txt=String(cell.w!=null?cell.w:cell.v==null?'':cell.v).trim(),m=/^([A-Za-z]{3,9})\.?\s*(\d{1,2})\s*,?\s*(\d{4})$/.exec(txt);
+  if(m){var mi='JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC'.indexOf(m[1].slice(0,3).toUpperCase());
+    if(mi>=0&&mi%3===0)return {date:m[3]+'-'+String(mi/3+1).padStart(2,'0')+'-'+String(+m[2]).padStart(2,'0'),label:''};}
+  return {date:'',label:txt};
+}
+function tmParseSheet(ws){
+  if(!ws||!ws['!ref'])return {error:'That sheet is empty.'};
+  var range=XLSX.utils.decode_range(ws['!ref']);
+  function cell(r,c){return ws[XLSX.utils.encode_cell({r:r,c:c})];}
+  function text(c){return c?String(c.w!=null?c.w:c.v==null?'':c.v).trim():'';}
+  var hr=-1,nameC=-1;
+  for(var r=range.s.r;r<=Math.min(range.e.r,60)&&hr<0;r++)for(var c=range.s.c;c<=range.e.c;c++){if(/^employee\s*name$/i.test(text(cell(r,c)))){hr=r;nameC=c;break;}}
+  if(hr<0)return {error:'Could not find a header row containing "EMPLOYEE NAME" in that sheet.'};
+  var cols=[];
+  for(c=nameC+1;c<=range.e.c;c++){
+    var t=text(cell(hr,c));
+    if(/^position$/i.test(t))continue;
+    if(/^total/i.test(t))break;
+    if(t==='')continue;
+    var hd=tmHeaderDate(cell(hr,c));cols.push({xc:c,date:hd.date,label:hd.label});
+  }
+  var rows=[];
+  for(r=hr+1;r<=range.e.r;r++){
+    var name=text(cell(r,nameC));
+    if(!name||/^(grand\s*)?total/i.test(name))continue;
+    var amounts={};
+    cols.forEach(function(col,i){
+      var cc=cell(r,col.xc);if(!cc)return;
+      var v=cc.t==='n'?cc.v:(cc.t==='s'?tmParse(cc.v):null);
+      if(typeof v==='number'&&isFinite(v))amounts[i]=Math.round(v*100)/100;
+    });
+    rows.push({name:name,amounts:amounts});
+  }
+  return {cols:cols,rows:rows};
+}
+function tmImportFile(ev){
+  var f=ev.target.files&&ev.target.files[0];ev.target.value='';
+  if(!f)return;
+  if(typeof XLSX==='undefined'){alert('The Excel library has not loaded yet — please try again in a moment.');return;}
+  if(!TM.tracker||!TM.tracker.exists){alert('Create the '+TM.year+' tracker first, then import into it.');return;}
+  var rd=new FileReader();
+  rd.onload=async function(){
+    var wb;try{wb=XLSX.read(new Uint8Array(rd.result),{type:'array',cellNF:true});}catch(e){alert('That file could not be read as an Excel workbook.');return;}
+    var name=wb.SheetNames.find(function(n){return /tracker/i.test(n);})||wb.SheetNames[0];
+    var p=tmParseSheet(wb.Sheets[name]);
+    if(p.error){alert(p.error);return;}
+    await tmLoadHris();
+    var byNorm={},byTok={};
+    TM.hris.forEach(function(e){byNorm[tmNorm(e.name)]=e;byTok[tmTokens(e.name)]=e;});
+    var matched=[],unmatched=[];
+    p.rows.forEach(function(r){var e=byNorm[tmNorm(r.name)]||byTok[tmTokens(r.name)];if(e)matched.push({emp:e,amounts:r.amounts});else unmatched.push(r.name);});
+    TM.imp={file:f.name,sheet:name,cols:p.cols,matched:matched,unmatched:unmatched};
+    tmImportPreview();
+  };
+  rd.readAsArrayBuffer(f);
+}
+// Pairs each Excel column with an existing tracker column of the same date (in order); anything
+// left over becomes a new payroll date. Each planned column remembers which Excel column
+// ("imp") it came from, so re-sorting by date cannot scramble the mapping.
+function tmImportPlan(){
+  var imp=TM.imp,added=0;
+  var final=TM.tracker.columns.map(function(c){return {id:c.id,date:c.date,label:c.label,imp:null};});
+  imp.cols.forEach(function(ic,i){
+    var hit=final.findIndex(function(c){
+      return c.id&&c.imp===null&&(ic.date?c.date===ic.date:(c.label||'').toLowerCase()===(ic.label||'').toLowerCase());
+    });
+    if(hit>=0)final[hit].imp=i;
+    else{final.push({id:null,date:ic.date,label:ic.label||tmAutoLabel(ic.date),imp:i});added++;}
+  });
+  return {final:final,added:added};
+}
+function tmImportPreview(){
+  var imp=TM.imp,plan=tmImportPlan(),cells=0;
+  imp.matched.forEach(function(m){cells+=Object.keys(m.amounts).length;});
+  var h='<div class="infobox">File: <b>'+tmEsc(imp.file)+'</b> · sheet <b>'+tmEsc(imp.sheet)+'</b></div>'
+    +'<div class="metrics"><div class="mc"><div class="ml">Employees matched</div><div class="mv">'+imp.matched.length+'</div></div>'
+    +'<div class="mc"><div class="ml">Amounts to import</div><div class="mv">'+cells+'</div></div>'
+    +'<div class="mc"><div class="ml">Payroll dates in file</div><div class="mv">'+imp.cols.length+'</div></div>'
+    +'<div class="mc"><div class="ml">New dates to add</div><div class="mv">'+plan.added+'</div></div></div>';
+  if(plan.added)h+='<div class="tm-note">New payroll dates found in the file will be added to the '+TM.year+' tracker: '+plan.final.filter(function(c){return !c.id;}).map(function(c){return tmEsc(c.label);}).join(', ')+'.</div>';
+  if(imp.unmatched.length)h+='<div class="tm-err"><b>'+imp.unmatched.length+' name'+(imp.unmatched.length===1?'':'s')+' in the file did not match anyone in HRIS and will be skipped:</b><br>'+imp.unmatched.map(tmEsc).join('<br>')+'</div>';
+  h+='<div class="tm-note">Amounts in the file replace amounts already in the same cells. Blank cells in the file leave existing amounts alone. Employees found in HRIS but not yet listed are added.</div>';
+  document.getElementById('tm-import-summary').innerHTML=h;
+  document.getElementById('tm-import-go').disabled=!imp.matched.length;
+  tmShowErr('tm-import-err',imp.matched.length?'':'Nothing to import: no employee in the file matched HRIS.');
+  document.getElementById('tm-import-modal').classList.add('open');
+}
+async function tmImportApply(){
+  var imp=TM.imp;if(!imp)return;
+  var go=document.getElementById('tm-import-go');go.disabled=true;tmShowErr('tm-import-err','');
+  await tmFlush();
+  var plan=tmImportPlan(),final=plan.final,colIds;
+  if(plan.added){
+    if(final.every(function(c){return c.date;}))final.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;});   // keep date order
+    var rc=await api('PUT','/api/thirteenth/'+TM.year+'/columns',{columns:final.map(function(c){return {id:c.id||undefined,date:c.date,label:c.label};})});
+    if(!rc||!rc.success){tmShowErr('tm-import-err',(rc&&rc.error)||'Could not add the new payroll dates.');go.disabled=false;return;}
+    colIds=rc.columns.map(function(c){return c.id;});     // same order as sent
+  }else colIds=final.map(function(c){return c.id;});
+  var idOf={};final.forEach(function(e,pos){if(e.imp!==null)idOf[e.imp]=colIds[pos];});
+  var rows=imp.matched.map(function(m){
+    var amounts={};Object.keys(m.amounts).forEach(function(i){amounts[idOf[i]]=m.amounts[i];});
+    return {employee_id:m.emp.id,amounts:amounts};
+  });
+  var rb=await api('PUT','/api/thirteenth/'+TM.year+'/bulk',{rows:rows});
+  if(!rb||!rb.success){tmShowErr('tm-import-err',(rb&&rb.error)||'The import could not be saved. Nothing was changed.');go.disabled=false;return;}
+  tmCloseModal('tm-import-modal');
+  var n=0;imp.matched.forEach(function(m){n+=Object.keys(m.amounts).length;});
+  TM.imp=null;await tmLoad();
+  tmSetState('ok','✓ Imported '+n+' amount'+(n===1?'':'s')+' for '+rb.updated+' employee'+(rb.updated===1?'':'s')+(rb.created?' ('+rb.created+' newly listed)':'')+'.');
+}
+</script>
+<script>
 /* ════════════ READ-ONLY ADMIN MODE ════════════
    For accounts with the "admin_readonly" role. The SERVER is what actually enforces this
    (every non-GET request from such an account is refused), so nothing here is a security
@@ -6447,9 +7141,9 @@ window.addEventListener('DOMContentLoaded',async function(){
      • any write that still slipped through is stopped before it is sent, with a clear message.
    RO_WRITERS is generated by analysing this page's own code: every function that makes a
    POST/PUT/PATCH/DELETE request, plus every function that calls one. */
-var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
+var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "tmAddEmpSubmit", "tmCellChange", "tmColsSave", "tmCreate", "tmFlush", "tmImportApply", "tmPaste", "tmQueueSave", "tmRemoveRow", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
 // Start an edit but don't write by themselves (they just load a form), or import a file:
-var RO_HIDE_EXTRA = new Set(['annEdit','annCancelEdit','editHoliday','cancelHolidayEdit','editLeave','cancelLeaveEdit','editOffset','cancelOffsetEdit','importPayrollExcel']);
+var RO_HIDE_EXTRA = new Set(['tmOpenCreate','tmOpenColumns','tmOpenAddEmp','tmImportFile','annEdit','annCancelEdit','editHoliday','cancelHolidayEdit','editLeave','cancelLeaveEdit','editOffset','cancelOffsetEdit','importPayrollExcel']);
 // Open a detail pop-up that is still worth viewing: kept, relabelled "View", fields locked.
 var RO_VIEW_OPENERS = new Set(['openEditEmp','openEditTimeLog','openEvrReviewModal','openLocEdit','openBenefitTypeModal']);
 // Sub-tabs (group:name) that only lead to an add/entry form
