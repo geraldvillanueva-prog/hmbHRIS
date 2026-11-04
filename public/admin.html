@@ -249,6 +249,12 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
   .tm-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:4px 0 12px}
   .tm-note{font-size:12px;color:var(--muted);margin:8px 2px}
   .tm-sum{max-width:640px}.tm-sum table{background:#fff;border:1px solid var(--border);border-radius:8px}
+  /* ── Leave credits ── */
+  .lc-hint{font-size:11.5px;color:var(--muted);margin-top:4px;min-height:14px}
+  .lc-hint b{color:var(--navy)} .lc-hint.low b{color:var(--red)}
+  .lc-msg{font-size:12.5px;min-height:18px;margin-top:8px} .lc-msg.ok{color:var(--green);font-weight:600} .lc-msg.err{color:var(--red);font-weight:600}
+  .lc-sum{font-size:12px;color:var(--muted);margin:2px 0 10px}.lc-sum b{color:var(--navy)}
+  tr.lc-void td{opacity:.55} tr.lc-void td:nth-child(4){text-decoration:line-through}
 </style>
 </head>
 <body>
@@ -706,16 +712,17 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
       <button class="itab on" onclick="goITab('leave','file',this)">File Leave</button>
       <button class="itab" onclick="goITab('leave','tracker',this)">Leave Tracker</button>
       <button class="itab" onclick="goITab('leave','balances',this)">Leave Balances</button>
+      <button class="itab" id="lc-tab-btn" onclick="goITab('leave','credits',this)">Leave Credits</button>
     </div>
     <div id="leave-itab-file" class="itab-sec on">
       <div class="card">
         <div class="card-title">📝 File a Leave</div>
         <div class="row">
           <div class="f"><label>Employee</label>
-            <select id="lv-emp"><option value="">-- Select --</option></select>
+            <select id="lv-emp" onchange="lcHint()"><option value="">-- Select --</option></select>
           </div>
           <div class="f"><label>Leave type</label>
-            <select id="lv-type">
+            <select id="lv-type" onchange="lcHint()">
               <option>Vacation Leave (VL)</option>
               <option>Sick Leave (SL)</option>
               <option>Emergency Leave</option>
@@ -725,6 +732,7 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
               <option>VAWC Leave</option>
               <option>Others</option>
             </select>
+            <div id="lv-credit-hint" class="lc-hint"></div>
           </div>
           <div class="f"><label>Date from</label><input id="lv-from" type="date"></div>
           <div class="f"><label>Date to</label><input id="lv-to" type="date"></div>
@@ -766,6 +774,35 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
     </div>
     <div id="leave-itab-balances" class="itab-sec">
       <div id="leave-balances-wrap"><div class="empty">No employees yet.</div></div>
+    </div>
+    <div id="leave-itab-credits" class="itab-sec">
+      <div class="card" id="lc-add-card">
+        <div class="card-title">➕ Add Leave Credit</div>
+        <div class="infobox">Credits are added straight to the employee's <strong>VL</strong> (Vacation Leave) or <strong>SL</strong> (Sick Leave) balance and recorded in the history below. Filing a leave then draws from that balance. Use <strong>All active employees</strong> for a yearly grant (interns are skipped). The credit date is for the record — the days are available right away.</div>
+        <div class="row">
+          <div class="f"><label>Employee</label><select id="lc-emp"><option value="">-- Select employee --</option></select></div>
+          <div class="f" style="max-width:190px"><label>Credit type</label>
+            <select id="lc-type"><option value="VL">Vacation Leave (VL)</option><option value="SL">Sick Leave (SL)</option></select></div>
+          <div class="f" style="max-width:130px"><label>Days to add</label><input type="number" id="lc-days" min="0.25" max="365" step="0.25" placeholder="e.g. 1.25"></div>
+          <div class="f" style="max-width:165px"><label>Credit date</label><input type="date" id="lc-date"></div>
+        </div>
+        <div class="row" style="align-items:flex-end">
+          <div class="f"><label>Reason / remarks</label>
+            <input type="text" id="lc-reason" maxlength="200" list="lc-reasons" placeholder="e.g. 2027 annual credit">
+            <datalist id="lc-reasons"><option value="Annual credit"><option value="Monthly accrual"><option value="Carry-over"><option value="Adjustment"></datalist></div>
+          <button class="btn bp" onclick="lcAdd()">Add Credit</button>
+        </div>
+        <div id="lc-msg" class="lc-msg"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📜 Credit History</div>
+        <div class="row" style="align-items:flex-end">
+          <div class="f"><label>Employee</label><select id="lc-f-emp" onchange="lcRender()"><option value="">All employees</option></select></div>
+          <div class="f" style="max-width:150px"><label>Type</label><select id="lc-f-type" onchange="lcRender()"><option value="">VL and SL</option><option value="VL">VL only</option><option value="SL">SL only</option></select></div>
+          <div class="f" style="max-width:130px"><label>Year</label><select id="lc-f-year" onchange="lcRender()"><option value="">All years</option></select></div>
+        </div>
+        <div id="lc-history"><div class="empty">Loading…</div></div>
+      </div>
     </div>
   </div>
 
@@ -1904,6 +1941,7 @@ function applyRoleUI(){
     // render. A short delay lets the section's own render functions run
     // first, since some of these buttons are (re)created dynamically.
     setTimeout(hideHrInternWriteControls, 400);
+    var lct=document.getElementById('lc-tab-btn');if(lct)lct.style.display='none';   // leave credits are admin-only
   }
   else if(currentUserRole==='admin_readonly'){
     // Same menu and same data as an Admin; every control that changes something is removed.
@@ -2424,6 +2462,7 @@ function goITab(group,name,el){
   document.getElementById(group+'-itab-'+name).classList.add('on');
   if(group==='leave'&&name==='tracker')renderLeaveTracker();
   if(group==='leave'&&name==='balances')renderLeaveBalances();
+  if(group==='leave'&&name==='credits')lcOpen();
   if(group==='perf'&&name==='list')renderPerfList();
   if(group==='disc'&&name==='list')renderDiscList();
 }
@@ -7202,6 +7241,103 @@ async function tmImportApply(){
 }
 </script>
 <script>
+/* ════════════ LEAVE CREDITS (VL / SL) — admin ════════════
+   Adds days to an employee's VL or SL balance (one person, or every active employee) and keeps a
+   history. The balance itself is the same vl_bal / sl_bal that filing a leave draws down. */
+var LC={rows:[]};
+function lcEsc(s){return escHtml(s==null?'':String(s));}
+function lcNum(n){return String(Math.round((+n||0)*100)/100);}
+function lcDate(s){var d=new Date(String(s).slice(0,10)+'T12:00:00');return isNaN(d)?lcEsc(s):d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+// Employees who can hold credits: active, and not interns (their balances are not tracked)
+function lcCreditable(){
+  return employees.filter(function(e){return e.active!==0&&String(e.type||'').toLowerCase()!=='intern';})
+    .sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+}
+async function lcOpen(){
+  var d=document.getElementById('lc-date');if(d&&!d.value)d.value=fmtISODate(new Date());
+  lcFillEmpSelect();
+  await lcLoad();
+}
+function lcFillEmpSelect(){
+  var sel=document.getElementById('lc-emp');if(!sel)return;
+  var cur=sel.value,emps=lcCreditable();
+  sel.innerHTML='<option value="">-- Select employee --</option><option value="ALL">👥 All active employees ('+emps.length+')</option>'
+    +emps.map(function(e){return '<option value="'+e.id+'">'+lcEsc(e.name)+'</option>';}).join('');
+  sel.value=cur||'';
+}
+async function lcLoad(){
+  var r=await api('GET','/api/leave-credits');
+  LC.rows=Array.isArray(r)?r:[];
+  // history filters are built from the history itself, so people who have since left still appear
+  var fe=document.getElementById('lc-f-emp'),fy=document.getElementById('lc-f-year');
+  var ce=fe.value,cy=fy.value,seen={},names=[],years={};
+  LC.rows.forEach(function(c){if(!seen[c.employee_id]){seen[c.employee_id]=1;names.push([c.employee_id,c.empName||('#'+c.employee_id)]);}years[String(c.date).slice(0,4)]=1;});
+  names.sort(function(a,b){return String(a[1]).localeCompare(String(b[1]));});
+  fe.innerHTML='<option value="">All employees</option>'+names.map(function(n){return '<option value="'+n[0]+'">'+lcEsc(n[1])+'</option>';}).join('');
+  fy.innerHTML='<option value="">All years</option>'+Object.keys(years).sort().reverse().map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join('');
+  fe.value=ce;fy.value=cy;
+  lcRender();
+}
+function lcRender(){
+  var box=document.getElementById('lc-history');if(!box)return;
+  var fe=document.getElementById('lc-f-emp').value,ft=document.getElementById('lc-f-type').value,fy=document.getElementById('lc-f-year').value;
+  var rows=LC.rows.filter(function(c){return (!fe||String(c.employee_id)===fe)&&(!ft||c.type===ft)&&(!fy||String(c.date).slice(0,4)===fy);});
+  if(!rows.length){box.innerHTML='<div class="empty">'+(LC.rows.length?'No credits match these filters.':'No leave credits have been added yet.')+'</div>';return;}
+  var vl=0,sl=0;
+  rows.forEach(function(c){if(c.voided)return;if(c.type==='VL')vl+=c.days;else sl+=c.days;});
+  box.innerHTML='<div class="lc-sum">Showing '+rows.length+' entr'+(rows.length===1?'y':'ies')+' · credited (not voided): <b>VL +'+lcNum(vl)+'</b> · <b>SL +'+lcNum(sl)+'</b></div>'
+    +'<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Employee</th><th>Type</th><th style="text-align:right">Days</th><th>Reason</th><th>Added by</th><th></th></tr></thead><tbody>'
+    +rows.map(function(c){
+      return '<tr class="'+(c.voided?'lc-void':'')+'"><td>'+lcDate(c.date)+'</td><td><strong>'+lcEsc(c.empName||('#'+c.employee_id))+'</strong></td>'
+        +'<td><span class="badge '+(c.type==='VL'?'badge-green':'badge-blue')+'">'+c.type+'</span></td>'
+        +'<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace;font-weight:700">+'+lcNum(c.days)+'</td>'
+        +'<td>'+lcEsc(c.reason||'—')+'</td><td>'+lcEsc(c.addedBy||'—')+'</td>'
+        +'<td>'+(c.voided?'<span class="badge badge-gray" title="Voided by '+lcEsc(c.voidedBy)+'">Voided</span>':'<button class="btn bs" style="color:var(--red)" onclick="lcVoid('+c.id+')">Void</button>')+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
+function lcSay(text,ok){var m=document.getElementById('lc-msg');if(!m)return;m.textContent=text;m.className='lc-msg '+(ok?'ok':'err');}
+async function lcAdd(){
+  var sel=v('lc-emp'),type=v('lc-type'),days=parseFloat(v('lc-days')),date=v('lc-date'),reason=v('lc-reason').trim();
+  if(!sel){lcSay('Choose an employee, or "All active employees".',false);return;}
+  if(!(days>0)){lcSay('Enter the number of days to add.',false);return;}
+  var all=sel==='ALL',s=days===1?'':'s';
+  if(all&&!confirm('Add '+lcNum(days)+' '+type+' day'+s+' to EVERY active employee ('+lcCreditable().length+' people)?\n\nEach one is recorded in the history and can be voided separately.'))return;
+  var body={type:type,days:days,date:date||undefined,reason:reason};
+  if(all)body.all_active=true;else body.employee_ids=[parseInt(sel)];
+  var who=all?'':(employees.find(function(e){return String(e.id)===sel;})||{}).name;
+  var r=await api('POST','/api/leave-credits',body);
+  if(!r||!r.success){lcSay((r&&r.error)||'Could not add the credit.',false);return;}
+  lcSay('✓ Added '+lcNum(days)+' '+type+' day'+s+(all?' to '+r.added+' employees.':' to '+who+'.'),true);
+  document.getElementById('lc-days').value='';document.getElementById('lc-reason').value='';
+  await lcRefreshBalances();await lcLoad();lcHint();
+}
+async function lcVoid(id){
+  var c=LC.rows.find(function(x){return x.id===id;});if(!c)return;
+  if(!confirm('Void this credit?\n\n'+lcNum(c.days)+' '+c.type+' day'+(c.days===1?'':'s')+' for '+c.empName+' will be taken back off their balance. The entry stays in the history, marked voided.'))return;
+  var r=await api('POST','/api/leave-credits/'+id+'/void');
+  if(!r||!r.success){lcSay((r&&r.error)||'Could not void this credit.',false);return;}
+  lcSay('✓ Credit voided.',true);
+  await lcRefreshBalances();await lcLoad();lcHint();
+}
+// Pull the new balances down so the Leave Balances table and the File Leave hint are current
+async function lcRefreshBalances(){
+  var emps=await api('GET','/api/employees');if(!Array.isArray(emps))return;
+  emps.forEach(function(u){var l=employees.find(function(e){return e.id===u.id;});if(l){l.vlBal=u.vlBal;l.slBal=u.slBal;}});
+  if(typeof renderLeaveBalances==='function')renderLeaveBalances();
+}
+// File a Leave form: show how many VL/SL days the chosen employee has available
+function lcHint(){
+  var el=document.getElementById('lv-credit-hint');if(!el)return;
+  var e=employees.find(function(x){return x.id===parseInt(v('lv-emp'));}),type=v('lv-type')||'';
+  var isVL=/VL|Vacation/.test(type),isSL=/SL|Sick/.test(type);
+  if(!e||String(e.type||'').toLowerCase()==='intern'||(!isVL&&!isSL)){el.innerHTML='';el.className='lc-hint';return;}
+  var bal=isVL?(e.vlBal||0):(e.slBal||0);
+  el.innerHTML='Available '+(isVL?'VL':'SL')+' credit: <b>'+lcNum(bal)+' day'+(bal==1?'':'s')+'</b>';
+  el.className='lc-hint'+(bal<=0?' low':'');
+}
+(function(){var f=window.refreshEmployeeBalance;if(typeof f==='function')window.refreshEmployeeBalance=async function(){var r=await f.apply(this,arguments);try{lcHint();}catch(e){}return r;};})();
+</script>
+<script>
 /* ════════════ READ-ONLY ADMIN MODE ════════════
    For accounts with the "admin_readonly" role. The SERVER is what actually enforces this
    (every non-GET request from such an account is refused), so nothing here is a security
@@ -7211,7 +7347,7 @@ async function tmImportApply(){
      • any write that still slipped through is stopped before it is sent, with a clear message.
    RO_WRITERS is generated by analysing this page's own code: every function that makes a
    POST/PUT/PATCH/DELETE request, plus every function that calls one. */
-var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "tmAddEmpSubmit", "tmCellChange", "tmColsSave", "tmCreate", "tmFlush", "tmImportApply", "tmPaste", "tmQueueSave", "tmRemoveRow", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
+var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "lcAdd", "lcVoid", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "tmAddEmpSubmit", "tmCellChange", "tmColsSave", "tmCreate", "tmFlush", "tmImportApply", "tmPaste", "tmQueueSave", "tmRemoveRow", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
 // Start an edit but don't write by themselves (they just load a form), or import a file:
 var RO_HIDE_EXTRA = new Set(['tmOpenCreate','tmOpenColumns','tmOpenAddEmp','tmImportFile','annEdit','annCancelEdit','editHoliday','cancelHolidayEdit','editLeave','cancelLeaveEdit','editOffset','cancelOffsetEdit','importPayrollExcel']);
 // Open a detail pop-up that is still worth viewing: kept, relabelled "View", fields locked.
