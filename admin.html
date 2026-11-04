@@ -4590,7 +4590,22 @@ function parseTimeStrToMinutes(str){
   }
   return h*60+min;
 }
-function calcLateMinutes(timeIn, shiftStart){
+// Lunch hour: 12:00–1:00 PM is not working time, so it never counts toward Late or Undertime
+// (e.g. coming in at 1:00 PM on an 8:00–5:00 shift is 4h late, not 5h). It only applies when the
+// lunch hour really sits inside the shift: a shift that starts at noon, or ends before 1 PM, has none.
+var LUNCH_START_MIN=12*60;
+var LUNCH_LEN_MIN=60;
+// The lunch hour inside a shift [startMin, startMin+durationMin] on a continuous timeline, or null.
+// (Neighbouring days are checked too, so shifts that cross midnight are handled.)
+function shiftLunchWindow(startMin,durationMin){
+  for(var k=-1;k<=1;k++){
+    var s=LUNCH_START_MIN+1440*k,e=s+LUNCH_LEN_MIN;
+    if(s>startMin&&e<=startMin+durationMin)return[s,e];
+  }
+  return null;
+}
+function overlapMin(a1,a2,b1,b2){return Math.max(0,Math.min(a2,b2)-Math.max(a1,b1));}
+function calcLateMinutes(timeIn, shiftStart, shiftEnd){
   if(!timeIn||!shiftStart)return 0;
   var tiMin=parseTimeStrToMinutes(timeIn),startMin=parseTimeStrToMinutes(shiftStart);
   if(tiMin==null||startMin==null)return 0;
@@ -4604,7 +4619,11 @@ function calcLateMinutes(timeIn, shiftStart){
   // actually early for the shift's next occurrence, not extremely late for
   // this one — treat that as on-time rather than an absurd late figure.
   if(elapsed>720)return 0;
-  return elapsed;
+  if(elapsed===0)return 0;
+  var endMin0=shiftEnd?parseTimeStrToMinutes(shiftEnd):null;
+  var dur0=endMin0!=null?((endMin0-startMin+1440)%1440||1440):1440;
+  var lunch0=shiftLunchWindow(startMin,dur0);
+  return lunch0?Math.max(0,elapsed-overlapMin(startMin,startMin+elapsed,lunch0[0],lunch0[1])):elapsed;
 }
 function calcUndertimeMinutes(timeOut, shiftEnd, shiftStart){
   if(!timeOut||!shiftEnd)return 0;
@@ -4619,11 +4638,14 @@ function calcUndertimeMinutes(timeOut, shiftEnd, shiftStart){
     if(shiftDuration===0)shiftDuration=1440; // 24-hour shift edge case
     var outElapsed=(toMin-startMin+1440)%1440;
     var diff=shiftDuration-outElapsed;
-    return diff>0?diff:0;
+    if(diff<=0)return 0;
+    var lunch1=shiftLunchWindow(startMin,shiftDuration);
+    return lunch1?Math.max(0,diff-overlapMin(startMin+outElapsed,startMin+shiftDuration,lunch1[0],lunch1[1])):diff;
   }
   // Fallback if shift start isn't available: old same-day comparison
   var diff=endMin-toMin;
-  return diff>0?diff:0;
+  if(diff<=0)return 0;
+  return endMin>=LUNCH_START_MIN+LUNCH_LEN_MIN?Math.max(0,diff-overlapMin(toMin,endMin,LUNCH_START_MIN,LUNCH_START_MIN+LUNCH_LEN_MIN)):diff;
 }
 function fmtLate(mins){
   if(!mins||mins<=0)return'<span style="color:var(--green);font-weight:700;font-family:\'IBM Plex Mono\',monospace">On time</span>';
@@ -4712,7 +4734,7 @@ async function loadTimeLogs(){
     var r=item.r;
     if(item.status!=='present')return{r,shift:null,lateMin:null,underMin:null,status:item.status};
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id,r.log_date);
-    var lateMin=calcLateMinutes(r.time_in,shift.start);
+    var lateMin=calcLateMinutes(r.time_in,shift.start,shift.end);
     var underMin=calcUndertimeMinutes(r.time_out,shift.end,shift.start);
     var offsetMin=getOffsetMinutesFor(r.employee_id||r.emp_id,r.log_date);
     var offsetApplied=0;
@@ -4726,7 +4748,7 @@ async function loadTimeLogs(){
   });
   w.innerHTML='<div style="overflow-x:auto"><table style="min-width:800px"><thead><tr>'
     +'<th>Employee</th><th>Date</th><th>Shift</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th>'
-    +'<th style="color:var(--red)">Late / Undertime</th>'
+    +'<th style="color:var(--red)" title="The 12:00–1:00 PM lunch hour is not counted as late or undertime">Late / Undertime</th>'
     +'<th>Route</th>'
     +'<th>Action</th>'
     +'</tr></thead><tbody>'
@@ -4971,7 +4993,7 @@ function exportTimeLogsCSV(){
       return;
     }
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id,r.log_date);
-    var lateMin=calcLateMinutes(r.time_in,shift.start);
+    var lateMin=calcLateMinutes(r.time_in,shift.start,shift.end);
     var underMin=calcUndertimeMinutes(r.time_out,shift.end,shift.start);
     var offsetMin=getOffsetMinutesFor(r.employee_id||r.emp_id,r.log_date);
     var offsetApplied=0;
@@ -5178,7 +5200,7 @@ async function checkOffsetBalance(){
     var totalExcess=dedupedRows.reduce((sum,r)=>sum+calcExcessMinutesForDay(r.time_in,r.time_out,threshold),0);
     var totalLateUndertime=dedupedRows.reduce((sum,r)=>{
       var shift=getEmpShift(parseInt(empId),r.log_date);
-      var late=calcLateMinutes(r.time_in,shift.start);
+      var late=calcLateMinutes(r.time_in,shift.start,shift.end);
       var under=calcUndertimeMinutes(r.time_out,shift.end,shift.start);
       return sum+late+under;
     },0);
