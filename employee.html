@@ -814,6 +814,11 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
   .dash-hero{padding:20px}
 }
 
+
+/* ── Leave credits ── */
+.lc-hint{font-size:11.5px;color:var(--muted);margin-top:4px;min-height:14px}
+.lc-hint b{color:var(--navy)} .lc-hint.low b{color:var(--red)}
+.lc-sum{font-size:12px;color:var(--muted);margin:2px 0 10px}.lc-sum b{color:var(--navy)}
 </style>
 </head>
 <body>
@@ -1006,7 +1011,7 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
     <div class="alert alert-err" id="leave-err"></div>
     <div class="f">
       <label>Leave Type</label>
-      <select id="lv-type">
+      <select id="lv-type" onchange="lvCreditHint()">
         <option>Vacation Leave (VL)</option>
         <option>Sick Leave (SL)</option>
         <option>Emergency Leave</option>
@@ -1016,6 +1021,7 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
         <option>VAWC Leave</option>
         <option>Others</option>
       </select>
+      <div id="lv-credit-hint" class="lc-hint"></div>
     </div>
     <div class="row2">
       <div class="f">
@@ -1069,6 +1075,10 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
       <div class="bal-value" id="sl-bal">—</div>
       <div class="bal-unit">days remaining</div>
     </div>
+  </div>
+  <div class="panel" id="lc-mine-panel">
+    <div class="panel-title">📥 Leave Credits Added</div>
+    <div id="lc-mine-wrap"><div class="empty">Loading…</div></div>
   </div>
   <div class="panel">
     <div class="panel-title">📊 Leave Usage Summary</div>
@@ -1751,6 +1761,9 @@ function applyInternLeaveUI(){
   var grid=document.getElementById('lv-balance-grid');
   if(note)note.style.display=isIntern?'block':'none';
   if(grid)grid.style.display=isIntern?'none':'grid';
+  // leave credits are not tracked for interns either: hide the credits panel and the balance hint
+  var lcp=document.getElementById('lc-mine-panel');if(lcp)lcp.style.display=isIntern?'none':'';
+  if(typeof lvCreditHint==='function')lvCreditHint();
 }
 
 // ── TIME ALARMS: Lunch Out/In, Merienda Out/In ──────────────────────────────
@@ -1934,7 +1947,40 @@ async function loadBalance(){
   var slVal=parseFloat(data.slBal)||0;
   animateCount(vl,vlVal);
   animateCount(sl,slVal);
+  window._lcBal={vl:vlVal,sl:slVal};
+  lvCreditHint();
+  loadMyCredits();
 }
+function lcNum(n){return String(Math.round((+n||0)*100)/100);}
+function lcEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function lcDate(s){var d=new Date(String(s).slice(0,10)+'T12:00:00');return isNaN(d)?lcEsc(s):d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+// How many VL / SL days the person has, shown right under the Leave Type they are picking
+function lvCreditHint(){
+  var el=document.getElementById('lv-credit-hint');if(!el)return;
+  if(isIntern||!window._lcBal){el.innerHTML='';el.className='lc-hint';return;}
+  var t=(document.getElementById('lv-type')||{}).value||'',isVL=/VL|Vacation/.test(t),isSL=/SL|Sick/.test(t);
+  if(!isVL&&!isSL){el.innerHTML='';el.className='lc-hint';return;}
+  var bal=isVL?window._lcBal.vl:window._lcBal.sl;
+  el.innerHTML='You have <b>'+lcNum(bal)+' day'+(bal==1?'':'s')+'</b> of '+(isVL?'VL':'SL')+' credit available';
+  el.className='lc-hint'+(bal<=0?' low':'');
+}
+// The credits an admin has added to this person's VL / SL balance
+async function loadMyCredits(){
+  var w=document.getElementById('lc-mine-wrap'),panel=document.getElementById('lc-mine-panel');if(!w)return;
+  if(isIntern){if(panel)panel.style.display='none';return;}
+  if(panel)panel.style.display='';
+  var rows=null;try{var r=await fetch('/api/leave-credits/mine');rows=await r.json();}catch(e){rows=null;}
+  if(!Array.isArray(rows)){w.innerHTML='<div class="empty">Could not load your leave credits.</div>';return;}
+  if(!rows.length){w.innerHTML='<div class="empty">No leave credits have been added to your account yet.</div>';return;}
+  var vl=0,sl=0;
+  rows.forEach(function(c){if(c.type==='VL')vl+=c.days;else sl+=c.days;});
+  w.innerHTML='<div class="lc-sum">Total credited: <b>VL +'+lcNum(vl)+'</b> · <b>SL +'+lcNum(sl)+'</b></div>'
+    +'<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Type</th><th style="text-align:right">Days added</th><th>Remarks</th></tr></thead><tbody>'
+    +rows.map(function(c){return '<tr><td>'+lcDate(c.date)+'</td><td><span class="badge '+(c.type==='VL'?'badge-green':'badge-blue')+'">'+c.type+'</span></td>'
+      +'<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace;font-weight:700">+'+lcNum(c.days)+'</td><td>'+lcEsc(c.reason||'—')+'</td></tr>';}).join('')
+    +'</tbody></table></div>';
+}
+
 async function loadLeaveAll(){
   var res=await fetch('/api/leave');
   var rows=await res.json();

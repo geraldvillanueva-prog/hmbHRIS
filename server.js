@@ -1549,6 +1549,106 @@ app.get('/api/leave/balance', requireAuth, (req, res) => {
 });
 
 
+// ─── LEAVE CREDITS (Vacation Leave VL / Sick Leave SL) ──────────────────────────────
+// A credit is a number of days ADDED to an employee's VL or SL balance (employees.vl_bal /
+// sl_bal — the same balance that filing a leave draws down), kept as a history entry so people
+// can see what was credited, when and why. Only a full admin can add or void credits (a
+// read-only admin can read them); employees and supervisors can read their own.
+// Voiding a mistaken credit takes those days back off the balance (never below zero).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS leave_credits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    days REAL NOT NULL,
+    credit_date TEXT NOT NULL,
+    reason TEXT DEFAULT '',
+    added_by TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    voided INTEGER DEFAULT 0,
+    voided_by TEXT DEFAULT '',
+    voided_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_leave_credits_emp ON leave_credits(employee_id);
+`);
+function lcToday() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function lcValidate(b) {
+  b = b || {};
+  const t = String(b.type || '').toUpperCase();
+  const type = (t === 'VL' || t.includes('VACATION')) ? 'VL' : (t === 'SL' || t.includes('SICK')) ? 'SL' : null;
+  if (!type) throw new Error('Choose a credit type: VL (Vacation Leave) or SL (Sick Leave).');
+  const days = Number(b.days);
+  if (!Number.isFinite(days) || days <= 0) throw new Error('Enter the number of days to add (more than 0).');
+  if (days > 365) throw new Error('That is more than 365 days — please check the number.');
+  let date = b.date ? String(b.date).trim() : lcToday();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(new Date(date + 'T00:00:00Z'))) throw new Error('Enter a valid credit date.');
+  return { type, days: Math.round(days * 100) / 100, date, reason: String(b.reason || '').trim().slice(0, 200) };
+}
+const LC_COL = { VL: 'vl_bal', SL: 'sl_bal' };
+function mapCredit(c) {
+  return { id: c.id, employee_id: c.employee_id, empName: c.emp_name || '', type: c.type, days: c.days, date: c.credit_date,
+           reason: c.reason || '', addedBy: c.added_by || '', createdAt: c.created_at, voided: !!c.voided, voidedBy: c.voided_by || '', voidedAt: c.voided_at || '' };
+}
+// Full history for admins (optionally ?employee_id= &type=VL|SL &year=2026)
+app.get('/api/leave-credits', requireAdmin, (req, res) => {
+  const where = [], args = [];
+  if (req.query.employee_id) { where.push('c.employee_id = ?'); args.push(+req.query.employee_id); }
+  if (req.query.type) { where.push('c.type = ?'); args.push(String(req.query.type).toUpperCase()); }
+  if (req.query.year) { where.push("strftime('%Y', c.credit_date) = ?"); args.push(String(req.query.year)); }
+  const rows = db.prepare(`SELECT c.*, e.name AS emp_name FROM leave_credits c LEFT JOIN employees e ON e.id = c.employee_id
+    ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY c.credit_date DESC, c.id DESC LIMIT 2000`).all(...args);
+  res.json(rows.map(mapCredit));
+});
+// An employee's / supervisor's own credits (voided ones are left out — they no longer count)
+app.get('/api/leave-credits/mine', requireAuth, (req, res) => {
+  const empId = req.session.user.employee_id;
+  if (!empId) return res.json([]);
+  const rows = db.prepare('SELECT * FROM leave_credits WHERE employee_id = ? AND voided = 0 ORDER BY credit_date DESC, id DESC LIMIT 500').all(empId);
+  res.json(rows.map(c => ({ id: c.id, type: c.type, days: c.days, date: c.credit_date, reason: c.reason || '' })));
+});
+// Add credit to ONE employee ({employee_ids:[id]}) or EVERY active employee ({all_active:true}; interns are skipped)
+app.post('/api/leave-credits', requireAdmin, (req, res) => {
+  let v; try { v = lcValidate(req.body); } catch (e) { return res.status(400).json({ success: false, error: e.message }); }
+  const b = req.body || {};
+  let ids;
+  if (b.all_active) {
+    ids = db.prepare("SELECT id FROM employees WHERE active = 1 AND LOWER(COALESCE(type,'')) <> 'intern'").all().map(r => r.id);
+    if (!ids.length) return res.status(400).json({ success: false, error: 'There are no active employees to credit.' });
+  } else {
+    ids = Array.isArray(b.employee_ids) ? [...new Set(b.employee_ids.map(Number).filter(Number.isInteger))] : [];
+    if (!ids.length) return res.status(400).json({ success: false, error: 'Choose an employee.' });
+    if (ids.length > 1000) return res.status(400).json({ success: false, error: 'Too many employees at once.' });
+  }
+  const who = req.session.user.username || '';
+  const col = LC_COL[v.type];
+  const added = [], skipped = [];
+  db.transaction(() => {
+    for (const id of ids) {
+      const e = db.prepare('SELECT id, type, active FROM employees WHERE id = ?').get(id);
+      if (!e) { skipped.push({ employee_id: id, reason: 'Employee not found.' }); continue; }
+      if (!e.active) { skipped.push({ employee_id: id, reason: 'This employee is no longer active.' }); continue; }
+      if (String(e.type || '').toLowerCase() === 'intern') { skipped.push({ employee_id: id, reason: 'Leave credits are not tracked for interns.' }); continue; }
+      db.prepare(`UPDATE employees SET ${col} = ROUND(COALESCE(${col}, 0) + ?, 2) WHERE id = ?`).run(v.days, id);
+      db.prepare('INSERT INTO leave_credits (employee_id, type, days, credit_date, reason, added_by) VALUES (?,?,?,?,?,?)').run(id, v.type, v.days, v.date, v.reason, who);
+      added.push(id);
+    }
+  })();
+  if (!added.length) return res.status(400).json({ success: false, error: (skipped[0] && skipped[0].reason) || 'Nothing was added.' });
+  res.json({ success: true, added: added.length, skipped });
+});
+// Void a mistaken credit: it stays in the history (marked voided) and its days come back off the balance
+app.post('/api/leave-credits/:id/void', requireAdmin, (req, res) => {
+  const c = db.prepare('SELECT * FROM leave_credits WHERE id = ?').get(req.params.id);
+  if (!c) return res.status(404).json({ success: false, error: 'Credit not found.' });
+  if (c.voided) return res.status(400).json({ success: false, error: 'This credit was already voided.' });
+  const col = LC_COL[c.type];
+  db.transaction(() => {
+    db.prepare("UPDATE leave_credits SET voided = 1, voided_by = ?, voided_at = datetime('now') WHERE id = ?").run(req.session.user.username || '', c.id);
+    db.prepare(`UPDATE employees SET ${col} = MAX(0, ROUND(COALESCE(${col}, 0) - ?, 2)) WHERE id = ?`).run(c.days, c.employee_id);
+  })();
+  res.json({ success: true });
+});
+
 app.post('/api/leave', requireAdminOrHrIntern, (req, res) => {
   const l = req.body;
   const halfDay = l.halfDay ? 1 : 0;
