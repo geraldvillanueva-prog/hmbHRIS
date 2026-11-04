@@ -4900,49 +4900,38 @@ function tlLunchInCell(r){
   return tlCell(r.lunch_in,'#0277bd');
 }
 // ---- Merienda (afternoon snack) break: 30 minutes allowed ----
-// Measured to the second between the Merienda Out and Merienda In punches; "exceeded" means strictly
-// more than 30:00. Shown in the Employee Time Logs table and in its CSV export. (Lunch has its own
-// 60-minute check above.)
+// Counted in whole MINUTES between the Merienda Out and Merienda In punch times — the seconds on the
+// punches are ignored (3:00:50 → 3:30:10 is a 30-minute break). "Exceeded" means more than 30 minutes.
+// Shown in the Employee Time Logs table and in its CSV export. (Lunch has its own 60-minute check above.)
 var MERIENDA_LIMIT_MIN=30;
-function parseTimeStrToSeconds(str){
-  if(!str)return null;
-  var m=String(str).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/);
-  if(!m)return null;
-  var h=parseInt(m[1],10),ap=m[4]&&m[4].toUpperCase();
-  if(ap==='PM'&&h!==12)h+=12;
-  if(ap==='AM'&&h===12)h=0;
-  return h*3600+parseInt(m[2],10)*60+(m[3]?parseInt(m[3],10):0);
-}
-// {sec, overSec} for a finished break; null when a punch is missing, or "in" is before "out" (a data error, not a break)
+// {mins, over} for a finished break; null when a punch is missing, or "in" is before "out" (a data error, not a break)
 function merBreakInfo(r){
   if(!r||!r.merienda_out||!r.merienda_in)return null;
-  var o=parseTimeStrToSeconds(r.merienda_out),i=parseTimeStrToSeconds(r.merienda_in);
+  var o=parseTimeStrToMinutes(r.merienda_out),i=parseTimeStrToMinutes(r.merienda_in);   // hours and minutes only
   if(o==null||i==null||i<o)return null;
-  var sec=i-o;
-  return {sec:sec,overSec:Math.max(0,sec-MERIENDA_LIMIT_MIN*60)};
+  var mins=i-o;
+  return {mins:mins,over:Math.max(0,mins-MERIENDA_LIMIT_MIN)};
 }
-// A break still running TODAY (out punched, no "in" yet). Past days with no return punch can't be measured, so they are not judged.
-function merOpenBreakSec(r){
+// Minutes a break has been running TODAY (out punched, no "in" yet). Past days with no return punch can't be measured, so they are not judged.
+function merOpenBreakMin(r){
   if(!r||!r.merienda_out||r.merienda_in||r.log_date!==fmtISODate(new Date()))return null;
-  var o=parseTimeStrToSeconds(r.merienda_out);
+  var o=parseTimeStrToMinutes(r.merienda_out);
   if(o==null)return null;
-  var n=new Date(),now=n.getHours()*3600+n.getMinutes()*60+n.getSeconds();
+  var n=new Date(),now=n.getHours()*60+n.getMinutes();
   return now>=o?now-o:null;
 }
-function merFmtMin(sec){return Math.floor(sec/60)+'m';}
-function merOverText(overSec){return overSec<60?'<1m over':merFmtMin(overSec)+' over';}
 function tlMerOutCell(r){
-  var b=merBreakInfo(r),over=!!(b&&b.overSec>0);
-  return tlCell(r.merienda_out,over?'var(--red)':'var(--orange)',over?'Merienda break was '+merFmtMin(b.sec)+' — over the '+MERIENDA_LIMIT_MIN+'-minute limit':'');
+  var b=merBreakInfo(r),over=!!(b&&b.over>0);
+  return tlCell(r.merienda_out,over?'var(--red)':'var(--orange)',over?'Merienda break was '+b.mins+'m — over the '+MERIENDA_LIMIT_MIN+'-minute limit':'');
 }
 function tlMerInCell(r){
   var b=merBreakInfo(r),TD='<td style="font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;color:var(--red);font-weight:700"';
-  if(b&&b.overSec>0){
-    return TD+' title="The merienda break limit is '+MERIENDA_LIMIT_MIN+' minutes">'+r.merienda_in+'<br>⚠️ '+merFmtMin(b.sec)+' break ('+merOverText(b.overSec)+')</td>';
+  if(b&&b.over>0){
+    return TD+' title="The merienda break limit is '+MERIENDA_LIMIT_MIN+' minutes">'+r.merienda_in+'<br>⚠️ '+b.mins+'m break ('+b.over+'m over)</td>';
   }
-  var open=merOpenBreakSec(r);
-  if(open!=null&&open>MERIENDA_LIMIT_MIN*60){
-    return TD+'>⚠️ Still on break<br>('+merFmtMin(open)+' so far)</td>';
+  var open=merOpenBreakMin(r);
+  if(open!=null&&open>MERIENDA_LIMIT_MIN){
+    return TD+'>⚠️ Still on break<br>('+open+'m so far)</td>';
   }
   return tlCell(r.merienda_in,'#0277bd');
 }
@@ -5043,7 +5032,7 @@ function exportTimeLogsCSV(){
       underMin-=fromUnder;offsetMin-=fromUnder;offsetApplied+=fromUnder;
     }
     var mb=merBreakInfo(r);
-    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+(r._leavePay?' - '+r._leavePay:'')+')':''),r.log_date,'Present',shift.name,shift.start,shift.end,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin,underMin,offsetApplied,mb?Math.round(mb.sec/60*10)/10:'',mb?Math.round(mb.overSec/60*10)/10:'']);
+    rows.push([r.emp_name+(r._halfDayLeave?' (Half Day Leave'+(r._leaveType?' — '+leaveTypeAbbr(r._leaveType):'')+(r._leavePay?' - '+r._leavePay:'')+')':''),r.log_date,'Present',shift.name,shift.start,shift.end,r.time_in||'',r.lunch_out||'',r.lunch_in||'',r.merienda_out||'',r.merienda_in||'',r.time_out||'',lateMin,underMin,offsetApplied,mb?mb.mins:'',mb?mb.over:'']);
   });
   downloadCSV('HMB_TimeLogs_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
