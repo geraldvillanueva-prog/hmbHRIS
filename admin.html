@@ -3246,7 +3246,10 @@ function calcPay(e,a){
     restDayPay:r2(restDayX),restDayHrs,rdotHrs,rdotPay:r2(rdotX),holidayHrs,holidayPay:r2(holidayX),lateHrs,latePay:r2(lateX),dm,wht,
     totalEarnings:r2(earnX),totalContrib:r2(contribX),totalDeductions:r2(dedX),netPay:r2(earnX-dedX),commissionOnly};
 }
-function getAtt(per,empId){var k=attKey(per);if(!attendance[k])attendance[k]={};if(!attendance[k][empId])attendance[k][empId]={days:0,ot:0,otNd:0,restDay:0,restDayHrs:0,rdotHrs:0,rdotAmt:0,holiday:0,leave:0,commission:0,otherAdd:0,otherDed:0,late:0,lateHrs:0,holidayHrs:0,dm:null,wht:null,periodDays:13,commissionOnly:false};return attendance[k][empId];}
+// A record created here on the fly (never saved, never imported) is "fresh": only those may have Leave W/ Pay auto-filled from the
+// Leave Tracker. Once a record is saved or imported, its leave amount is what was saved/imported and is never silently replaced.
+var FRESH_ATT={};
+function getAtt(per,empId){var k=attKey(per);if(!attendance[k])attendance[k]={};if(!attendance[k][empId]){FRESH_ATT[k+'|'+empId]=1;attendance[k][empId]={days:0,ot:0,otNd:0,restDay:0,restDayHrs:0,rdotHrs:0,rdotAmt:0,holiday:0,leave:0,commission:0,otherAdd:0,otherDed:0,late:0,lateHrs:0,holidayHrs:0,dm:null,wht:null,periodDays:13,commissionOnly:false};}return attendance[k][empId];}
 
 // ── AUTO LEAVE W/ PAY COMPUTATION ─────────────────────────────────────────────
 function parsePeriodRange(per){
@@ -3278,12 +3281,12 @@ function autoComputeLeavePay(empId, per, dr){
     var overlapStart=lFrom<range.start?range.start:lFrom;
     var overlapEnd=lTo>range.end?range.end:lTo;
     if(overlapStart<=overlapEnd){
-      var fullDaysInRange=Math.round((overlapEnd-overlapStart)/(1000*60*60*24))+1;
-      // Half-day leaves are always filed as a single date (from===to), so if this
-      // leave is half-day, count it as 0.5 instead of a whole overlap day.
-      var days=l.halfDay?0.5:fullDaysInRange;
-      totalDays+=days;
-      breakdown.push({type:l.type,days:days,from:l.from,to:l.to});
+      // Only working days count (Mon–Fri, like the time-log screen): a Friday-to-Monday leave is 2 working days, not 4
+      var workDays=0;
+      for(var dd=new Date(overlapStart);dd<=overlapEnd;dd.setDate(dd.getDate()+1)){var dw=dd.getDay();if(dw!==0&&dw!==6)workDays++;}
+      // Half-day leaves are always filed as a single date (from===to): 0.5 when that date is a working day
+      var days=l.halfDay?(workDays>0?0.5:0):workDays;
+      if(days>0){totalDays+=days;breakdown.push({type:l.type,days:days,from:l.from,to:l.to});}
     }
   });
   return{amount:parseFloat((dr*totalDays).toFixed(2)),breakdown,totalDays};
@@ -3349,8 +3352,9 @@ function renderPayrollAttGrid(){
   activeEmps.forEach(function(e,idx){
     var a=getAtt(per,e.id),periodDays=a.periodDays||sharedPeriodDays,dr=e.smb/periodDays;
     var lvComp=autoComputeLeavePay(e.id,per,dr);
-    var lvVal=(a.leave&&a.leave>0)?a.leave:lvComp.amount;
-    var autoMark=lvComp.breakdown.length>0?'title="Auto-filled from approved leave(s)" style="border-color:#90caf9;background:#f0f7ff"':'';
+    var isFresh=!!FRESH_ATT[attKey(per)+'|'+e.id];
+    var lvVal=(a.leave&&a.leave>0)?a.leave:(isFresh?lvComp.amount:0);
+    var autoMark=(isFresh&&!(a.leave>0)&&lvComp.breakdown.length>0)?'title="Auto-filled from approved leave(s)" style="border-color:#90caf9;background:#f0f7ff"':'';
     var rowBg=idx%2===0?'#fff':'#f8fafc';
 
     function inp(field,val,step,extra){
@@ -3453,7 +3457,7 @@ function applySharedPeriodDays(){
     // Update daily rate display
     var drEl=document.getElementById('dr_'+e.id);
     if(drEl)drEl.innerHTML=peso(e.smb/pd);
-    liveCompute(e.id);
+    recomputeLeave(e.id);   // refreshes auto-filled leave pay for the new daily rate (new records only), then recalculates the row
   });
   updatePayrollTotals();
 }
@@ -3515,7 +3519,7 @@ function recomputeLeave(empId){
   var dr=e.smb/periodDays;
   var per=v('att-per');
   var lvComp=autoComputeLeavePay(empId,per,dr);
-  if(lvComp.amount>0){
+  if(lvComp.amount>0&&FRESH_ATT[attKey(per)+'|'+empId]){
     leaveEl.value=lvComp.amount.toFixed(2);
   }
   liveCompute(empId);
@@ -3546,7 +3550,7 @@ async function savePayrollAtt(){
     var _cp=calcPay(e,records[e.id]);   // amounts that come from hours are stored too (late, rest day, RDOT, holiday)
     records[e.id].late=_cp.latePay;records[e.id].restDay=_cp.restDayPay;records[e.id].rdotAmt=_cp.rdotPay;records[e.id].holiday=_cp.holidayPay;
     if(!attendance[k])attendance[k]={};
-    attendance[k][e.id]=records[e.id];
+    attendance[k][e.id]=records[e.id];delete FRESH_ATT[k+'|'+e.id];
   });
   await api('POST','/api/attendance',{period:k,records});
   showSaveIndicator();flash('att-ok');
@@ -6070,6 +6074,10 @@ async function importPayrollExcel(evt) {
         [['SSS', cm.sss, emp.sss], ['PHIC', cm.phic, emp.phic], ['HDMF', cm.hdmf, emp.hdmf]].forEach(function(c) {
           if (c[1] >= 0 && Math.abs(payrollNum(row, c[1]) - (c[2] || 0)) > 0.01) warns.push(c[0] + ' in profile \u20b1' + (c[2] || 0).toFixed(2) + ' differs from the register (\u20b1' + payrollNum(row, c[1]).toFixed(2) + ')');
         });
+        var autoLv = autoComputeLeavePay(emp.id, document.getElementById('att-per').value, emp.smb / periodDays);
+        if (autoLv.amount > 0 && Math.abs(autoLv.amount - rec.leave) > 0.01) {
+          warns.push('Leave Tracker has ' + autoLv.totalDays + ' working day(s) of approved paid leave in this period (\u20b1' + autoLv.amount.toFixed(2) + '), but the register pays \u20b1' + (Math.round(rec.leave * 100) / 100).toFixed(2) + ' \u2014 the register\'s amount is used');
+        }
         matched.push({
           emp: emp, xlsxName: nameVal, rec: rec,
           hasRdot: cm.rdot !== null,     // whether this register has an RDOT column at all
@@ -6142,6 +6150,8 @@ function showImportPreview(matched, unmatched, periodDays, cutOff) {
       + (okCount === haveNet ? '' : '. Check the rows marked \u26a0 before applying.') + '</div>'
     : '';
 
+  var noted = matched.filter(function(m) { return m.warns.length; }).length;
+  var notesHtml = noted ? '<div class="warnbox" style="margin-top:12px">\u26a0\ufe0f <strong>' + noted + ' employee(s) have notes</strong> (a profile or leave-tracker difference) \u2014 see under their names below.</div>' : '';
   var modal = document.createElement('div');
   modal.id = 'xlsx-preview-modal';
   modal.className = 'modal-overlay open';
@@ -6150,7 +6160,7 @@ function showImportPreview(matched, unmatched, periodDays, cutOff) {
     + (cutOff ? ' <span style="font-size:12px;color:var(--muted);font-weight:400">' + cutOff + '</span>' : '')
     + '<button class="modal-close" onclick="document.getElementById(\'xlsx-preview-modal\').remove()">\u2715</button></div>'
     + '<div class="infobox">Found <strong>' + matched.length + ' matched employee(s)</strong> \u2014 Working days in period: <strong>' + periodDays + '</strong>. Review then click Apply.</div>'
-    + checkHtml + unmatchedHtml
+    + checkHtml + notesHtml + unmatchedHtml
     + '<div style="overflow-x:auto;margin-top:12px"><table><thead><tr>'
     + '<th>Employee</th><th>Days</th><th>OT hrs</th><th>ND OT hrs</th><th>Reg Rest Day</th><th>Rest Day OT</th><th>Holiday</th><th>Leave</th><th>Late/UT</th><th>Other Add</th><th>Other Ded</th><th>Deminimis</th><th>WHT</th><th>Register net</th><th>App net</th><th></th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table></div>'
@@ -6173,6 +6183,7 @@ async function applyImportedPayroll() {
     // A register without an RDOT column must not wipe RDOT that was already entered by hand for this period
     if (!m.hasRdot) { rec.rdotHrs = prev.rdotHrs || 0; rec.rdotAmt = prev.rdotAmt || 0; }
     attendance[k][m.emp.id] = rec;
+    delete FRESH_ATT[k + '|' + m.emp.id];   // the register is now this record's source of truth, leave included
   });
   await api('POST', '/api/attendance', { period: k, records: attendance[k] });
   // Deminimis and WHT are stored with this period's record. They are no longer copied onto the employee profile
