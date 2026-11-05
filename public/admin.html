@@ -3223,14 +3223,14 @@ function calcPay(e,a){
   var dr=r2(e.smb/periodDays),basicPay=r2((e.smb/periodDays)*(a.days||0));
   var otHrs=(a.ot||0),otPay=r2((dr/8)*1.25*otHrs);
   var otNdHrs=roundOT(a.otNd||0),otNdPay=r2((dr/8)*1.25*1.10*otNdHrs);
-  var restDayPay=r2(a.restDay||0);
+  var restDayPay=r2(a.restDay||0),restDayHrs=a.restDayHrs||0,rdotHrs=a.rdotHrs||0,rdotPay=r2(a.rdotAmt||0);   // Regular Restday ₱ (+hrs) and RDOT ₱ (+hrs) are entered/imported amounts, like the other rest-day pay
   var commissionOnly=!!(a.commissionOnly);
-  var totalEarnings=commissionOnly?r2(a.commission||0):r2(basicPay+(e.dm||0)+(a.otherAdd||0)+otPay+otNdPay+restDayPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
+  var totalEarnings=commissionOnly?r2(a.commission||0):r2(basicPay+(e.dm||0)+(a.otherAdd||0)+otPay+otNdPay+restDayPay+rdotPay+(a.holiday||0)+(a.leave||0)+(a.commission||0));
   var totalContrib=commissionOnly?0:r2((e.sss||0)+(e.phic||0)+(e.hdmf||0));
   var totalDeductions=commissionOnly?0:r2(totalContrib+(a.otherDed||0)+(e.wht||0)+(a.late||0));
-  return{dr,periodDays,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayPay,totalEarnings,totalContrib,totalDeductions,netPay:r2(totalEarnings-totalDeductions),commissionOnly};
+  return{dr,periodDays,basicPay,otHrs,otPay,otNdHrs,otNdPay,restDayPay,restDayHrs,rdotHrs,rdotPay,totalEarnings,totalContrib,totalDeductions,netPay:r2(totalEarnings-totalDeductions),commissionOnly};
 }
-function getAtt(per,empId){var k=attKey(per);if(!attendance[k])attendance[k]={};if(!attendance[k][empId])attendance[k][empId]={days:0,ot:0,otNd:0,restDay:0,holiday:0,leave:0,commission:0,otherAdd:0,otherDed:0,late:0,periodDays:13,commissionOnly:false};return attendance[k][empId];}
+function getAtt(per,empId){var k=attKey(per);if(!attendance[k])attendance[k]={};if(!attendance[k][empId])attendance[k][empId]={days:0,ot:0,otNd:0,restDay:0,restDayHrs:0,rdotHrs:0,rdotAmt:0,holiday:0,leave:0,commission:0,otherAdd:0,otherDed:0,late:0,periodDays:13,commissionOnly:false};return attendance[k][empId];}
 
 // ── AUTO LEAVE W/ PAY COMPUTATION ─────────────────────────────────────────────
 function parsePeriodRange(per){
@@ -3302,7 +3302,7 @@ function renderPayrollAttGrid(){
     +'<th rowspan="2" style="padding:8px 6px;min-width:65px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">DAILY RATE</th>'
     +'<th rowspan="2" style="padding:8px 6px;min-width:65px;color:#fff;background:var(--navy);vertical-align:middle;text-align:center">DAYS WORKED</th>'
     +'<th rowspan="2" style="padding:8px 6px;min-width:72px;background:#6a1b9a;color:#fff;vertical-align:middle;text-align:center;font-size:10px">COMMISSION<br>ONLY 🏷️</th>'
-    +'<th colspan="5" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#1565c0;color:#fff">EARNINGS</th>'
+    +'<th colspan="8" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#1565c0;color:#fff">EARNINGS</th>'
     +'<th colspan="3" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#2e7d32;color:#fff">ALLOWANCES / ADD-ONS</th>'
     +'<th colspan="3" style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.2);background:#c62828;color:#fff">DEDUCTIONS</th>'
     +'<th rowspan="2" style="padding:8px 6px;min-width:90px;background:#00695c;color:#fff;vertical-align:middle;text-align:center">NET PAY</th>'
@@ -3311,7 +3311,10 @@ function renderPayrollAttGrid(){
     // Earnings sub-cols
     +'<th style="padding:5px 6px;min-width:65px;background:#1976d2;color:#fff">OT HRS</th>'
     +'<th style="padding:5px 6px;min-width:65px;background:#1976d2;color:#fff">ND-OT<br>HRS</th>'
-    +'<th style="padding:5px 6px;min-width:65px;background:#1976d2;color:#fff">REST DAY<br>OT HRS</th>'
+    +'<th style="padding:5px 6px;min-width:65px;background:#1976d2;color:#fff">REG REST<br>DAY HRS</th>'
+    +'<th style="padding:5px 6px;min-width:80px;background:#1976d2;color:#fff">REG REST<br>DAY (₱)</th>'
+    +'<th style="padding:5px 6px;min-width:65px;background:#1976d2;color:#fff">RDOT<br>HRS</th>'
+    +'<th style="padding:5px 6px;min-width:80px;background:#1976d2;color:#fff">RDOT<br>(₱)</th>'
     +'<th style="padding:5px 6px;min-width:80px;background:#1976d2;color:#fff">HOLIDAY<br>PAY (₱)</th>'
     +'<th style="padding:5px 6px;min-width:80px;background:#1976d2;color:#fff">LEAVE<br>W/PAY (₱)</th>'
     // Allowances sub-cols
@@ -3362,8 +3365,11 @@ function renderPayrollAttGrid(){
       +'<td style="padding:3px 5px">'+inp('ot',a.ot,0.5)+'</td>'
       // ND OT hrs
       +'<td style="padding:3px 5px">'+inp('otNd',a.otNd||0,0.5)+'</td>'
-      // Rest Day OT hrs
+      // Regular Restday (hrs + ₱) and RDOT = rest day overtime (hrs + ₱)
+      +'<td style="padding:3px 5px">'+inp('restDayHrs',a.restDayHrs||0,0.5)+'</td>'
       +'<td style="padding:3px 5px">'+inp('restDay',a.restDay||0,0.01)+'</td>'
+      +'<td style="padding:3px 5px">'+inp('rdotHrs',a.rdotHrs||0,0.5)+'</td>'
+      +'<td style="padding:3px 5px">'+inp('rdotAmt',a.rdotAmt||0,0.01)+'</td>'
       // Holiday pay ₱
       +'<td style="padding:3px 5px">'+inp('holiday',a.holiday,0.01)+'</td>'
       // Leave w/ pay ₱
@@ -3386,14 +3392,14 @@ function renderPayrollAttGrid(){
       +'<td style="padding:5px 8px;text-align:right;font-weight:700;font-family:\'IBM Plex Mono\',monospace;color:var(--green);background:#f0fff4" id="netpay_'+e.id+'">—</td>'
       +'</tr>'
       // Expandable detail row for breakdown
-      +'<tr id="detail_'+e.id+'" style="background:#fffde7;display:none"><td colspan="15" style="padding:4px 10px;font-size:11px;color:#7b5800" id="detail_txt_'+e.id+'"></td></tr>';
+      +'<tr id="detail_'+e.id+'" style="background:#fffde7;display:none"><td colspan="18" style="padding:4px 10px;font-size:11px;color:#7b5800" id="detail_txt_'+e.id+'"></td></tr>';
   });
 
   tableHtml+='<tr style="background:#f0f4f8;font-weight:700;font-family:\'IBM Plex Mono\',monospace">'
     +'<td style="padding:8px 10px;position:sticky;left:0;background:#f0f4f8;border-right:2px solid var(--border)">TOTALS</td>'
     +'<td colspan="2"></td>'
     +'<td id="tot_days" style="padding:8px 6px;text-align:center"></td>'
-    +'<td colspan="6"></td>'
+    +'<td colspan="9"></td>'
     +'<td id="tot_add" style="padding:8px 6px;text-align:right;color:var(--green)"></td>'
     +'<td colspan="2"></td>'
     +'<td id="tot_ded" style="padding:8px 6px;text-align:right;color:var(--red)"></td>'
@@ -3440,7 +3446,7 @@ function updatePayrollTotals(){
     var periodDays=parseFloat((document.getElementById('att_'+e.id+'_periodDays')||{value:13}).value)||13;
     var commOnlyEl=document.getElementById('att_'+e.id+'_commissionOnly');
     var commissionOnly=commOnlyEl?commOnlyEl.checked:false;
-    var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays,commissionOnly:commissionOnly};
+    var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),restDayHrs:gv('restDayHrs'),rdotHrs:gv('rdotHrs'),rdotAmt:gv('rdotAmt'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays,commissionOnly:commissionOnly};
     var p=calcPay(e,a);
     totDays+=a.days;
     totAdd+=p.totalEarnings;
@@ -3458,7 +3464,7 @@ function liveCompute(empId){
   var periodDays=parseFloat((document.getElementById('att_'+empId+'_periodDays')||{value:13}).value)||13;
   var commOnlyEl=document.getElementById('att_'+empId+'_commissionOnly');
   var commissionOnly=commOnlyEl?commOnlyEl.checked:false;
-  var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays,commissionOnly:commissionOnly};
+  var a={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),restDayHrs:gv('restDayHrs'),rdotHrs:gv('rdotHrs'),rdotAmt:gv('rdotAmt'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:periodDays,commissionOnly:commissionOnly};
   var p=calcPay(e,a);
   var drEl=document.getElementById('dr_'+empId);
   if(drEl)drEl.innerHTML=peso(p.dr);
@@ -3510,7 +3516,7 @@ async function savePayrollAtt(){
     var daysEl=document.getElementById('att_'+e.id+'_days');
     if(!daysEl)return; // not rendered in the grid (safety guard)
     function gv(f){var el=document.getElementById('att_'+e.id+'_'+f);return el?(parseFloat(el.value)||0):0;}
-    records[e.id]={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:parseFloat(document.getElementById('att_'+e.id+'_periodDays').value)||13,commissionOnly:!!(document.getElementById('att_'+e.id+'_commissionOnly')&&document.getElementById('att_'+e.id+'_commissionOnly').checked)};
+    records[e.id]={days:gv('days'),ot:gv('ot'),otNd:gv('otNd'),restDay:gv('restDay'),restDayHrs:gv('restDayHrs'),rdotHrs:gv('rdotHrs'),rdotAmt:gv('rdotAmt'),holiday:gv('holiday'),leave:gv('leave'),commission:gv('commission'),otherAdd:gv('otherAdd'),otherDed:gv('otherDed'),late:gv('late'),periodDays:parseFloat(document.getElementById('att_'+e.id+'_periodDays').value)||13,commissionOnly:!!(document.getElementById('att_'+e.id+'_commissionOnly')&&document.getElementById('att_'+e.id+'_commissionOnly').checked)};
     if(!attendance[k])attendance[k]={};
     attendance[k][e.id]=records[e.id];
   });
@@ -3584,7 +3590,8 @@ function buildSlipHTML(e,a,per,pdate){
       +'<tr><td>OTHER ADDITIONALS</td><td class="val">'+(a.otherAdd?fp(a.otherAdd):'-')+'</td></tr>'
       +'<tr><td>REG OVERTIME ('+p.otHrs+' hrs)</td><td class="val">'+(p.otPay?fp(p.otPay):'-')+'</td></tr>'
       +'<tr><td>OT NIGHT DIFF ('+p.otNdHrs+' hrs)</td><td class="val">'+(p.otNdPay?fp(p.otNdPay):'-')+'</td></tr>'
-      +'<tr><td>REST DAY OT</td><td class="val">'+(p.restDayPay?fp(p.restDayPay):'-')+'</td></tr>'
+      +'<tr><td>REGULAR RESTDAY'+(p.restDayHrs?' ('+p.restDayHrs+' hrs)':'')+'</td><td class="val">'+(p.restDayPay?fp(p.restDayPay):'-')+'</td></tr>'
+      +'<tr><td>RDOT'+(p.rdotHrs?' ('+p.rdotHrs+' hrs)':'')+'</td><td class="val">'+(p.rdotPay?fp(p.rdotPay):'-')+'</td></tr>'
       +'<tr><td>HOLIDAY PAY</td><td class="val">'+(a.holiday?fp(a.holiday):'-')+'</td></tr>'
       +'<tr><td>LEAVE W/ PAY</td><td class="val">'+(a.leave?fp(a.leave):'-')+'</td></tr>'
       +'<tr><td>COMMISSION</td><td class="val">'+(a.commission?fp(a.commission):'-')+'</td></tr>'
@@ -3647,7 +3654,7 @@ function buildSlipText(e,a,per,pdate){
   +'\nCUT-OFF: '+per+'\nPAYROLL DATE: '+(pdate||'')+'\nSTART DATE: '+(e.start||'')
   +'\n\n--- EARNINGS ---\nSemi-monthly: '+fp(e.smb)+'\nDaily rate: '+fp(p.dr)+'\nDays worked: '+a.days+'\nBasic pay: '+fp(p.basicPay)
   +'\nDeminimis: '+fp(e.dm)+'\nOther additionals: '+fp(a.otherAdd)+'\nOT ('+p.otHrs+'h): '+fp(p.otPay)
-  +'\nOT Night Diff ('+p.otNdHrs+'h): '+fp(p.otNdPay)+'\nRest Day: '+fp(p.restDayPay)
+  +'\nOT Night Diff ('+p.otNdHrs+'h): '+fp(p.otNdPay)+'\nRegular Restday'+(p.restDayHrs?' ('+p.restDayHrs+'h)':'')+': '+fp(p.restDayPay)+'\nRDOT'+(p.rdotHrs?' ('+p.rdotHrs+'h)':'')+': '+fp(p.rdotPay)
   +'\nHoliday: '+fp(a.holiday)+'\nLeave w/pay: '+fp(a.leave)+'\nCommission: '+fp(a.commission)+'\nTOTAL EARNINGS: '+fp(p.totalEarnings)
   +'\n\n--- DEDUCTIONS ---\nSSS: '+fp(e.sss)+'\nPHIC: '+fp(e.phic)+'\nHDMF: '+fp(e.hdmf)
   +'\nOther deductions: '+fp(a.otherDed)+'\nWHT: '+fp(e.wht)+'\nLate: '+fp(a.late)+'\nTOTAL DEDUCTIONS: '+fp(p.totalDeductions)
@@ -3708,7 +3715,7 @@ async function sendOne(empId,per,pdate){
   cut_off:per,payroll_date:pdate?fmtDate(pdate):'',start_date:e.start?fmtDate(e.start):'',
   semi_monthly_basic_pay:fp(e.smb),daily_rate:fp(p.dr),no_of_days_worked:a.days,
   basic_pay:fp(p.basicPay),deminimis:e.dm?fp(e.dm):'-',other_additionals:a.otherAdd?fp(a.otherAdd):'-',
-  reg_overtime:p.otPay?fp(p.otPay):'-',holiday_pay:a.holiday?fp(a.holiday):'-',
+  reg_overtime:p.otPay?fp(p.otPay):'-',regular_restday:p.restDayPay?fp(p.restDayPay):'-',regular_restday_hrs:p.restDayHrs||'',rdot:p.rdotPay?fp(p.rdotPay):'-',rdot_hrs:p.rdotHrs||'',holiday_pay:a.holiday?fp(a.holiday):'-',
   leave_w_pay:a.leave?fp(a.leave):'-',commission:a.commission?fp(a.commission):'-',
   total_earnings:fp(p.totalEarnings),sss:fp(e.sss),phic:fp(e.phic),hdmf:fp(e.hdmf),
   total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
@@ -3748,7 +3755,7 @@ async function sendCommission(empId,per,pdate){
   cut_off:per,payroll_date:pdate?fmtDate(pdate):'',start_date:e.start?fmtDate(e.start):'',
   semi_monthly_basic_pay:fp(e.smb),daily_rate:fp(p.dr),no_of_days_worked:a.days,
   basic_pay:fp(p.basicPay),deminimis:e.dm?fp(e.dm):'-',other_additionals:a.otherAdd?fp(a.otherAdd):'-',
-  reg_overtime:p.otPay?fp(p.otPay):'-',holiday_pay:a.holiday?fp(a.holiday):'-',
+  reg_overtime:p.otPay?fp(p.otPay):'-',regular_restday:'-',regular_restday_hrs:'',rdot:'-',rdot_hrs:'',holiday_pay:a.holiday?fp(a.holiday):'-',
   leave_w_pay:a.leave?fp(a.leave):'-',commission:a.commission?fp(a.commission):'-',
   total_earnings:fp(p.totalEarnings),sss:fp(e.sss),phic:fp(e.phic),hdmf:fp(e.hdmf),
   total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
@@ -3988,7 +3995,7 @@ async function sendWeeklyCommission(recId){
       cut_off:weekLabel,payroll_date:'',start_date:e.start?fmtDate(e.start):'',
       semi_monthly_basic_pay:'-',daily_rate:'-',no_of_days_worked:'-',
       basic_pay:'-',deminimis:'-',other_additionals:'-',
-      reg_overtime:'-',holiday_pay:'-',leave_w_pay:'-',
+      reg_overtime:'-',regular_restday:'-',regular_restday_hrs:'',rdot:'-',rdot_hrs:'',holiday_pay:'-',leave_w_pay:'-',
       commission:'₱'+fp(r.amount),
       total_earnings:'₱'+fp(r.amount),sss:'-',phic:'-',hdmf:'-',
       total_contribution:'-',other_deductions:'-',wht_tax:'-',late_undertime:'-',
@@ -5707,7 +5714,7 @@ async function mgmtSendOne(empId,per,pdate){
       cut_off:per,payroll_date:pdate?fmtDate(pdate):'',start_date:e.start?fmtDate(e.start):'',
       semi_monthly_basic_pay:fp(e.smb),daily_rate:fp(p.dr),no_of_days_worked:a.days,
       basic_pay:fp(p.basicPay),deminimis:e.dm?fp(e.dm):'-',other_additionals:a.otherAdd?fp(a.otherAdd):'-',
-      reg_overtime:p.otPay?fp(p.otPay):'-',holiday_pay:a.holiday?fp(a.holiday):'-',
+      reg_overtime:p.otPay?fp(p.otPay):'-',regular_restday:p.restDayPay?fp(p.restDayPay):'-',regular_restday_hrs:p.restDayHrs||'',rdot:p.rdotPay?fp(p.rdotPay):'-',rdot_hrs:p.rdotHrs||'',holiday_pay:a.holiday?fp(a.holiday):'-',
       leave_w_pay:a.leave?fp(a.leave):'-',commission:a.commission?fp(a.commission):'-',
       total_earnings:fp(p.totalEarnings),sss:fp(e.sss),phic:fp(e.phic),hdmf:fp(e.hdmf),
       total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
@@ -5744,7 +5751,7 @@ async function mgmtSendCommission(empId,per,pdate){
       cut_off:per,payroll_date:pdate?fmtDate(pdate):'',start_date:e.start?fmtDate(e.start):'',
       semi_monthly_basic_pay:fp(e.smb),daily_rate:fp(p.dr),no_of_days_worked:a.days,
       basic_pay:fp(p.basicPay),deminimis:e.dm?fp(e.dm):'-',other_additionals:a.otherAdd?fp(a.otherAdd):'-',
-      reg_overtime:p.otPay?fp(p.otPay):'-',holiday_pay:a.holiday?fp(a.holiday):'-',
+      reg_overtime:p.otPay?fp(p.otPay):'-',regular_restday:'-',regular_restday_hrs:'',rdot:'-',rdot_hrs:'',holiday_pay:a.holiday?fp(a.holiday):'-',
       leave_w_pay:a.leave?fp(a.leave):'-',commission:a.commission?fp(a.commission):'-',
       total_earnings:fp(p.totalEarnings),sss:fp(e.sss),phic:fp(e.phic),hdmf:fp(e.hdmf),
       total_contribution:fp(p.totalContrib),other_deductions:a.otherDed?fp(a.otherDed):'-',
@@ -5942,6 +5949,19 @@ async function importPayrollExcel(evt) {
       // Offset all columns relative to nameCol (should be 1 in standard format)
       var o = nameCol - 1; // offset: if nameCol=1, o=0 (no shift)
 
+      // Optional RDOT (rest day overtime) column: a header cell reading "RDOT" or "REST DAY OT" in either header row
+      // starts a HRS + AMT pair (like every other pair in this register). If the sub-header says AMT only, it is one amount column.
+      var rdotCol = -1, rdotAmtOnly = false;
+      for (var hr = headerRowIdx; hr <= headerRowIdx + 1 && hr < rows.length && rdotCol < 0; hr++) {
+        for (var c2 = 0; c2 < rows[hr].length; c2++) {
+          if (/\bRDOT\b|REST\s*DAY\s*OT|RESTDAY\s*OT|REST\s*DAY\s*OVERTIME/.test((rows[hr][c2] + '').toUpperCase())) { rdotCol = c2; break; }
+        }
+      }
+      if (rdotCol >= 0) {
+        var subHdr = ((rows[headerRowIdx + 1] || [])[rdotCol] + '').toUpperCase();
+        rdotAmtOnly = /AMT|AMOUNT/.test(subHdr) && !/HRS|HOURS/.test(subHdr);
+      }
+
       // Extract period days from Attendance Summary sheet
       var periodDays = 11; // default for CWW schedule
       wb.SheetNames.forEach(function(n) {
@@ -5987,17 +6007,25 @@ async function importPayrollExcel(evt) {
           var v = parseFloat(row[o + col]);
           return isNaN(v) ? 0 : v;
         }
+        function ga(col) {   // absolute column (used for the detected RDOT columns)
+          var v = parseFloat(row[col]);
+          return isNaN(v) ? 0 : v;
+        }
 
         matched.push({
           emp: emp,
           xlsxName: nameVal,
           dm:  g(35),   // Deminimis — synced to employee profile on apply
           wht: g(33),   // WHT tax — synced to employee profile on apply
+          hasRdot: rdotCol >= 0,   // whether this register has an RDOT column at all
           rec: {
             days:       g(9),
             ot:         g(13),   // OT hours
             otNd:       g(15),   // Night diff OT hours
-            restDay:    g(18),   // Rest day OT amount (col 18 = hardcoded peso amount)
+            restDayHrs: g(17),   // Regular rest day hours (col 17)
+            restDay:    g(18),   // Regular rest day amount (col 18 = hardcoded peso amount)
+            rdotHrs:    (rdotCol >= 0 && !rdotAmtOnly) ? ga(rdotCol) : 0,
+            rdotAmt:    rdotCol >= 0 ? (rdotAmtOnly ? ga(rdotCol) : ga(rdotCol + 1)) : 0,
             holiday:    g(20),   // Holiday pay amount
             leave:      g(22),   // Leave w/ pay amount
             commission: g(23) + g(24), // Sales + Operations
@@ -6036,6 +6064,8 @@ function showImportPreview(matched, unmatched, periodDays, cutOff) {
       + '<td style="text-align:center">' + r.days + '</td>'
       + '<td style="text-align:center">' + (r.ot || '-') + '</td>'
       + '<td style="text-align:center">' + (r.otNd || '-') + '</td>'
+      + '<td style="text-align:center">' + (r.restDay ? '\u20b1' + r.restDay.toFixed(2) + (r.restDayHrs ? '<br><span style="font-size:10px;color:var(--muted)">' + r.restDayHrs + ' hrs</span>' : '') : '-') + '</td>'
+      + '<td style="text-align:center">' + (r.rdotAmt ? '\u20b1' + r.rdotAmt.toFixed(2) + (r.rdotHrs ? '<br><span style="font-size:10px;color:var(--muted)">' + r.rdotHrs + ' hrs</span>' : '') : '-') + '</td>'
       + '<td style="text-align:center">' + (r.holiday ? '\u20b1' + r.holiday.toFixed(2) : '-') + '</td>'
       + '<td style="text-align:center">' + (r.leave ? '\u20b1' + r.leave.toFixed(2) : '-') + '</td>'
       + '<td style="text-align:center">' + (r.late ? '\u20b1' + r.late.toFixed(2) : '-') + '</td>'
@@ -6062,7 +6092,7 @@ function showImportPreview(matched, unmatched, periodDays, cutOff) {
     + '<div class="infobox">Found <strong>' + matched.length + ' matched employee(s)</strong> \u2014 Period Days: <strong>' + periodDays + '</strong>. Review then click Apply.</div>'
     + unmatchedHtml
     + '<div style="overflow-x:auto;margin-top:12px"><table><thead><tr>'
-    + '<th>Employee</th><th>Period Days</th><th>Days Worked</th><th>OT Hrs</th><th>ND OT Hrs</th><th>Holiday</th><th>Leave</th><th>Late/UT</th><th>Other Add</th><th>Other Ded</th><th>Deminimis</th><th>WHT</th>'
+    + '<th>Employee</th><th>Period Days</th><th>Days Worked</th><th>OT Hrs</th><th>ND OT Hrs</th><th>Reg Restday</th><th>RDOT</th><th>Holiday</th><th>Leave</th><th>Late/UT</th><th>Other Add</th><th>Other Ded</th><th>Deminimis</th><th>WHT</th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table></div>'
     + '<div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">'
     + '<button class="btn" onclick="document.getElementById(\'xlsx-preview-modal\').remove()">Cancel</button>'
@@ -6079,7 +6109,12 @@ async function applyImportedPayroll() {
   var k = attKey(per);
   if (!attendance[k]) attendance[k] = {};
   // Apply attendance records
-  matched.forEach(function(m) { attendance[k][m.emp.id] = m.rec; });
+  matched.forEach(function(m) {
+    var rec = m.rec, prev = attendance[k][m.emp.id] || {};
+    // A register without an RDOT column must not wipe RDOT that was already entered by hand for this period
+    if (!m.hasRdot) { rec.rdotHrs = prev.rdotHrs || 0; rec.rdotAmt = prev.rdotAmt || 0; }
+    attendance[k][m.emp.id] = rec;
+  });
   await api('POST', '/api/attendance', { period: k, records: attendance[k] });
   // Sync deminimis and WHT from Excel into each employee profile
   var empUpdates = [];
