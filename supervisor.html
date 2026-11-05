@@ -1019,7 +1019,7 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
   </div>
 
   <!-- My own leave balance -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:500px;width:100%;margin-bottom:1rem">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;max-width:500px;width:100%;margin-bottom:1rem">
     <div style="background:var(--card);border:1px solid var(--border);border-top:4px solid var(--green);border-radius:12px;padding:1.25rem 1rem;text-align:center">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🌿 Vacation Leave</div>
       <div style="font-size:38px;font-weight:700;color:var(--navy);font-family:'IBM Plex Mono',monospace;line-height:1" id="sup-vl-bal">—</div>
@@ -1029,6 +1029,11 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🏥 Sick Leave</div>
       <div style="font-size:38px;font-weight:700;color:var(--navy);font-family:'IBM Plex Mono',monospace;line-height:1" id="sup-sl-bal">—</div>
       <div style="font-size:12px;color:var(--muted);margin-top:4px">days remaining</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-top:4px solid #ef6c00;border-radius:12px;padding:1.25rem 1rem;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🐦 Early Bird Credit</div>
+      <div style="font-size:38px;font-weight:700;color:var(--navy);font-family:'IBM Plex Mono',monospace;line-height:1" id="sup-eb-bal">—</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">days available</div>
     </div>
   </div>
 
@@ -1609,8 +1614,10 @@ async function supLoadBalance(){
   var data=await res.json();
   var vl=document.getElementById('sup-vl-bal');
   var sl=document.getElementById('sup-sl-bal');
+  var eb=document.getElementById('sup-eb-bal');
   if(vl)vl.textContent=data.vlBal??'—';
   if(sl)sl.textContent=data.slBal??'—';
+  if(eb)eb.textContent=data.earlyBirdBal??'—';
   window._lcBal={vl:parseFloat(data.vlBal)||0,sl:parseFloat(data.slBal)||0};
   supCreditHint();
   supLoadCredits();
