@@ -1175,6 +1175,7 @@ app.get('/api/attendance', requireAdminOrManagement, (req, res) => {
     result[r.period][r.employee_id] = {
       days: r.days, ot: r.ot, otNd: r.ot_nd, restDay: r.rest_day,
       restDayHrs: r.rest_day_hrs || 0, rdotHrs: r.rdot_hrs || 0, rdotAmt: r.rdot_amt || 0,
+      lateHrs: r.late_hrs || 0, holidayHrs: r.holiday_hrs || 0, dm: r.dm, wht: r.wht,
       holiday: r.holiday, leave: r.leave_pay, commission: r.commission,
       otherAdd: r.other_add, otherDed: r.other_ded, late: r.late,
       periodDays: r.period_days || 13
@@ -1185,10 +1186,11 @@ app.get('/api/attendance', requireAdminOrManagement, (req, res) => {
 
 app.post('/api/attendance', requireAdmin, (req, res) => {
   const { period, records } = req.body; // records: { empId: {...} }
-  const upsert = db.prepare(`INSERT INTO attendance (employee_id, period, days, ot, ot_nd, rest_day, holiday, leave_pay, commission, other_add, other_ded, late, period_days, rest_day_hrs, rdot_hrs, rdot_amt, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+  const upsert = db.prepare(`INSERT INTO attendance (employee_id, period, days, ot, ot_nd, rest_day, holiday, leave_pay, commission, other_add, other_ded, late, period_days, rest_day_hrs, rdot_hrs, rdot_amt, late_hrs, holiday_hrs, dm, wht, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
     ON CONFLICT(employee_id, period) DO UPDATE SET
     rest_day_hrs=COALESCE(excluded.rest_day_hrs, attendance.rest_day_hrs), rdot_hrs=COALESCE(excluded.rdot_hrs, attendance.rdot_hrs), rdot_amt=COALESCE(excluded.rdot_amt, attendance.rdot_amt),
+    late_hrs=COALESCE(excluded.late_hrs, attendance.late_hrs), holiday_hrs=COALESCE(excluded.holiday_hrs, attendance.holiday_hrs), dm=COALESCE(excluded.dm, attendance.dm), wht=COALESCE(excluded.wht, attendance.wht),
     days=excluded.days, ot=excluded.ot, ot_nd=excluded.ot_nd, rest_day=excluded.rest_day,
     holiday=excluded.holiday, leave_pay=excluded.leave_pay, commission=excluded.commission,
     other_add=excluded.other_add, other_ded=excluded.other_ded, late=excluded.late,
@@ -1196,7 +1198,7 @@ app.post('/api/attendance', requireAdmin, (req, res) => {
   const saveAll = db.transaction((recs) => {
     for (const [empId, a] of Object.entries(recs)) {
       const opt = v => (v === undefined || v === null) ? null : (+v || 0);   // null = "not provided, keep what is stored"
-      upsert.run(+empId, period, +a.days||0, +a.ot||0, +a.otNd||0, +a.restDay||0, +a.holiday||0, +a.leave||0, +a.commission||0, +a.otherAdd||0, +a.otherDed||0, +a.late||0, +a.periodDays||13, opt(a.restDayHrs), opt(a.rdotHrs), opt(a.rdotAmt));
+      upsert.run(+empId, period, +a.days||0, +a.ot||0, +a.otNd||0, +a.restDay||0, +a.holiday||0, +a.leave||0, +a.commission||0, +a.otherAdd||0, +a.otherDed||0, +a.late||0, +a.periodDays||13, opt(a.restDayHrs), opt(a.rdotHrs), opt(a.rdotAmt), opt(a.lateHrs), opt(a.holidayHrs), opt(a.dm), opt(a.wht));
     }
   });
   saveAll(records);
@@ -1211,6 +1213,10 @@ try {
 try { db.exec(`ALTER TABLE attendance ADD COLUMN rest_day_hrs REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE attendance ADD COLUMN rdot_hrs REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE attendance ADD COLUMN rdot_amt REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE attendance ADD COLUMN late_hrs REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE attendance ADD COLUMN holiday_hrs REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE attendance ADD COLUMN dm REAL`); } catch(e) {}      // Deminimis for this period (NULL = use the profile value)
+try { db.exec(`ALTER TABLE attendance ADD COLUMN wht REAL`); } catch(e) {}     // Withholding tax for this period (NULL = use the profile value)
 
 // Migrate existing time_logs table — add break columns if missing
 try {
@@ -2159,7 +2165,7 @@ app.get('/api/export', requireAdmin, (req, res) => {
       const r = {};
       for (const a of rows) {
         if (!r[a.period]) r[a.period] = {};
-        r[a.period][a.employee_id] = { days: a.days, ot: a.ot, otNd: a.ot_nd, restDay: a.rest_day, restDayHrs: a.rest_day_hrs || 0, rdotHrs: a.rdot_hrs || 0, rdotAmt: a.rdot_amt || 0, holiday: a.holiday, leave: a.leave_pay, commission: a.commission, otherAdd: a.other_add, otherDed: a.other_ded, late: a.late, periodDays: a.period_days || 13 };
+        r[a.period][a.employee_id] = { days: a.days, ot: a.ot, otNd: a.ot_nd, restDay: a.rest_day, restDayHrs: a.rest_day_hrs || 0, rdotHrs: a.rdot_hrs || 0, rdotAmt: a.rdot_amt || 0, lateHrs: a.late_hrs || 0, holidayHrs: a.holiday_hrs || 0, dm: a.dm, wht: a.wht, holiday: a.holiday, leave: a.leave_pay, commission: a.commission, otherAdd: a.other_add, otherDed: a.other_ded, late: a.late, periodDays: a.period_days || 13 };
       }
       return r;
     })(),
