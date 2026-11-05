@@ -135,7 +135,7 @@ textarea{resize:vertical;min-height:72px}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* BALANCE CARDS */
-.balance-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem;max-width:460px;width:100%}
+.balance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1rem;max-width:660px;width:100%}
 .alarm-overlay{display:none;position:fixed;inset:0;background:rgba(10,22,40,0.6);z-index:3000;align-items:center;justify-content:center;padding:20px}
 .alarm-overlay.show{display:flex;animation:alarmFadeIn .2s ease}
 @keyframes alarmFadeIn{from{opacity:0}to{opacity:1}}
@@ -150,6 +150,8 @@ textarea{resize:vertical;min-height:72px}
 .bal-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem 1rem;text-align:center}
 .bal-card.vl{border-top:4px solid var(--green)}
 .bal-card.sl{border-top:4px solid var(--blue)}
+.bal-card.eb{border-top:4px solid #ef6c00}
+@media (max-width:520px){.balance-grid{grid-template-columns:1fr 1fr}.bal-card.eb{grid-column:1/-1}}
 .bal-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
 .bal-value{font-size:38px;font-weight:700;color:var(--navy);font-family:'IBM Plex Mono',monospace;line-height:1}
 .bal-unit{font-size:12px;color:var(--muted);margin-top:4px}
@@ -200,6 +202,7 @@ textarea{resize:vertical;min-height:72px}
 .tab-content.on .bal-card{animation:scaleIn .4s ease both}
 .tab-content.on .bal-card:nth-child(1){animation-delay:.05s}
 .tab-content.on .bal-card:nth-child(2){animation-delay:.12s}
+.tab-content.on .bal-card:nth-child(3){animation-delay:.19s}
 
 /* Tab switch animation */
 .tab-content{animation:none}
@@ -874,7 +877,7 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
         </div>
         <div class="hero-status"><small>Today</small><b id="dv-status">Loading…</b><div class="hero-sub" id="dv-status-sub" style="font-size:12px;margin-top:4px"></div></div>
       </section>
-      <div class="kpi-grid"><div class="kpi clickable" id="kp-in" style="--kc:#2e7d32;--kb:#e8f5e9" onclick="dv2Go('timeinout')"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><div class="kpi-l">Time In</div><div class="kpi-v" id="kv-in">—</div><div class="kpi-s" id="ks-in">Today</div></div></div><div class="kpi clickable" id="kp-out" style="--kc:#e65100;--kb:#fff3e0" onclick="dv2Go('timeinout')"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></div><div><div class="kpi-l">Time Out</div><div class="kpi-v" id="kv-out">—</div><div class="kpi-s" id="ks-out">Today</div></div></div><div class="kpi" id="kp-hrs" style="--kc:#1565c0;--kb:#e3f2fd"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 3h6"/></svg></div><div><div class="kpi-l">Hours today</div><div class="kpi-v" id="kv-hrs">—</div><div class="kpi-s" id="ks-hrs">So far today</div></div></div><div class="kpi" id="kp-avg" style="--kc:#6a1b9a;--kb:#f3e5f5"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></div><div><div class="kpi-l">Avg hours / day</div><div class="kpi-v" id="kv-avg">—</div><div class="kpi-s" id="ks-avg">recent days</div></div></div><div class="kpi clickable" id="kp-vl" style="--kc:#00838f;--kb:#e0f7fa" onclick="dv2Go('leavebal')"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></div><div><div class="kpi-l">Vacation leave</div><div class="kpi-v" id="kv-vl">—</div><div class="kpi-s" id="ks-vl">days left</div></div></div><div class="kpi clickable" id="kp-sl" style="--kc:#c2185b;--kb:#fce4ec" onclick="dv2Go('leavebal')"><div class="kpi-ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg></div><div><div class="kpi-l">Sick leave</div><div class="kpi-v" id="kv-sl">—</div><div class="kpi-s" id="ks-sl">days left</div></div></div></div>
+      <div class="kpi-grid"><div class="kpi clickable" id="kp-in" style="--kc:#2e7d32;--kb:#e8f5e9" onclick="dv2Go('timeinout')"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><div class="kpi-l">Time In</div><div class="kpi-v" id="kv-in">—</div><div class="kpi-s" id="ks-in">Today</div></div></div><div class="kpi clickable" id="kp-out" style="--kc:#e65100;--kb:#fff3e0" onclick="dv2Go('timeinout')"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></div><div><div class="kpi-l">Time Out</div><div class="kpi-v" id="kv-out">—</div><div class="kpi-s" id="ks-out">Today</div></div></div><div class="kpi" id="kp-hrs" style="--kc:#1565c0;--kb:#e3f2fd"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 3h6"/></svg></div><div><div class="kpi-l">Hours today</div><div class="kpi-v" id="kv-hrs">—</div><div class="kpi-s" id="ks-hrs">So far today</div></div></div><div class="kpi" id="kp-avg" style="--kc:#6a1b9a;--kb:#f3e5f5"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></div><div><div class="kpi-l">Avg hours / day</div><div class="kpi-v" id="kv-avg">—</div><div class="kpi-s" id="ks-avg">recent days</div></div></div><div class="kpi clickable" id="kp-vl" style="--kc:#00838f;--kb:#e0f7fa" onclick="dv2Go('leavebal')"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></div><div><div class="kpi-l">Vacation leave</div><div class="kpi-v" id="kv-vl">—</div><div class="kpi-s" id="ks-vl">days left</div></div></div><div class="kpi clickable" id="kp-sl" style="--kc:#c2185b;--kb:#fce4ec" onclick="dv2Go('leavebal')"><div class="kpi-ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg></div><div><div class="kpi-l">Sick leave</div><div class="kpi-v" id="kv-sl">—</div><div class="kpi-s" id="ks-sl">days left</div></div></div><div class="kpi clickable" id="kp-eb" style="--kc:#ef6c00;--kb:#fff3e0" onclick="dv2Go('leavebal')"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M17 18a5 5 0 0 0-10 0"/><path d="M12 2v7M4.2 10.2l1.4 1.4M1 18h2M21 18h2M18.4 11.6l1.4-1.4M23 22H1M8 6l4-4 4 4"/></svg></div><div><div class="kpi-l">Early bird credit</div><div class="kpi-v" id="kv-eb">—</div><div class="kpi-s" id="ks-eb">days available</div></div></div></div>
       <div class="dash-two">
         <section class="card2"><div class="card2-h"><h3>Calendar</h3><div class="cal-nav"><button onclick="dv2Cal(-1)" aria-label="Previous month">‹</button><span class="cal-title" id="dv-cal-title"></span><button onclick="dv2Cal(1)" aria-label="Next month">›</button></div></div>
           <div class="cal-grid" id="dv-cal"></div>
@@ -1074,6 +1077,11 @@ body{display:block!important;background:var(--surface);padding:var(--top-h) 0 0 
       <div class="bal-label">🏥 Sick Leave</div>
       <div class="bal-value" id="sl-bal">—</div>
       <div class="bal-unit">days remaining</div>
+    </div>
+    <div class="bal-card eb">
+      <div class="bal-label">🐦 Early Bird Credit</div>
+      <div class="bal-value" id="eb-bal">—</div>
+      <div class="bal-unit">days available</div>
     </div>
   </div>
   <div class="panel" id="lc-mine-panel" style="display:none">
@@ -1943,10 +1951,12 @@ async function loadBalance(){
   var data=await res.json();
   var vl=document.getElementById('vl-bal');
   var sl=document.getElementById('sl-bal');
+  var eb=document.getElementById('eb-bal');
   var vlVal=parseFloat(data.vlBal)||0;
   var slVal=parseFloat(data.slBal)||0;
   animateCount(vl,vlVal);
   animateCount(sl,slVal);
+  animateCount(eb,parseFloat(data.earlyBirdBal)||0);
   window._lcBal={vl:vlVal,sl:slVal};
   lvCreditHint();
   loadMyCredits();
@@ -3284,7 +3294,7 @@ if('serviceWorker' in navigator){
   }
   function loadBalance() {
     return safe(getJSON('/api/leave/balance')).then(function (b) {
-      if (!b) return; setTile('vl', (parseFloat(b.vlBal) || 0), 'days left'); setTile('sl', (parseFloat(b.slBal) || 0), 'days left');
+      if (!b) return; setTile('vl', (parseFloat(b.vlBal) || 0), 'days left'); setTile('sl', (parseFloat(b.slBal) || 0), 'days left'); setTile('eb', (parseFloat(b.earlyBirdBal) || 0), 'days available');
     });
   }
   function loadMyLeaves() { return safe(getJSON('/api/leave')).then(function (rows) { if (!rows) return; state.leaves = rows; renderCal(); renderRequests(); }); }
@@ -3308,7 +3318,7 @@ if('serviceWorker' in navigator){
       state.me = (list && u && list.find(function (e) { return e.id === u.employee_id; })) || { employee_id: u && u.employee_id };
       if (u && !state.me.employee_id) state.me.employee_id = u.employee_id;
       paintHeader();
-      if (state.me.type === 'Intern') { ['vl', 'sl'].forEach(function (k) { var t = $('kp-' + k); if (t) t.style.display = 'none'; }); }
+      if (state.me.type === 'Intern') { ['vl', 'sl', 'eb'].forEach(function (k) { var t = $('kp-' + k); if (t) t.style.display = 'none'; }); }
       if (ROLE === 'supervisor' && !state.me.employee_id) { var t = $('kp-in'); if (t) t.style.display = 'none'; }
     });
     loadStatus(); loadLogs(); loadBalance(); loadMyLeaves();

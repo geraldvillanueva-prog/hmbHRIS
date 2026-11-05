@@ -1560,10 +1560,10 @@ app.delete('/api/leave/mine/:id', requireAuth, (req, res) => {
 // Employee self-service: get own leave balance
 app.get('/api/leave/balance', requireAuth, (req, res) => {
   const empId = req.session.user.employee_id;
-  if (!empId) return res.json({ vlBal: 0, slBal: 0 });
-  const emp = db.prepare('SELECT vl_bal, sl_bal FROM employees WHERE id=?').get(empId);
-  if (!emp) return res.json({ vlBal: 0, slBal: 0 });
-  res.json({ vlBal: emp.vl_bal, slBal: emp.sl_bal });
+  if (!empId) return res.json({ vlBal: 0, slBal: 0, earlyBirdBal: 0 });
+  const emp = db.prepare('SELECT vl_bal, sl_bal, early_bird_bal FROM employees WHERE id=?').get(empId);
+  if (!emp) return res.json({ vlBal: 0, slBal: 0, earlyBirdBal: 0 });
+  res.json({ vlBal: emp.vl_bal, slBal: emp.sl_bal, earlyBirdBal: emp.early_bird_bal || 0 });
 });
 
 
