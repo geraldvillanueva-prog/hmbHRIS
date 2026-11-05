@@ -824,15 +824,16 @@ app.put('/api/my/leaves/:id', requireAdminOrSupervisor, (req, res) => {
     if (!isSub) return res.status(403).json({ success: false, error: 'Not your subordinate' });
   }
 
+  const holdsBefore = rec.pay === 'With Pay' && leaveHoldsBalance(rec.status);
   db.prepare('UPDATE leave_records SET status=? WHERE id=?').run(status, req.params.id);
 
-  // Deduct leave balance when approved with pay
-  if (status === 'Approved' && rec.pay === 'With Pay') {
-    if (rec.type.includes('VL') || rec.type.includes('Vacation'))
-      db.prepare('UPDATE employees SET vl_bal=MAX(0,vl_bal-?) WHERE id=?').run(rec.days, rec.employee_id);
-    else if (rec.type.includes('SL') || rec.type.includes('Sick'))
-      db.prepare('UPDATE employees SET sl_bal=MAX(0,sl_bal-?) WHERE id=?').run(rec.days, rec.employee_id);
-  }
+  // A leave takes its days off the balance the moment it is FILED (Pending and Approved both "hold" them;
+  // Denied does not). So approving a Pending leave must NOT deduct a second time, and denying one gives the
+  // days back. The balance only moves when the leave changes between holding and not holding — the same
+  // rule PUT /api/leave/:id (the admin Leave Tracker) uses.
+  const holdsAfter = rec.pay === 'With Pay' && leaveHoldsBalance(status);
+  if (holdsBefore && !holdsAfter) adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, 1);
+  else if (!holdsBefore && holdsAfter) adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, -1);
   res.json({ success: true });
 });
 
@@ -1064,14 +1065,26 @@ app.put('/api/employees/:id', requireAdmin, (req, res) => {
   db.prepare(`UPDATE employees SET name=?,surname=?,given_name=?,middle_name=?,pos=?,dept=?,type=?,start=?,bank=?,email=?,mobile=?,emergency=?,address=?,
     address_permanent=?,address_current=?,tin=?,sss_no=?,philhealth_no=?,pagibig_no=?,dob=?,civil_status=?,gender=?,smoker=?,religion=?,
     immediate_superior=?,end_of_contract=?,annual_evaluation=?,payslip_note=?,shift_day_overrides=?,include_in_payroll=?,
-    smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,vl_bal=?,sl_bal=?,shift_id=?,
+    smb=?,sss=?,phic=?,hdmf=?,mpl=?,dm=?,load=?,wht=?,shift_id=?,
     loc_policy=?,loc_lat=?,loc_lng=?,loc_radius=?,loc_wfh_days=? WHERE id=?`).run(
     e.name,e.surname||'',e.givenName||'',e.middleName||'',e.pos||'',e.dept||'',e.type||'Regular',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.emergency||'',e.address||'',
     e.addressPermanent||'',e.addressCurrent||'',e.tin||'',e.sssNo||'',e.philhealthNo||'',e.pagibigNo||'',e.dob||'',e.civilStatus||'',e.gender||'',e.smoker||'',e.religion||'',
     e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',e.payslipNote||'',e.shiftDayOverrides||e.shift_day_overrides||'',(e.includeInPayroll===false||e.includeInPayroll===0)?0:1,
-    +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0, shiftId,
+    +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0, shiftId,
     locPolicy, locLat, locLng, locRadius, locWfhDays, req.params.id
   );
+  // Leave balances (vl_bal / sl_bal) are deliberately NOT part of this general save. Many screens send the whole
+  // in-memory employee back here just to change a shift, a day override or active status — and the balance they
+  // carried could be out of date (a leave filed or approved since the page loaded), which used to overwrite the
+  // real balance. A balance is changed only when the admin types a new number in the Edit Employee form, which
+  // sends it explicitly as balanceChange: { vlBal?, slBal? } — and only for the field(s) actually edited.
+  const bc = e.balanceChange;
+  if (bc && typeof bc === 'object') {
+    const num = v => (v === undefined || v === null || v === '' || !Number.isFinite(+v)) ? null : Math.max(0, Math.round(+v * 100) / 100);
+    const vl = num(bc.vlBal), sl = num(bc.slBal);
+    if (vl !== null) db.prepare('UPDATE employees SET vl_bal=? WHERE id=?').run(vl, req.params.id);
+    if (sl !== null) db.prepare('UPDATE employees SET sl_bal=? WHERE id=?').run(sl, req.params.id);
+  }
   res.json({ success: true });
 });
 
@@ -1673,7 +1686,7 @@ function adjustEmployeeLeaveBalance(employeeId, type, days, delta) {
   const isSL = type && (type.includes('SL') || type.includes('Sick'));
   if (!isVL && !isSL) return; // other leave types don't draw against VL/SL
   const col = isVL ? 'vl_bal' : 'sl_bal';
-  db.prepare(`UPDATE employees SET ${col}=MAX(0,${col}+?) WHERE id=?`).run(delta * days, employeeId);
+  db.prepare(`UPDATE employees SET ${col}=MAX(0,ROUND(COALESCE(${col},0)+?,2)) WHERE id=?`).run(delta * days, employeeId);
 }
 // Whether a given status currently "holds" a deduction against the balance.
 function leaveHoldsBalance(status) { return status !== 'Denied'; }
