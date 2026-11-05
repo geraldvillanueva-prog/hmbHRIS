@@ -1050,6 +1050,8 @@ app.post('/api/employees', requireAdmin, (req, res) => {
     e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',e.payslipNote||'',e.shiftDayOverrides||e.shift_day_overrides||'',(e.includeInPayroll===false||e.includeInPayroll===0)?0:1,
     +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0
   );
+  const ebStart = Number(e.earlyBirdBal);
+  if (Number.isFinite(ebStart) && ebStart > 0) db.prepare('UPDATE employees SET early_bird_bal=? WHERE id=?').run(Math.round(ebStart * 100) / 100, r.lastInsertRowid);
   res.json({ success: true, id: r.lastInsertRowid });
 });
 
@@ -1081,9 +1083,10 @@ app.put('/api/employees/:id', requireAdmin, (req, res) => {
   const bc = e.balanceChange;
   if (bc && typeof bc === 'object') {
     const num = v => (v === undefined || v === null || v === '' || !Number.isFinite(+v)) ? null : Math.max(0, Math.round(+v * 100) / 100);
-    const vl = num(bc.vlBal), sl = num(bc.slBal);
+    const vl = num(bc.vlBal), sl = num(bc.slBal), eb = num(bc.earlyBirdBal);
     if (vl !== null) db.prepare('UPDATE employees SET vl_bal=? WHERE id=?').run(vl, req.params.id);
     if (sl !== null) db.prepare('UPDATE employees SET sl_bal=? WHERE id=?').run(sl, req.params.id);
+    if (eb !== null) db.prepare('UPDATE employees SET early_bird_bal=? WHERE id=?').run(eb, req.params.id);
   }
   res.json({ success: true });
 });
@@ -1142,7 +1145,7 @@ function mapEmployee(e) {
     start: e.start, bank: e.bank, email: e.email, mobile: e.mobile,
     emergency: e.emergency, address: e.address, tin: e.tin,
     smb: e.smb, sss: e.sss, phic: e.phic, hdmf: e.hdmf, mpl: e.mpl,
-    dm: e.dm, load: e.load, wht: e.wht, vlBal: e.vl_bal, slBal: e.sl_bal, active: e.active,
+    dm: e.dm, load: e.load, wht: e.wht, vlBal: e.vl_bal, slBal: e.sl_bal, earlyBirdBal: e.early_bird_bal || 0, active: e.active,
     shiftId: e.shift_id || null,
     locPolicy:  e.loc_policy  || 'office',
     locLat:     e.loc_lat     || null,
@@ -1257,6 +1260,8 @@ try { db.exec(`ALTER TABLE employees ADD COLUMN annual_evaluation TEXT`); } catc
 try { db.exec(`ALTER TABLE employees ADD COLUMN payslip_note TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE employees ADD COLUMN include_in_payroll INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE employees ADD COLUMN shift_day_overrides TEXT`); } catch(e) {}
+// Early Bird credit (days) — tracked per employee next to the VL / SL balances
+try { db.exec(`ALTER TABLE employees ADD COLUMN early_bird_bal REAL DEFAULT 0`); } catch(e) {}
 
 // Migrate time_logs table — add GPS columns for audit trail
 try { db.exec(`ALTER TABLE time_logs ADD COLUMN lat REAL`); } catch(e) {}
