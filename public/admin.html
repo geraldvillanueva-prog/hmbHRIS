@@ -249,12 +249,10 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
   .tm-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:4px 0 12px}
   .tm-note{font-size:12px;color:var(--muted);margin:8px 2px}
   .tm-sum{max-width:640px}.tm-sum table{background:#fff;border:1px solid var(--border);border-radius:8px}
-  /* ── Leave credits ── */
+  /* ── hints / summaries ── */
   .lc-hint{font-size:11.5px;color:var(--muted);margin-top:4px;min-height:14px}
   .lc-hint b{color:var(--navy)} .lc-hint.low b{color:var(--red)}
-  .lc-msg{font-size:12.5px;min-height:18px;margin-top:8px} .lc-msg.ok{color:var(--green);font-weight:600} .lc-msg.err{color:var(--red);font-weight:600}
   .lc-sum{font-size:12px;color:var(--muted);margin:2px 0 10px}.lc-sum b{color:var(--navy)}
-  tr.lc-void td{opacity:.55} tr.lc-void td:nth-child(4){text-decoration:line-through}
 </style>
 </head>
 <body>
@@ -524,8 +522,9 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
         <div class="f"><label>WHT tax (₱)</label><input id="ewht" type="number" placeholder="" step="0.01"></div>
       </div>
       <div class="row">
-        <div class="f"><label>VL balance (days)</label><input id="evl" type="number" placeholder="0" step="0.5" value="0"></div>
-        <div class="f"><label>SL balance (days)</label><input id="esl" type="number" placeholder="0" step="0.5" value="0"></div>
+        <div class="f"><label>VL balance (days)</label><input id="evl" type="number" placeholder="0" step="0.01" value="0"></div>
+        <div class="f"><label>SL balance (days)</label><input id="esl" type="number" placeholder="0" step="0.01" value="0"></div>
+        <div class="f"><label>Early bird credit (days)</label><input id="eeb" type="number" placeholder="0" step="0.01" value="0"></div>
         <div class="f"><label>Address</label><input id="eaddress" placeholder=""></div>
         <div class="f"><label>TIN</label><input id="etin" placeholder=""></div>
       </div>
@@ -647,11 +646,12 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
           <div class="f"><label>Load Allowance/Period (₱)</label><input id="edit-eload" type="number" step="0.01"></div>
           <div class="f"><label>WHT Tax (₱)</label><input id="edit-ewht" type="number" step="0.01"></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="f"><label>VL Balance (days)</label><input id="edit-evl" type="number" step="0.01"></div>
           <div class="f"><label>SL Balance (days)</label><input id="edit-esl" type="number" step="0.01"></div>
+          <div class="f"><label>Early Bird Credit (days)</label><input id="edit-eeb" type="number" step="0.01"></div>
         </div>
-        <div class="lc-hint" style="margin:-4px 0 10px">Only change these to <b>correct</b> a balance. To <b>add</b> days, use Leave Management → Leave Credits (it keeps a history). Saving other changes never touches these balances.</div>
+        <div class="lc-hint" style="margin:-4px 0 10px">These are the days available now. Type a new total to add days or correct a balance (for example 2.95 + 5 = 7.95). Saving other changes never touches these balances.</div>
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="f"><label>📍 Location Policy</label>
             <select id="edit-eloc_policy" onchange="toggleEditLocFields()">
@@ -713,7 +713,6 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
       <button class="itab on" onclick="goITab('leave','file',this)">File Leave</button>
       <button class="itab" onclick="goITab('leave','tracker',this)">Leave Tracker</button>
       <button class="itab" onclick="goITab('leave','balances',this)">Leave Balances</button>
-      <button class="itab" id="lc-tab-btn" onclick="goITab('leave','credits',this)">Leave Credits</button>
     </div>
     <div id="leave-itab-file" class="itab-sec on">
       <div class="card">
@@ -769,41 +768,15 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
             <option value="">All</option><option>Pending</option><option>Approved</option><option>Denied</option>
           </select>
         </div>
+        <div class="f" style="max-width:165px"><label>Leave date from</label><input type="date" id="lv-filter-from" onchange="renderLeaveTracker()"></div>
+        <div class="f" style="max-width:165px"><label>Leave date to</label><input type="date" id="lv-filter-to" onchange="renderLeaveTracker()"></div>
+        <button class="btn no-print" style="align-self:flex-end" onclick="lvClearFilters()">✕ Clear filters</button>
         <button class="btn bg no-print" style="align-self:flex-end" onclick="exportLeaveCSV()">⬇ Export CSV</button>
       </div>
       <div id="leave-tracker-wrap"><div class="empty">No leave records yet.</div></div>
     </div>
     <div id="leave-itab-balances" class="itab-sec">
       <div id="leave-balances-wrap"><div class="empty">No employees yet.</div></div>
-    </div>
-    <div id="leave-itab-credits" class="itab-sec">
-      <div class="card" id="lc-add-card">
-        <div class="card-title">➕ Add Leave Credit</div>
-        <div class="infobox">Credits are added straight to the employee's <strong>VL</strong> (Vacation Leave) or <strong>SL</strong> (Sick Leave) balance and recorded in the history below. Filing a leave then draws from that balance. Use <strong>All active employees</strong> for a yearly grant (interns are skipped). The credit date is for the record — the days are available right away.</div>
-        <div class="row">
-          <div class="f"><label>Employee</label><select id="lc-emp"><option value="">-- Select employee --</option></select></div>
-          <div class="f" style="max-width:190px"><label>Credit type</label>
-            <select id="lc-type"><option value="VL">Vacation Leave (VL)</option><option value="SL">Sick Leave (SL)</option></select></div>
-          <div class="f" style="max-width:130px"><label>Days to add</label><input type="number" id="lc-days" min="0.25" max="365" step="0.25" placeholder="e.g. 1.25"></div>
-          <div class="f" style="max-width:165px"><label>Credit date</label><input type="date" id="lc-date"></div>
-        </div>
-        <div class="row" style="align-items:flex-end">
-          <div class="f"><label>Reason / remarks</label>
-            <input type="text" id="lc-reason" maxlength="200" list="lc-reasons" placeholder="e.g. 2027 annual credit">
-            <datalist id="lc-reasons"><option value="Annual credit"><option value="Monthly accrual"><option value="Carry-over"><option value="Adjustment"></datalist></div>
-          <button class="btn bp" onclick="lcAdd()">Add Credit</button>
-        </div>
-        <div id="lc-msg" class="lc-msg"></div>
-      </div>
-      <div class="card">
-        <div class="card-title">📜 Credit History</div>
-        <div class="row" style="align-items:flex-end">
-          <div class="f"><label>Employee</label><select id="lc-f-emp" onchange="lcRender()"><option value="">All employees</option></select></div>
-          <div class="f" style="max-width:150px"><label>Type</label><select id="lc-f-type" onchange="lcRender()"><option value="">VL and SL</option><option value="VL">VL only</option><option value="SL">SL only</option></select></div>
-          <div class="f" style="max-width:130px"><label>Year</label><select id="lc-f-year" onchange="lcRender()"><option value="">All years</option></select></div>
-        </div>
-        <div id="lc-history"><div class="empty">Loading…</div></div>
-      </div>
     </div>
   </div>
 
@@ -1942,7 +1915,6 @@ function applyRoleUI(){
     // render. A short delay lets the section's own render functions run
     // first, since some of these buttons are (re)created dynamically.
     setTimeout(hideHrInternWriteControls, 400);
-    var lct=document.getElementById('lc-tab-btn');if(lct)lct.style.display='none';   // leave credits are admin-only
   }
   else if(currentUserRole==='admin_readonly'){
     // Same menu and same data as an Admin; every control that changes something is removed.
@@ -2463,7 +2435,6 @@ function goITab(group,name,el){
   document.getElementById(group+'-itab-'+name).classList.add('on');
   if(group==='leave'&&name==='tracker')renderLeaveTracker();
   if(group==='leave'&&name==='balances')renderLeaveBalances();
-  if(group==='leave'&&name==='credits')lcOpen();
   if(group==='perf'&&name==='list')renderPerfList();
   if(group==='disc'&&name==='list')renderDiscList();
 }
@@ -2631,12 +2602,12 @@ async function addEmp(){
   var name=v('en');
   if(!name){alert('Full name is required.');return;}
   var _lp=v('eloc_policy')||'office',_ll=_lp==='wfh'?(parseFloat(v('eloc_lat'))||null):null,_lng2=_lp==='wfh'?(parseFloat(v('eloc_lng'))||null):null,_lr=parseInt(v('eloc_radius'))||300;
-  var emp={name,pos:v('epos'),dept:v('edept'),type:v('etype'),includeInPayroll:document.getElementById('eincludepayroll').checked,start:v('estart'),bank:v('ebank'),email:v('eemail'),mobile:v('emobile'),emergency:v('eemergency'),address:v('eaddress'),tin:v('etin'),smb:parseFloat(v('esmb'))||0,sss:parseFloat(v('esss'))||0,phic:parseFloat(v('ephic'))||0,hdmf:parseFloat(v('ehdmf'))||0,mpl:parseFloat(v('empl'))||0,dm:parseFloat(v('edm'))||0,load:parseFloat(v('eload'))||0,wht:parseFloat(v('ewht'))||0,vlBal:v('evl')===''?0:parseFloat(v('evl')),slBal:v('esl')===''?0:parseFloat(v('esl')),loc_policy:_lp,loc_lat:_ll,loc_lng:_lng2,loc_radius:_lr,locPolicy:_lp,locLat:_ll,locLng:_lng2,locRadius:_lr,payslipNote:v('epayslipNote')||''};
+  var emp={name,pos:v('epos'),dept:v('edept'),type:v('etype'),includeInPayroll:document.getElementById('eincludepayroll').checked,start:v('estart'),bank:v('ebank'),email:v('eemail'),mobile:v('emobile'),emergency:v('eemergency'),address:v('eaddress'),tin:v('etin'),smb:parseFloat(v('esmb'))||0,sss:parseFloat(v('esss'))||0,phic:parseFloat(v('ephic'))||0,hdmf:parseFloat(v('ehdmf'))||0,mpl:parseFloat(v('empl'))||0,dm:parseFloat(v('edm'))||0,load:parseFloat(v('eload'))||0,wht:parseFloat(v('ewht'))||0,vlBal:v('evl')===''?0:parseFloat(v('evl')),slBal:v('esl')===''?0:parseFloat(v('esl')),earlyBirdBal:v('eeb')===''?0:parseFloat(v('eeb')),loc_policy:_lp,loc_lat:_ll,loc_lng:_lng2,loc_radius:_lr,locPolicy:_lp,locLat:_ll,locLng:_lng2,locRadius:_lr,payslipNote:v('epayslipNote')||''};
   var r=await api('POST','/api/employees',emp);
   if(r.success){
     ['en','epos','edept','estart','ebank','eemail','emobile','eemergency','eaddress','etin','esmb','esss','ephic','ehdmf','empl','edm','eload','ewht','epayslipNote'].forEach(id=>{var el=document.getElementById(id);if(el)el.value='';});
     document.getElementById('eincludepayroll').checked=true;
-    document.getElementById('evl').value='0';document.getElementById('esl').value='0';
+    document.getElementById('evl').value='0';document.getElementById('esl').value='0';document.getElementById('eeb').value='0';
     await reloadEmployees();renderEmpTable();renderDashboard();showSaveIndicator();
   }else{alert('Error saving employee.');}
 }
@@ -2688,7 +2659,8 @@ function openEditEmp(id){
   document.getElementById('edit-ewht').value=e.wht||0;
   document.getElementById('edit-evl').value=e.vlBal||0;
   document.getElementById('edit-esl').value=e.slBal||0;
-  window._editBalOrig={vl:e.vlBal||0,sl:e.slBal||0};   // so saving can tell whether the admin actually changed a balance
+  document.getElementById('edit-eeb').value=e.earlyBirdBal||0;
+  window._editBalOrig={vl:e.vlBal||0,sl:e.slBal||0,eb:e.earlyBirdBal||0};   // so saving can tell whether the admin actually changed a balance
   document.getElementById('edit-emp-err').style.display='none';
   // Location policy fields
   document.getElementById('edit-eloc_policy').value=e.loc_policy||'office';
@@ -2769,6 +2741,8 @@ async function saveEditEmp(){
   var _o=window._editBalOrig||{},_vl=document.getElementById('edit-evl').value,_sl=document.getElementById('edit-esl').value,_bc={};
   if(_vl!==''&&parseFloat(_vl)!==parseFloat(_o.vl))_bc.vlBal=parseFloat(_vl);
   if(_sl!==''&&parseFloat(_sl)!==parseFloat(_o.sl))_bc.slBal=parseFloat(_sl);
+  var _eb=document.getElementById('edit-eeb').value;
+  if(_eb!==''&&parseFloat(_eb)!==parseFloat(_o.eb))_bc.earlyBirdBal=parseFloat(_eb);
   if(Object.keys(_bc).length)emp.balanceChange=_bc;
   var btn=document.getElementById('edit-emp-save-btn');
   btn.disabled=true;btn.textContent='Saving…';
@@ -2796,12 +2770,12 @@ function renderEmpTable(){
   var showInactive=!!(document.getElementById('emp-show-inactive')&&document.getElementById('emp-show-inactive').checked);
   var list=showInactive?employees:employees.filter(e=>e.active!==0);
   if(!list.length){w.innerHTML='<div class="empty">No active employees. Check "Show deactivated / resigned employees" to view them.</div>';return;}
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Dept</th><th>Type</th><th>Status</th><th>Semi-monthly</th><th>VL</th><th>SL</th><th>Email</th><th></th></tr></thead><tbody>'
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Position</th><th>Dept</th><th>Type</th><th>Status</th><th>Semi-monthly</th><th>VL</th><th>SL</th><th>Early Bird</th><th>Email</th><th></th></tr></thead><tbody>'
   +list.map((e,i)=>{
     var inactive=e.active===0;
     return'<tr'+(inactive?' style="opacity:.6"':'')+'><td style="color:var(--muted);font-family:\'IBM Plex Mono\',monospace">'+(i+1)+'</td><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td>'+(e.dept||'—')+'</td><td><span class="badge badge-blue">'+((e.type||'Regular'))+'</span></td>'
     +'<td>'+(inactive?'<span class="badge badge-red">Resigned/Inactive'+(e.deactivatedAt?' · '+fmtDate(e.deactivatedAt.slice(0,10)):'')+'</span>':'<span class="badge badge-green">Active</span>')+'</td>'
-    +'<td style="font-family:\'IBM Plex Mono\',monospace">'+peso(e.smb)+'</td><td>'+((e.vlBal||0))+'</td><td>'+((e.slBal||0))+'</td><td style="color:var(--blue)">'+(e.email||'<span style="color:var(--red)">no email</span>')+'</td>'
+    +'<td style="font-family:\'IBM Plex Mono\',monospace">'+peso(e.smb)+'</td><td>'+((e.vlBal||0))+'</td><td>'+((e.slBal||0))+'</td><td>'+((e.earlyBirdBal||0))+'</td><td style="color:var(--blue)">'+(e.email||'<span style="color:var(--red)">no email</span>')+'</td>'
     +'<td style="white-space:nowrap"><button class="btn bs" style="margin-right:4px;background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="openEditEmp('+e.id+')">✏️ Edit</button>'
     +(inactive
       ?'<button class="btn bs bg" style="margin-right:4px" onclick="reactivateEmp('+e.id+')">↩️ Reactivate</button>'
@@ -2888,7 +2862,7 @@ function render201(){
 
     <div class="section201-label">Payroll Setup</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
-      ${infoRow('Semi-monthly Pay','₱'+fp(e.smb))}${infoRow('SSS','₱'+fp(e.sss))}${infoRow('PHIC','₱'+fp(e.phic))}${infoRow('HDMF','₱'+fp(e.hdmf))}${infoRow('VL Balance',e.vlBal+' days')}${infoRow('SL Balance',e.slBal+' days')}
+      ${infoRow('Semi-monthly Pay','₱'+fp(e.smb))}${infoRow('SSS','₱'+fp(e.sss))}${infoRow('PHIC','₱'+fp(e.phic))}${infoRow('HDMF','₱'+fp(e.hdmf))}${infoRow('VL Balance',e.vlBal+' days')}${infoRow('SL Balance',e.slBal+' days')}${infoRow('Early Bird Credit',(e.earlyBirdBal||0)+' days')}
     </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -3022,12 +2996,30 @@ async function deleteLeave(id){
   if(rec)await refreshEmployeeBalance(rec.empId); // server restores if the deleted record was holding a deduction
   renderLeaveTracker();
 }
+// The leaves that match the tracker's filters. The date range keeps every leave that OVERLAPS it, so a leave
+// on Oct 29–30 shows up when the range touches Oct 29, Oct 30 or both. A blank end of the range is open.
+function lvFilteredLeaves(){
+  var empId=v('lv-filter-emp'),status=v('lv-filter-status'),from=v('lv-filter-from'),to=v('lv-filter-to');
+  return leaveRecords.filter(function(l){
+    if(empId&&l.empId!=empId)return false;
+    if(status&&l.status!==status)return false;
+    if(from&&String(l.to||l.from)<from)return false;
+    if(to&&String(l.from||l.to)>to)return false;
+    return true;
+  });
+}
+function lvClearFilters(){
+  ['lv-filter-emp','lv-filter-status','lv-filter-from','lv-filter-to'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  renderLeaveTracker();
+}
 function renderLeaveTracker(){
-  var empId=v('lv-filter-emp'),status=v('lv-filter-status'),w=document.getElementById('leave-tracker-wrap');
+  var w=document.getElementById('leave-tracker-wrap');
   if(!w)return;
-  var list=leaveRecords.filter(l=>{if(empId&&l.empId!=empId)return false;if(status&&l.status!==status)return false;return true;});
+  var from=v('lv-filter-from'),to=v('lv-filter-to');
+  if(from&&to&&from>to){w.innerHTML='<div class="empty">The "from" date is after the "to" date.</div>';return;}
+  var list=lvFilteredLeaves();
   if(!list.length){w.innerHTML='<div class="empty">No leave records found.</div>';return;}
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Pay</th><th>Status</th><th>Filed</th><th></th></tr></thead><tbody>'
+  w.innerHTML='<div class="lc-sum">Showing '+list.length+' of '+leaveRecords.length+' leave record'+(leaveRecords.length===1?'':'s')+'</div><div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Pay</th><th>Status</th><th>Filed</th><th></th></tr></thead><tbody>'
   +list.map(l=>'<tr><td><strong>'+empName(l.empId)+'</strong></td><td>'+l.type+(l.halfDay?' <span class="badge badge-orange" style="font-size:9px">½ day</span>':'')+'</td><td>'+fmtDate(l.from)+'</td><td>'+fmtDate(l.to)+'</td><td>'+l.days+'</td><td>'+l.pay+'</td><td><span class="badge '+(l.status==='Approved'?'badge-green':l.status==='Denied'?'badge-red':'badge-yellow')+'">'+l.status+'</span></td><td style="font-size:11px">'+fmtDT(l.filedAt)+'</td>'
   +'<td style="display:flex;gap:4px"><button class="btn bs bg" onclick="updateLeaveStatus('+l.id+',\'Approved\')">✓</button><button class="btn bs br" onclick="updateLeaveStatus('+l.id+',\'Denied\')">✗</button><button class="btn bs" style="background:#e3f2fd;color:var(--blue);border:1px solid #90caf9" onclick="editLeave('+l.id+')">✏️</button><button class="btn bs" onclick="deleteLeave('+l.id+')" style="color:var(--red)">🗑</button></td></tr>').join('')
   +'</tbody></table></div>';
@@ -3035,13 +3027,13 @@ function renderLeaveTracker(){
 function renderLeaveBalances(){
   var w=document.getElementById('leave-balances-wrap');if(!w)return;
   if(!employees.length){w.innerHTML='<div class="empty">No employees.</div>';return;}
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Position</th><th>VL Balance</th><th>SL Balance</th><th>Total Leaves Used</th></tr></thead><tbody>'
-  +employees.map(e=>{var used=leaveRecords.filter(l=>l.empId===e.id&&l.status==='Approved').reduce((s,l)=>s+l.days,0);return'<tr><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td><span class="badge badge-green">'+(e.vlBal||0)+' days</span></td><td><span class="badge badge-blue">'+(e.slBal||0)+' days</span></td><td>'+(used||0)+' days</td></tr>';}).join('')
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Employee</th><th>Position</th><th>VL Balance</th><th>SL Balance</th><th>Early Bird Credit</th><th>Total Leaves Used</th></tr></thead><tbody>'
+  +employees.map(e=>{var used=leaveRecords.filter(l=>l.empId===e.id&&l.status==='Approved').reduce((s,l)=>s+l.days,0);return'<tr><td><strong>'+e.name+'</strong></td><td>'+(e.pos||'—')+'</td><td><span class="badge badge-green">'+(e.vlBal||0)+' days</span></td><td><span class="badge badge-blue">'+(e.slBal||0)+' days</span></td><td><span class="badge badge-orange">'+(e.earlyBirdBal||0)+' days</span></td><td>'+(used||0)+' days</td></tr>';}).join('')
   +'</tbody></table></div>';
 }
 function exportLeaveCSV(){
   var rows=[['Employee','Leave Type','From','To','Days','Pay Type','Status','Filed At','Reason']];
-  leaveRecords.forEach(l=>rows.push([empName(l.empId),l.type,l.from,l.to,l.days,l.pay,l.status,fmtDT(l.filedAt),l.reason||'']));
+  lvFilteredLeaves().forEach(l=>rows.push([empName(l.empId),l.type,l.from,l.to,l.days,l.pay,l.status,fmtDT(l.filedAt),l.reason||'']));   // exports what the filters show
   downloadCSV('HMB_Leave_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
 
@@ -4558,8 +4550,8 @@ function annPopulateYears(){
 
 // ==================== EXPORTS ====================
 function exportEmpCSV(){
-  var rows=[['#','Name','Position','Department','Type','Start Date','Bank Account','Email','Mobile','TIN','Semi-monthly Pay','SSS','PHIC','HDMF','VL Balance','SL Balance']];
-  employees.forEach((e,i)=>rows.push([i+1,e.name,e.pos||'',e.dept||'',e.type||'',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.tin||'',e.smb||0,e.sss||0,e.phic||0,e.hdmf||0,e.vlBal||0,e.slBal||0]));
+  var rows=[['#','Name','Position','Department','Type','Start Date','Bank Account','Email','Mobile','TIN','Semi-monthly Pay','SSS','PHIC','HDMF','VL Balance','SL Balance','Early Bird Credit']];
+  employees.forEach((e,i)=>rows.push([i+1,e.name,e.pos||'',e.dept||'',e.type||'',e.start||'',e.bank||'',e.email||'',e.mobile||'',e.tin||'',e.smb||0,e.sss||0,e.phic||0,e.hdmf||0,e.vlBal||0,e.slBal||0,e.earlyBirdBal||0]));
   downloadCSV('HMB_Employees_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
 function export201CSV(empId){
@@ -4572,7 +4564,7 @@ function export201CSV(empId){
     ['Home Address (Permanent)',e.addressPermanent||''],['Home Address (Current)',e.addressCurrent||''],
     ['Contact in Case of Emergency',e.emergency||''],['Personal Email Address',e.email||''],['Personal Mobile Number',e.mobile||''],
     ['Immediate Superior',e.immediateSuperior||''],['Employment Status',e.type||''],['Date Started',e.start||''],['End of Contract',e.endOfContract||''],['Annual Evaluation',e.annualEvaluation||''],['Bank Account',e.bank||''],
-    ['Semi-monthly Pay',e.smb||0],['SSS',e.sss||0],['PHIC',e.phic||0],['HDMF',e.hdmf||0],['VL Balance',e.vlBal||0],['SL Balance',e.slBal||0]
+    ['Semi-monthly Pay',e.smb||0],['SSS',e.sss||0],['PHIC',e.phic||0],['HDMF',e.hdmf||0],['VL Balance',e.vlBal||0],['SL Balance',e.slBal||0],['Early Bird Credit',e.earlyBirdBal||0]
   ];
   downloadCSV('HMB_201_'+e.name.replace(/\s/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.csv',rows);
 }
@@ -7236,91 +7228,8 @@ async function tmImportApply(){
 }
 </script>
 <script>
-/* ════════════ LEAVE CREDITS (VL / SL) — admin ════════════
-   Adds days to an employee's VL or SL balance (one person, or every active employee) and keeps a
-   history. The balance itself is the same vl_bal / sl_bal that filing a leave draws down. */
-var LC={rows:[]};
-function lcEsc(s){return escHtml(s==null?'':String(s));}
+/* ════════════ Available VL / SL credit shown on the File a Leave form ════════════ */
 function lcNum(n){return String(Math.round((+n||0)*100)/100);}
-function lcDate(s){var d=new Date(String(s).slice(0,10)+'T12:00:00');return isNaN(d)?lcEsc(s):d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
-// Employees who can hold credits: active, and not interns (their balances are not tracked)
-function lcCreditable(){
-  return employees.filter(function(e){return e.active!==0&&String(e.type||'').toLowerCase()!=='intern';})
-    .sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
-}
-async function lcOpen(){
-  var d=document.getElementById('lc-date');if(d&&!d.value)d.value=fmtISODate(new Date());
-  lcFillEmpSelect();
-  await lcLoad();
-}
-function lcFillEmpSelect(){
-  var sel=document.getElementById('lc-emp');if(!sel)return;
-  var cur=sel.value,emps=lcCreditable();
-  sel.innerHTML='<option value="">-- Select employee --</option><option value="ALL">👥 All active employees ('+emps.length+')</option>'
-    +emps.map(function(e){return '<option value="'+e.id+'">'+lcEsc(e.name)+'</option>';}).join('');
-  sel.value=cur||'';
-}
-async function lcLoad(){
-  var r=await api('GET','/api/leave-credits');
-  LC.rows=Array.isArray(r)?r:[];
-  // history filters are built from the history itself, so people who have since left still appear
-  var fe=document.getElementById('lc-f-emp'),fy=document.getElementById('lc-f-year');
-  var ce=fe.value,cy=fy.value,seen={},names=[],years={};
-  LC.rows.forEach(function(c){if(!seen[c.employee_id]){seen[c.employee_id]=1;names.push([c.employee_id,c.empName||('#'+c.employee_id)]);}years[String(c.date).slice(0,4)]=1;});
-  names.sort(function(a,b){return String(a[1]).localeCompare(String(b[1]));});
-  fe.innerHTML='<option value="">All employees</option>'+names.map(function(n){return '<option value="'+n[0]+'">'+lcEsc(n[1])+'</option>';}).join('');
-  fy.innerHTML='<option value="">All years</option>'+Object.keys(years).sort().reverse().map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join('');
-  fe.value=ce;fy.value=cy;
-  lcRender();
-}
-function lcRender(){
-  var box=document.getElementById('lc-history');if(!box)return;
-  var fe=document.getElementById('lc-f-emp').value,ft=document.getElementById('lc-f-type').value,fy=document.getElementById('lc-f-year').value;
-  var rows=LC.rows.filter(function(c){return (!fe||String(c.employee_id)===fe)&&(!ft||c.type===ft)&&(!fy||String(c.date).slice(0,4)===fy);});
-  if(!rows.length){box.innerHTML='<div class="empty">'+(LC.rows.length?'No credits match these filters.':'No leave credits have been added yet.')+'</div>';return;}
-  var vl=0,sl=0;
-  rows.forEach(function(c){if(c.voided)return;if(c.type==='VL')vl+=c.days;else sl+=c.days;});
-  box.innerHTML='<div class="lc-sum">Showing '+rows.length+' entr'+(rows.length===1?'y':'ies')+' · credited (not voided): <b>VL +'+lcNum(vl)+'</b> · <b>SL +'+lcNum(sl)+'</b></div>'
-    +'<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Employee</th><th>Type</th><th style="text-align:right">Days</th><th>Reason</th><th>Added by</th><th></th></tr></thead><tbody>'
-    +rows.map(function(c){
-      return '<tr class="'+(c.voided?'lc-void':'')+'"><td>'+lcDate(c.date)+'</td><td><strong>'+lcEsc(c.empName||('#'+c.employee_id))+'</strong></td>'
-        +'<td><span class="badge '+(c.type==='VL'?'badge-green':'badge-blue')+'">'+c.type+'</span></td>'
-        +'<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace;font-weight:700">+'+lcNum(c.days)+'</td>'
-        +'<td>'+lcEsc(c.reason||'—')+'</td><td>'+lcEsc(c.addedBy||'—')+'</td>'
-        +'<td>'+(c.voided?'<span class="badge badge-gray" title="Voided by '+lcEsc(c.voidedBy)+'">Voided</span>':'<button class="btn bs" style="color:var(--red)" onclick="lcVoid('+c.id+')">Void</button>')+'</td></tr>';
-    }).join('')+'</tbody></table></div>';
-}
-function lcSay(text,ok){var m=document.getElementById('lc-msg');if(!m)return;m.textContent=text;m.className='lc-msg '+(ok?'ok':'err');}
-async function lcAdd(){
-  var sel=v('lc-emp'),type=v('lc-type'),days=parseFloat(v('lc-days')),date=v('lc-date'),reason=v('lc-reason').trim();
-  if(!sel){lcSay('Choose an employee, or "All active employees".',false);return;}
-  if(!(days>0)){lcSay('Enter the number of days to add.',false);return;}
-  var all=sel==='ALL',s=days===1?'':'s';
-  if(all&&!confirm('Add '+lcNum(days)+' '+type+' day'+s+' to EVERY active employee ('+lcCreditable().length+' people)?\n\nEach one is recorded in the history and can be voided separately.'))return;
-  var body={type:type,days:days,date:date||undefined,reason:reason};
-  if(all)body.all_active=true;else body.employee_ids=[parseInt(sel)];
-  var who=all?'':(employees.find(function(e){return String(e.id)===sel;})||{}).name;
-  var r=await api('POST','/api/leave-credits',body);
-  if(!r||!r.success){lcSay((r&&r.error)||'Could not add the credit.',false);return;}
-  lcSay('✓ Added '+lcNum(days)+' '+type+' day'+s+(all?' to '+r.added+' employees.':' to '+who+'.'),true);
-  document.getElementById('lc-days').value='';document.getElementById('lc-reason').value='';
-  await lcRefreshBalances();await lcLoad();lcHint();
-}
-async function lcVoid(id){
-  var c=LC.rows.find(function(x){return x.id===id;});if(!c)return;
-  if(!confirm('Void this credit?\n\n'+lcNum(c.days)+' '+c.type+' day'+(c.days===1?'':'s')+' for '+c.empName+' will be taken back off their balance. The entry stays in the history, marked voided.'))return;
-  var r=await api('POST','/api/leave-credits/'+id+'/void');
-  if(!r||!r.success){lcSay((r&&r.error)||'Could not void this credit.',false);return;}
-  lcSay('✓ Credit voided.',true);
-  await lcRefreshBalances();await lcLoad();lcHint();
-}
-// Pull the new balances down so the Leave Balances table and the File Leave hint are current
-async function lcRefreshBalances(){
-  var emps=await api('GET','/api/employees');if(!Array.isArray(emps))return;
-  emps.forEach(function(u){var l=employees.find(function(e){return e.id===u.id;});if(l){l.vlBal=u.vlBal;l.slBal=u.slBal;}});
-  if(typeof renderLeaveBalances==='function')renderLeaveBalances();
-}
-// File a Leave form: show how many VL/SL days the chosen employee has available
 function lcHint(){
   var el=document.getElementById('lv-credit-hint');if(!el)return;
   var e=employees.find(function(x){return x.id===parseInt(v('lv-emp'));}),type=v('lv-type')||'';
@@ -7342,7 +7251,7 @@ function lcHint(){
      • any write that still slipped through is stopped before it is sent, with a clear message.
    RO_WRITERS is generated by analysing this page's own code: every function that makes a
    POST/PUT/PATCH/DELETE request, plus every function that calls one. */
-var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "lcAdd", "lcVoid", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "tmAddEmpSubmit", "tmCellChange", "tmColsSave", "tmCreate", "tmFlush", "tmImportApply", "tmPaste", "tmQueueSave", "tmRemoveRow", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
+var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "tmAddEmpSubmit", "tmCellChange", "tmColsSave", "tmCreate", "tmFlush", "tmImportApply", "tmPaste", "tmQueueSave", "tmRemoveRow", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
 // Start an edit but don't write by themselves (they just load a form), or import a file:
 var RO_HIDE_EXTRA = new Set(['tmOpenCreate','tmOpenColumns','tmOpenAddEmp','tmImportFile','annEdit','annCancelEdit','editHoliday','cancelHolidayEdit','editLeave','cancelLeaveEdit','editOffset','cancelOffsetEdit','importPayrollExcel']);
 // Open a detail pop-up that is still worth viewing: kept, relabelled "View", fields locked.
