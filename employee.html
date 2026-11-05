@@ -2150,6 +2150,8 @@ function viewPayslip(i){
         ['Days Worked', (a.days||0)+' days'],
         ['Basic Pay', fp(h.basicPay)],
         a.ot ? ['Overtime', fp(a.ot)+' hrs'] : null,
+        (a.restDay||a.restDayHrs) ? ['Regular Restday'+(a.restDayHrs?' ('+a.restDayHrs+' hrs)':''), '₱'+fp(a.restDay||0)] : null,
+        (a.rdotAmt||a.rdotHrs) ? ['RDOT'+(a.rdotHrs?' ('+a.rdotHrs+' hrs)':''), '₱'+fp(a.rdotAmt||0)] : null,
         a.holiday ? ['Holiday Pay', '₱'+fp(a.holiday)] : null,
         a.leave ? ['Leave w/ Pay', '₱'+fp(a.leave)] : null,
         a.commission ? ['Commission', '₱'+fp(a.commission)] : null,
