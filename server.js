@@ -7,6 +7,9 @@ const fs = require('fs');
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const multer = require('multer');
+const { createAudit } = require('./lib/audit');
+const backupLib = require('./lib/backup');
+const { execFileSync } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -163,6 +166,10 @@ if (!fs.existsSync(path.join(__dirname, 'db'))) fs.mkdirSync(path.join(__dirname
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+
+// Audit trail: who changed what, when, from where — append-only and tamper-evident (see lib/audit.js)
+const audit = createAudit(db);
+audit.init();
 
 // Create tables
 db.exec(`
@@ -515,11 +522,25 @@ const sessionParser = session({
   cookie: { maxAge: 8 * 60 * 60 * 1000 } // 8 hours
 });
 app.use(sessionParser);
+if (!process.env.SESSION_SECRET) console.warn('⚠️  SESSION_SECRET is not set — using the built-in default secret. Set SESSION_SECRET in the environment (see OPERATIONS.md).');
 // Serve uploaded files — must come after sessionParser above, since
 // requireAuth (used here) reads req.session.user, which only exists once
 // session middleware has run.
+// Only the contents of /public are meant to be downloadable. If a server file, a database, a backup or a config file ever lands in
+// there by mistake (it has happened: a copy of server.js), refuse to serve it instead of handing out the code or the data.
+const BLOCKED_PUBLIC = /(^|\/)(server\.js|package(-lock)?\.json|npm-shrinkwrap\.json|\.env[^/]*|\.git(ignore|attributes)?|\.npmrc|ecosystem\.config\.[cm]?js|[^/]*\.(db|db-wal|db-shm|sqlite3?|sql|bak|log|pem|key|crt|p12|pfx|gz|zip|tar|tgz|7z))$|(^|\/)(db|backups|node_modules|\.git)(\/|$)/i;
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
+  let p; try { p = decodeURIComponent(req.path); } catch (e) { return res.status(400).send('Bad request'); }
+  if (BLOCKED_PUBLIC.test(p)) return res.status(404).send('Not found');
+  next();
+});
 app.use('/uploads', requireAuth, express.static(uploadsDir));
-app.use(express.static(path.join(__dirname, 'public')));
+// HTML and JS are revalidated on every load (cheap: the browser still uses its copy when nothing changed), so a deploy is never
+// hidden behind a stale cached page.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => { if (/\.(html?|js)$/i.test(filePath)) res.setHeader('Cache-Control', 'no-cache'); }
+}));
 
 // ─── WEBSOCKET CONNECTION HANDLER ────────────────────────────────────────────
 wss.on('connection', (ws, req) => {
@@ -624,16 +645,160 @@ function readOnlyGuard(req, res, next) {
   next();
 }
 app.use('/api', refreshAdminRole);
+app.use('/api', audit.middleware());      // before the read-only guard, so refused attempts are recorded too
 app.use('/api', readOnlyGuard);
+
+// ─── OPERATIONS: version, health, audit viewer, backups ───────────────────────────────────────
+const publicDir = path.join(__dirname, 'public');
+const STARTED_AT = new Date().toISOString();
+const APP_VERSION = (() => {
+  if (process.env.APP_VERSION) return String(process.env.APP_VERSION).slice(0, 40);
+  try { return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: __dirname, timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'dev'; } catch (e) { /* not a git checkout */ }
+  try { return 'v' + require('./package.json').version; } catch (e) { /* no package.json */ }
+  return 'dev';
+})();
+// A stamp that changes whenever a page or script in /public changes — so open browser tabs notice a deploy even when only an HTML file
+// was replaced (no server restart, so the version above does not change).
+let _stamp = { t: 0, v: '' };
+function assetStamp() {
+  const now = Date.now();
+  if (now - _stamp.t < (Number(process.env.HRIS_ASSET_STAMP_TTL_MS) || 15000)) return _stamp.v;
+  let max = 0;
+  try { for (const f of fs.readdirSync(publicDir)) if (/\.(html?|js|json)$/i.test(f)) max = Math.max(max, fs.statSync(path.join(publicDir, f)).mtimeMs); } catch (e) { /* ignore */ }
+  _stamp = { t: now, v: String(Math.round(max)) };
+  return _stamp.v;
+}
+app.get('/api/version', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ version: APP_VERSION, assets: assetStamp(), startedAt: STARTED_AT });
+});
+// Minimal, public, for uptime monitors (UptimeRobot, scripts/healthcheck.sh): reveals nothing beyond "up" and the version.
+app.get('/healthz', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { db.prepare('SELECT 1').get(); res.json({ ok: true, version: APP_VERSION, uptimeSec: Math.round(process.uptime()) }); }
+  catch (e) { res.status(503).json({ ok: false, error: 'database unavailable' }); }
+});
+
+function requireFullAdmin(req, res, next) {
+  const u = req.session.user;
+  if (!u || u.role !== ROLE_ADMIN) return res.status(403).json(denyFor(u, 'Admin only'));
+  next();
+}
+function fmtBytes(n) { if (n == null) return '?'; const u = ['B', 'KB', 'MB', 'GB']; let i = 0; while (n >= 1024 && i < 3) { n /= 1024; i++; } return (i ? n.toFixed(1) : n) + ' ' + u[i]; }
+async function alertAdmins(text) {
+  const url = process.env.ALERT_WEBHOOK_URL;      // a Teams / Slack incoming-webhook URL: any endpoint that accepts {"text": "..."}
+  if (!url) return;
+  try { await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }), signal: AbortSignal.timeout(5000) }); }
+  catch (e) { console.error('[alert] could not reach the alert webhook:', e.message); }
+}
+let _defPw = { t: 0, v: null };
+function defaultAdminPasswordInUse() {
+  const now = Date.now();
+  if (_defPw.v !== null && now - _defPw.t < 300000) return _defPw.v;
+  let v = false;
+  try { const u = db.prepare("SELECT password FROM users WHERE username = 'admin'").get(); v = !!(u && bcrypt.compareSync('admin123', u.password)); } catch (e) { /* ignore */ }
+  _defPw = { t: now, v };
+  return v;
+}
+
+// ── Audit log (admins; a read-only admin may read) ──
+app.get('/api/audit', requireAdmin, (req, res) => {
+  const out = audit.query(req.query || {});
+  out.facets = audit.facets();
+  res.json(out);
+});
+app.get('/api/audit/export.csv', requireAdmin, (req, res) => {
+  audit.event({ category: 'system', action: 'Audit log exported', summary: 'CSV download' });
+  res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="hmb-audit-log-${new Date().toISOString().slice(0, 10)}.csv"` });
+  res.send('\ufeff' + audit.csv(req.query || {}));
+});
+app.get('/api/audit/verify', requireAdmin, (req, res) => {
+  const anchors = backupLib.listBackups(BACKUP_DIR).map(b => b.auditHead).filter(Boolean);
+  res.json(audit.verify(anchors));
+});
+
+// ── Backups ──
+const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, 'backups');
+const BACKUP_HOUR = Number.isFinite(parseInt(process.env.BACKUP_HOUR)) ? parseInt(process.env.BACKUP_HOUR) : 2;
+let backupRunning = false, lastBackupError = null;
+async function runBackup(reason) {
+  if (backupRunning) throw new Error('A backup is already running.');
+  backupRunning = true;
+  try {
+    const m = await backupLib.createBackup({ db, dir: BACKUP_DIR, reason, version: APP_VERSION });
+    const removed = backupLib.pruneBackups(BACKUP_DIR);
+    lastBackupError = null;
+    audit.event({ category: 'system', action: 'Database backup created', summary: m.name + ' (' + fmtBytes(m.sizeBytes) + ')' + (removed.length ? '; ' + removed.length + ' old backup(s) removed' : ''),
+                  details: { reason, integrity: m.integrity, tables: m.tables, removed } });
+    return m;
+  } catch (e) {
+    lastBackupError = { at: new Date().toISOString(), message: e.message };
+    audit.event({ category: 'system', action: 'Database backup FAILED', result: 'error', summary: e.message });
+    alertAdmins('⚠️ HMB HRIS: the database backup FAILED — ' + e.message);
+    throw e;
+  } finally { backupRunning = false; }
+}
+app.get('/api/backups', requireAdmin, (req, res) => {
+  const list = backupLib.listBackups(BACKUP_DIR);
+  const last = list[0] || null;
+  res.json({
+    dir: BACKUP_DIR, hour: BACKUP_HOUR, running: backupRunning, lastError: lastBackupError,
+    policy: { recent: 14, weeks: 8, months: 6 },
+    nextScheduled: process.env.HRIS_DISABLE_BACKUPS ? null : backupLib.nextScheduled({ lastBackupAt: last && last.createdAt, hour: BACKUP_HOUR }).toISOString(),
+    diskFreeBytes: backupLib.diskFreeBytes(fs.existsSync(BACKUP_DIR) ? BACKUP_DIR : __dirname),
+    canManage: req.session.user.role === ROLE_ADMIN, webhookConfigured: !!process.env.ALERT_WEBHOOK_URL,
+    backups: list.map(b => ({ name: b.name, createdAt: b.createdAt, reason: b.reason, sizeBytes: b.sizeBytes, integrity: b.integrity, version: b.version || '', tables: b.tables || {}, auditHead: b.auditHead || null }))
+  });
+});
+app.post('/api/backups', requireAdmin, requireFullAdmin, async (req, res) => {
+  try {
+    const m = await runBackup('manual');
+    audit.note({ summary: m.name + ' (' + fmtBytes(m.sizeBytes) + ')' });
+    res.json({ success: true, backup: m });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+app.get('/api/backups/:name/download', requireAdmin, requireFullAdmin, (req, res) => {
+  const name = req.params.name;
+  if (!backupLib.NAME_RE.test(name)) return res.status(400).json({ success: false, error: 'Invalid backup name.' });
+  const full = path.join(BACKUP_DIR, name);
+  if (!fs.existsSync(full)) return res.status(404).json({ success: false, error: 'Backup not found.' });
+  audit.event({ category: 'system', action: 'Database backup downloaded', summary: name });
+  res.download(full, name);
+});
+// ── Health detail for the admin screen ──
+app.get('/api/health', requireAdmin, (req, res) => {
+  const list = backupLib.listBackups(BACKUP_DIR);
+  let dbBytes = null, walBytes = null;
+  try { dbBytes = fs.statSync(dbPath).size; } catch (e) { /* ignore */ }
+  try { walBytes = fs.statSync(dbPath + '-wal').size; } catch (e) { /* no WAL right now */ }
+  res.json({
+    version: APP_VERSION, startedAt: STARTED_AT, uptimeSec: Math.round(process.uptime()), node: process.version, memoryMb: Math.round(process.memoryUsage().rss / 1048576),
+    dbBytes, walBytes, audit: { rows: audit.count(), head: audit.head() },
+    backups: { count: list.length, last: list[0] ? { name: list[0].name, createdAt: list[0].createdAt, integrity: list[0].integrity } : null, lastError: lastBackupError, diskFreeBytes: backupLib.diskFreeBytes(fs.existsSync(BACKUP_DIR) ? BACKUP_DIR : __dirname) },
+    security: { defaultAdminPassword: defaultAdminPasswordInUse(), sessionSecretFromEnv: !!process.env.SESSION_SECRET, alertWebhook: !!process.env.ALERT_WEBHOOK_URL }
+  });
+});
+// Nightly backup: after BACKUP_HOUR each day, catching up once if a run was missed. (Tests switch this off with HRIS_DISABLE_BACKUPS=1.)
+if (!process.env.HRIS_DISABLE_BACKUPS) {
+  const tick = () => {
+    const last = backupLib.listBackups(BACKUP_DIR)[0];
+    if (backupLib.shouldRunScheduled({ lastBackupAt: last && last.createdAt, hour: BACKUP_HOUR })) runBackup('scheduled').catch(e => console.error('[backup] scheduled backup failed:', e.message));
+  };
+  setTimeout(tick, Number(process.env.HRIS_FIRST_BACKUP_DELAY_MS) || 20000).unref();
+  setInterval(tick, 30 * 60 * 1000).unref();
+}
 
 // ─── AUTH ROUTES ──────────────────────────────────────────────────────────────
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user || !bcrypt.compareSync(password, user.password)) {
+    audit.event({ category: 'accounts', action: 'Sign-in failed', result: 'failed', actor: { id: user ? user.id : null, name: String(username || '?').slice(0, 60), role: user ? user.role : null },
+                  summary: 'Failed sign-in for "' + String(username || '').slice(0, 60) + '"' + (user ? '' : ' (no such account)') });
     return res.json({ success: false, error: 'Invalid username or password' });
   }
   req.session.user = { id: user.id, username: user.username, role: user.role, employee_id: user.employee_id };
+  audit.event({ category: 'accounts', action: 'Signed in', actor: { id: user.id, name: user.username, role: user.role }, summary: user.username + ' signed in' });
   res.json({ success: true, role: user.role, username: user.username });
 });
 
@@ -652,6 +817,8 @@ app.post('/api/change-password', requireAuth, (req, res) => {
   if (!bcrypt.compareSync(currentPassword, user.password)) return res.json({ success: false, error: 'Current password is incorrect.' });
   const hash = bcrypt.hashSync(newPassword, 10);
   db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, userId);
+  _defPw = { t: 0, v: null };   // re-check whether the default admin password is still in use
+  audit.note({ summary: 'Own password changed' });
   res.json({ success: true });
 });
 
@@ -688,6 +855,7 @@ app.post('/api/users', requireAdmin, (req, res) => {
   const hash = bcrypt.hashSync(password, 10);
   try {
     db.prepare('INSERT INTO users (username, password, role, employee_id) VALUES (?, ?, ?, ?)').run(username, hash, role || 'employee', employee_id || null);
+    audit.note({ summary: 'Created account "' + username + '" (' + (role || 'employee') + ')' });
     // HR Intern accounts are never part of payroll — enforced here rather
     // than relying on someone remembering to toggle the "Include in
     // Payroll" checkbox by hand whenever one of these accounts is created.
@@ -703,12 +871,16 @@ app.post('/api/users', requireAdmin, (req, res) => {
 app.put('/api/users/:id/password', requireAdmin, (req, res) => {
   const { password } = req.body;
   const hash = bcrypt.hashSync(password, 10);
+  const pwUser = db.prepare('SELECT username FROM users WHERE id = ?').get(req.params.id);
+  audit.note({ summary: 'Password reset for "' + (pwUser ? pwUser.username : '#' + req.params.id) + '"' });
   db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, req.params.id);
+  _defPw = { t: 0, v: null };   // re-check whether the default admin password is still in use
   res.json({ success: true });
 });
 
 app.delete('/api/users/:id', requireAdmin, (req, res) => {
-  const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(req.params.id);
+  const target = db.prepare('SELECT id, role, username FROM users WHERE id = ?').get(req.params.id);
+  if (target) audit.note({ summary: 'Deleted account "' + target.username + '" (' + target.role + ')' });
   if (target && target.id === req.session.user.id) {
     return res.json({ success: false, error: 'You cannot delete your own account.' });
   }
@@ -737,6 +909,7 @@ app.put('/api/users/:id/role', requireAdmin, (req, res) => {
     const fullAdmins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n;
     if (fullAdmins <= 1) return res.json({ success: false, error: 'At least one admin must keep editing rights.' });
   }
+  audit.note({ summary: '"' + target.username + '": ' + target.role + ' → ' + newRole, details: { user: target.username, from: target.role, to: newRole } });
   db.prepare('UPDATE users SET role = ? WHERE id = ?').run(newRole, target.id);
   res.json({ success: true, role: newRole });
 });
@@ -832,8 +1005,9 @@ app.put('/api/my/leaves/:id', requireAdminOrSupervisor, (req, res) => {
   // days back. The balance only moves when the leave changes between holding and not holding — the same
   // rule PUT /api/leave/:id (the admin Leave Tracker) uses.
   const holdsAfter = rec.pay === 'With Pay' && leaveHoldsBalance(status);
-  if (holdsBefore && !holdsAfter) adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, 1);
-  else if (!holdsBefore && holdsAfter) adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, -1);
+  audit.note({ employeeId: rec.employee_id, summary: 'Leave #' + rec.id + ' (' + rec.type + ', ' + rec.days + ' day' + (rec.days == 1 ? '' : 's') + '): ' + rec.status + ' → ' + status, details: { leaveId: rec.id, from: rec.status, to: status } });
+  if (holdsBefore && !holdsAfter) adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, 1, 'leave ' + status.toLowerCase() + ' by supervisor — days returned');
+  else if (!holdsBefore && holdsAfter) adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, -1, 'leave ' + status.toLowerCase() + ' by supervisor — days deducted');
   res.json({ success: true });
 });
 
@@ -1050,13 +1224,33 @@ app.post('/api/employees', requireAdmin, (req, res) => {
     e.immediateSuperior||'',e.endOfContract||'',e.annualEvaluation||'',e.payslipNote||'',e.shiftDayOverrides||e.shift_day_overrides||'',(e.includeInPayroll===false||e.includeInPayroll===0)?0:1,
     +e.smb||0,+e.sss||0,+e.phic||0,+e.hdmf||0,+e.mpl||0,+e.dm||0,+e.load||0,+e.wht||0,e.vlBal??0,e.slBal??0
   );
+  audit.note({ employeeId: r.lastInsertRowid, summary: 'Employee "' + e.name + '" created (' + (e.type || 'Regular') + ', semi-monthly pay ' + (+e.smb || 0) + ')' });
   const ebStart = Number(e.earlyBirdBal);
   if (Number.isFinite(ebStart) && ebStart > 0) db.prepare('UPDATE employees SET early_bird_bal=? WHERE id=?').run(Math.round(ebStart * 100) / 100, r.lastInsertRowid);
   res.json({ success: true, id: r.lastInsertRowid });
 });
 
+// Which employee fields are shown with their old and new VALUES, and which are only marked "changed" (personal identifiers).
+const EMP_AUDIT_FIELDS = { name: 'name', pos: 'position', dept: 'department', type: 'employment type', include_in_payroll: 'include in payroll', start: 'start date', shift_id: 'shift',
+  smb: 'semi-monthly pay', sss: 'SSS', phic: 'PhilHealth', hdmf: 'Pag-IBIG', mpl: 'MPL', dm: 'deminimis', load: 'load', wht: 'withholding tax',
+  vl_bal: 'VL balance', sl_bal: 'SL balance', early_bird_bal: 'Early Bird credit', immediate_superior: 'immediate superior', end_of_contract: 'end of contract',
+  loc_policy: 'location policy', email: 'email', mobile: 'mobile' };
+const EMP_AUDIT_MASKED = { bank: 'bank account', tin: 'TIN', sss_no: 'SSS number', philhealth_no: 'PhilHealth number', pagibig_no: 'Pag-IBIG number', dob: 'birth date',
+  address: 'address', address_permanent: 'permanent address', address_current: 'current address', emergency: 'emergency contact', civil_status: 'civil status', gender: 'gender', religion: 'religion' };
+function auditEmployeeChange(before, after, how) {
+  if (!before || !after) return;
+  const changes = {}, parts = [];
+  const same = (a, b) => (a == null || a === '') && (b == null || b === '') ? true : (typeof a === 'number' || typeof b === 'number') ? Math.abs((+a || 0) - (+b || 0)) < 0.0001 : String(a) === String(b);
+  for (const [col, label] of Object.entries(EMP_AUDIT_FIELDS)) if (!same(before[col], after[col])) { changes[label] = [before[col] == null ? null : before[col], after[col] == null ? null : after[col]]; parts.push(label + ' ' + (before[col] == null || before[col] === '' ? '(blank)' : before[col]) + ' → ' + (after[col] == null || after[col] === '' ? '(blank)' : after[col])); }
+  for (const [col, label] of Object.entries(EMP_AUDIT_MASKED)) if (!same(before[col], after[col])) { changes[label] = ['(changed)', '(changed)']; parts.push(label + ' changed'); }
+  if (!parts.length) { audit.note({ summary: 'Saved with no changes' }); return; }
+  const balance = ['VL balance', 'SL balance', 'Early Bird credit'].some(k => changes[k]);
+  audit.event({ category: balance ? 'leave' : 'employee', action: balance ? 'Leave balance edited in employee record' : 'Employee profile changed', employeeId: after.id,
+                summary: parts.slice(0, 8).join('; ') + (parts.length > 8 ? '; +' + (parts.length - 8) + ' more' : ''), details: { changes, how } });
+}
 app.put('/api/employees/:id', requireAdmin, (req, res) => {
   const e = req.body;
+  const empBefore = db.prepare('SELECT * FROM employees WHERE id=?').get(req.params.id);
   const shiftId   = e.shiftId ? parseInt(e.shiftId) : null;
   const locPolicy = e.locPolicy || 'office';
   const locLat    = (e.locLat  !== undefined && e.locLat  !== '') ? parseFloat(e.locLat)  : null;
@@ -1088,6 +1282,7 @@ app.put('/api/employees/:id', requireAdmin, (req, res) => {
     if (sl !== null) db.prepare('UPDATE employees SET sl_bal=? WHERE id=?').run(sl, req.params.id);
     if (eb !== null) db.prepare('UPDATE employees SET early_bird_bal=? WHERE id=?').run(eb, req.params.id);
   }
+  auditEmployeeChange(empBefore, db.prepare('SELECT * FROM employees WHERE id=?').get(req.params.id), bc && typeof bc === 'object' ? 'edit form (balance typed in)' : 'edit');
   res.json({ success: true });
 });
 
@@ -1110,6 +1305,7 @@ app.put('/api/employees/:id/location-policy', requireAdminOrHrIntern, (req, res)
 });
 
 app.delete('/api/employees/:id', requireAdmin, (req, res) => {
+  audit.note({ summary: 'Employee removed from active lists (deactivated)' });
   db.prepare('UPDATE employees SET active = 0 WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
@@ -1117,6 +1313,7 @@ app.delete('/api/employees/:id', requireAdmin, (req, res) => {
 // Deactivate with separation details
 app.post('/api/employees/:id/deactivate', requireAdmin, (req, res) => {
   const { sepType, sepDate, sepReason } = req.body;
+  audit.note({ summary: 'Deactivated: ' + (sepType || 'Resignation') + ', effective ' + sepDate, details: { sepType: sepType || 'Resignation', sepDate, sepReason: String(sepReason || '').slice(0, 120) } });
   if (!sepDate) return res.json({ success: false, error: 'Effective date is required.' });
   try {
     db.prepare(`UPDATE employees SET active=0, sep_type=?, sep_date=?, sep_reason=? WHERE id=?`)
@@ -1195,6 +1392,8 @@ app.post('/api/attendance', requireAdmin, (req, res) => {
     holiday=excluded.holiday, leave_pay=excluded.leave_pay, commission=excluded.commission,
     other_add=excluded.other_add, other_ded=excluded.other_ded, late=excluded.late,
     period_days=excluded.period_days, updated_at=datetime('now')`);
+  const beforeRows = {};
+  for (const r of db.prepare('SELECT * FROM attendance WHERE period = ?').all(period)) beforeRows[r.employee_id] = r;
   const saveAll = db.transaction((recs) => {
     for (const [empId, a] of Object.entries(recs)) {
       const opt = v => (v === undefined || v === null) ? null : (+v || 0);   // null = "not provided, keep what is stored"
@@ -1202,6 +1401,28 @@ app.post('/api/attendance', requireAdmin, (req, res) => {
     }
   });
   saveAll(records);
+  // Record only what actually CHANGED, per employee (an unchanged row saved again leaves no trace).
+  const PAY_FIELDS = { days: 'days', ot: 'OT hrs', ot_nd: 'ND-OT hrs', rest_day_hrs: 'rest day hrs', rest_day: 'rest day ₱', rdot_hrs: 'RDOT hrs', rdot_amt: 'RDOT ₱', holiday_hrs: 'holiday hrs', holiday: 'holiday ₱',
+    leave_pay: 'leave pay', commission: 'commission', other_add: 'other additions', other_ded: 'other deductions', late_hrs: 'late hrs', late: 'late ₱', dm: 'deminimis', wht: 'WHT', period_days: 'working days' };
+  const show = (v) => v == null ? 'profile value' : Math.round(v * 10000) / 10000;
+  let changedCount = 0, totalCount = 0;
+  for (const empId of Object.keys(records || {})) {
+    totalCount++;
+    const was = beforeRows[empId] || null, now = db.prepare('SELECT * FROM attendance WHERE employee_id = ? AND period = ?').get(+empId, period);
+    if (!now) continue;
+    const changes = {}, parts = [];
+    for (const [col, label] of Object.entries(PAY_FIELDS)) {
+      const a = was ? was[col] : (col === 'dm' || col === 'wht' ? null : 0), b = now[col];
+      const same = (a == null && b == null) || (a != null && b != null && Math.abs(a - b) < 0.00005) || ((col !== 'dm' && col !== 'wht') && (+a || 0) === (+b || 0));
+      if (!same) { changes[label] = [a == null ? null : Math.round(a * 10000) / 10000, b == null ? null : Math.round(b * 10000) / 10000]; parts.push(label + ' ' + show(a) + ' → ' + show(b)); }
+    }
+    if (!parts.length) continue;
+    if (!was && parts.every(x => /→ 0$/.test(x) || /period_days|working days/.test(x))) continue;     // a brand-new, still-empty row is not news
+    changedCount++;
+    audit.event({ category: 'payroll', action: 'Payroll record changed', employeeId: +empId, summary: period + ': ' + parts.slice(0, 8).join('; ') + (parts.length > 8 ? '; +' + (parts.length - 8) + ' more' : ''),
+                  details: { period, created: !was, changes } });
+  }
+  audit.note({ summary: 'Payroll saved for ' + period + ': ' + changedCount + ' of ' + totalCount + ' record(s) changed', details: { period, changed: changedCount, total: totalCount } });
   res.json({ success: true });
 });
 
@@ -1550,8 +1771,9 @@ app.post('/api/leave/file', requireAuth, (req, res) => {
   // Filing deducts immediately (status starts Pending, which holds a
   // deduction) — approval later doesn't deduct again, see PUT /api/leave/:id.
   if (pay === 'With Pay') {
-    adjustEmployeeLeaveBalance(empId, l.type, +l.days||0, -1);
+    adjustEmployeeLeaveBalance(empId, l.type, +l.days||0, -1, 'leave filed by employee');
   }
+  audit.note({ employeeId: empId, summary: 'Leave #' + r.lastInsertRowid + ' filed: ' + l.type + ', ' + l.from + ' to ' + l.to + ', ' + (+l.days||0) + ' day(s), ' + pay, details: { leaveId: r.lastInsertRowid } });
   res.json({ success: true, id: r.lastInsertRowid });
 });
 
@@ -1565,8 +1787,9 @@ app.delete('/api/leave/mine/:id', requireAuth, (req, res) => {
   db.prepare('DELETE FROM leave_records WHERE id=?').run(req.params.id);
   // Pending always holds a deduction, so cancelling always restores it.
   if (rec.pay === 'With Pay') {
-    adjustEmployeeLeaveBalance(empId, rec.type, rec.days, 1);
+    adjustEmployeeLeaveBalance(empId, rec.type, rec.days, 1, 'pending leave cancelled by employee');
   }
+  audit.note({ employeeId: empId, summary: 'Leave #' + rec.id + ' cancelled (' + rec.type + ', ' + rec.days + ' day(s))', details: { leaveId: rec.id } });
   res.json({ success: true });
 });
 
@@ -1659,8 +1882,12 @@ app.post('/api/leave-credits', requireAdmin, (req, res) => {
       if (!e) { skipped.push({ employee_id: id, reason: 'Employee not found.' }); continue; }
       if (!e.active) { skipped.push({ employee_id: id, reason: 'This employee is no longer active.' }); continue; }
       if (String(e.type || '').toLowerCase() === 'intern') { skipped.push({ employee_id: id, reason: 'Leave credits are not tracked for interns.' }); continue; }
+      const balBefore = (db.prepare(`SELECT ${col} AS b FROM employees WHERE id = ?`).get(id) || {}).b;
       db.prepare(`UPDATE employees SET ${col} = ROUND(COALESCE(${col}, 0) + ?, 2) WHERE id = ?`).run(v.days, id);
       db.prepare('INSERT INTO leave_credits (employee_id, type, days, credit_date, reason, added_by) VALUES (?,?,?,?,?,?)').run(id, v.type, v.days, v.date, v.reason, who);
+      const balAfter = (db.prepare(`SELECT ${col} AS b FROM employees WHERE id = ?`).get(id) || {}).b;
+      audit.event({ category: 'leave', action: 'Leave balance changed', employeeId: id, summary: v.type + ' +' + v.days + ' (' + balBefore + ' → ' + balAfter + ') — credit added' + (v.reason ? ': ' + v.reason : ''),
+                    details: { balance: v.type, before: balBefore, after: balAfter, days: v.days, creditDate: v.date, reason: v.reason } });
       added.push(id);
     }
   })();
@@ -1673,10 +1900,14 @@ app.post('/api/leave-credits/:id/void', requireAdmin, (req, res) => {
   if (!c) return res.status(404).json({ success: false, error: 'Credit not found.' });
   if (c.voided) return res.status(400).json({ success: false, error: 'This credit was already voided.' });
   const col = LC_COL[c.type];
+  const voidBefore = (db.prepare(`SELECT ${col} AS b FROM employees WHERE id = ?`).get(c.employee_id) || {}).b;
   db.transaction(() => {
     db.prepare("UPDATE leave_credits SET voided = 1, voided_by = ?, voided_at = datetime('now') WHERE id = ?").run(req.session.user.username || '', c.id);
     db.prepare(`UPDATE employees SET ${col} = MAX(0, ROUND(COALESCE(${col}, 0) - ?, 2)) WHERE id = ?`).run(c.days, c.employee_id);
   })();
+  const voidAfter = (db.prepare(`SELECT ${col} AS b FROM employees WHERE id = ?`).get(c.employee_id) || {}).b;
+  audit.event({ category: 'leave', action: 'Leave balance changed', employeeId: c.employee_id, summary: c.type + ' −' + c.days + ' (' + voidBefore + ' → ' + voidAfter + ') — credit #' + c.id + ' voided',
+                details: { balance: c.type, before: voidBefore, after: voidAfter, days: c.days, creditId: c.id } });
   res.json({ success: true });
 });
 
@@ -1689,8 +1920,9 @@ app.post('/api/leave', requireAdminOrHrIntern, (req, res) => {
   // on approval — approval no longer double-deducts, since it's handled as
   // a same-status-group transition in PUT /api/leave/:id below.
   if (l.pay === 'With Pay' && leaveHoldsBalance(status)) {
-    adjustEmployeeLeaveBalance(l.empId, l.type, +l.days||0, -1);
+    adjustEmployeeLeaveBalance(l.empId, l.type, +l.days||0, -1, 'leave filed by admin/HR');
   }
+  audit.note({ employeeId: l.empId, summary: 'Leave #' + r.lastInsertRowid + ' filed: ' + l.type + ', ' + l.from + ' to ' + l.to + ', ' + (+l.days||0) + ' day(s), ' + (l.pay || '') + ', ' + status, details: { leaveId: r.lastInsertRowid } });
   res.json({ success: true, id: r.lastInsertRowid });
 });
 
@@ -1698,13 +1930,19 @@ app.post('/api/leave', requireAdminOrHrIntern, (req, res) => {
 // deduction in every status except Denied (Pending and Approved both hold —
 // filing deducts immediately, and approval is just a confirmation, not a
 // second deduction). delta: -1 to deduct, +1 to restore.
-function adjustEmployeeLeaveBalance(employeeId, type, days, delta) {
+function adjustEmployeeLeaveBalance(employeeId, type, days, delta, why) {
   if (!days) return;
   const isVL = type && (type.includes('VL') || type.includes('Vacation'));
   const isSL = type && (type.includes('SL') || type.includes('Sick'));
   if (!isVL && !isSL) return; // other leave types don't draw against VL/SL
   const col = isVL ? 'vl_bal' : 'sl_bal';
+  const before = (db.prepare(`SELECT ${col} AS b FROM employees WHERE id=?`).get(employeeId) || {}).b;
   db.prepare(`UPDATE employees SET ${col}=MAX(0,ROUND(COALESCE(${col},0)+?,2)) WHERE id=?`).run(delta * days, employeeId);
+  const after = (db.prepare(`SELECT ${col} AS b FROM employees WHERE id=?`).get(employeeId) || {}).b;
+  // Every movement of a leave balance is recorded: who, which leave, the balance before and after, and why.
+  audit.event({ category: 'leave', action: 'Leave balance changed', employeeId,
+    summary: (isVL ? 'VL' : 'SL') + ' ' + before + ' → ' + after + ' (' + (why || (delta < 0 ? 'days deducted' : 'days returned')) + ': ' + days + ' day' + (days == 1 ? '' : 's') + ')',
+    details: { balance: isVL ? 'VL' : 'SL', before, after, days, change: Math.round(delta * days * 100) / 100, why: why || null } });
 }
 // Whether a given status currently "holds" a deduction against the balance.
 function leaveHoldsBalance(status) { return status !== 'Denied'; }
@@ -1738,11 +1976,18 @@ app.put('/api/leave/:id', requireAdminOrManagement, (req, res) => {
   // (was holding, now isn't -> net restore), and edits to days/type on a
   // leave that stays in a holding status (restore old amount, deduct new
   // amount -> net adjustment by the difference).
+  const changedFields = [];
+  if (rec.status !== status) changedFields.push('status ' + rec.status + ' → ' + status);
+  if (rec.type !== type) changedFields.push('type ' + rec.type + ' → ' + type);
+  if (+rec.days !== +days) changedFields.push('days ' + rec.days + ' → ' + days);
+  if (rec.pay !== pay) changedFields.push('pay ' + rec.pay + ' → ' + pay);
+  if (rec.from_date !== fromDate || rec.to_date !== toDate) changedFields.push('dates ' + rec.from_date + '–' + rec.to_date + ' → ' + fromDate + '–' + toDate);
+  audit.note({ employeeId: rec.employee_id, summary: 'Leave #' + rec.id + ': ' + (changedFields.join('; ') || 'no change'), details: { leaveId: rec.id, changes: changedFields } });
   if (rec.pay === 'With Pay' && leaveHoldsBalance(rec.status)) {
-    adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, 1);
+    adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, 1, 'leave #' + rec.id + ' edited — previous days returned');
   }
   if (pay === 'With Pay' && leaveHoldsBalance(status)) {
-    adjustEmployeeLeaveBalance(rec.employee_id, type, days, -1);
+    adjustEmployeeLeaveBalance(rec.employee_id, type, days, -1, 'leave #' + rec.id + ' ' + (rec.status === status ? 'edited' : status.toLowerCase()) + ' — days deducted');
   }
   res.json({ success: true });
 });
@@ -1751,8 +1996,9 @@ app.delete('/api/leave/:id', requireAdmin, (req, res) => {
   const rec = db.prepare('SELECT * FROM leave_records WHERE id=?').get(req.params.id);
   db.prepare('DELETE FROM leave_records WHERE id=?').run(req.params.id);
   // Give back whatever this record was holding, if anything.
+  if (rec) audit.note({ employeeId: rec.employee_id, summary: 'Leave #' + rec.id + ' deleted (' + rec.type + ', ' + rec.days + ' day(s), ' + rec.pay + ', was ' + rec.status + ')', details: { leaveId: rec.id, was: { status: rec.status, type: rec.type, days: rec.days, pay: rec.pay, from: rec.from_date, to: rec.to_date } } });
   if (rec && rec.pay === 'With Pay' && leaveHoldsBalance(rec.status)) {
-    adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, 1);
+    adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, 1, 'leave #' + rec.id + ' deleted — days returned');
   }
   res.json({ success: true });
 });
@@ -2153,11 +2399,13 @@ app.post('/api/settings', requireAdmin, (req, res) => {
     for (const [k, v] of Object.entries(data)) ins.run(k, v);
   });
   saveAll(req.body);
+  audit.note({ summary: 'Settings saved: ' + Object.keys(req.body || {}).slice(0, 12).join(', ') });   // names only — values (which can hold keys) are never logged
   res.json({ success: true });
 });
 
 // ─── FULL DATA EXPORT ─────────────────────────────────────────────────────────
 app.get('/api/export', requireAdmin, (req, res) => {
+  audit.event({ category: 'system', action: 'Full data export downloaded', summary: 'JSON backup export' });
   const data = {
     employees: db.prepare('SELECT * FROM employees').all().map(mapEmployee),
     attendance: (() => {
@@ -2411,5 +2659,12 @@ server.listen(PORT, () => {
   console.log(`\n🚀 HMB HRIS Server running on http://localhost:${PORT}`);
   console.log(`🔌 WebSocket live sync enabled on ws://localhost:${PORT}`);
   console.log(`📁 Database: ${dbPath}`);
-  console.log(`👤 Default admin login: admin / admin123\n`);
+  console.log(`🏷️  Version: ${APP_VERSION}`);
+  console.log(`💾 Backups: ${BACKUP_DIR}${process.env.HRIS_DISABLE_BACKUPS ? ' (scheduled backups OFF)' : ' — nightly after ' + String(BACKUP_HOUR).padStart(2, '0') + ':00'}`);
+  audit.event({ category: 'system', action: 'Server started', summary: 'version ' + APP_VERSION + ' on port ' + PORT });
+  if (defaultAdminPasswordInUse()) {
+    console.warn('⚠️  The default admin password (admin123) is still in use. Change it from the admin screen: anyone who knows it can sign in as the administrator.');
+    audit.event({ category: 'system', action: 'Security warning', result: 'failed', summary: 'The default admin password is still in use' });
+  }
+  console.log('');
 });
