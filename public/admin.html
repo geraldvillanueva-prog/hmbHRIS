@@ -253,6 +253,17 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
   .lc-hint{font-size:11.5px;color:var(--muted);margin-top:4px;min-height:14px}
   .lc-hint b{color:var(--navy)} .lc-hint.low b{color:var(--red)}
   .lc-sum{font-size:12px;color:var(--muted);margin:2px 0 10px}.lc-sum b{color:var(--navy)}
+  /* ── System: audit log, backups & health ── */
+  .au-table{width:100%;border-collapse:collapse}.au-table th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:7px 8px;border-bottom:1px solid var(--border)}
+  .au-table td{vertical-align:top;font-size:12px;padding:7px 8px;border-bottom:1px solid #eef1f5}
+  .au-row{cursor:pointer}.au-row:hover td{background:#f0f6ff}.au-child td{background:#fafbfc;color:#4a5568}.au-child td:first-child{padding-left:22px}
+  .au-detail td{background:#f6f8fb;padding:10px 14px}.au-detail .au-meta{font-size:11px;color:var(--muted);margin-top:8px}
+  .au-chg{border-collapse:collapse;font-size:12px;margin:2px 0}.au-chg th,.au-chg td{border:1px solid #dde3ea;padding:4px 9px;text-align:left}.au-chg th{background:#eef2f7;font-size:10px;text-transform:uppercase}
+  .au-b{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10px;font-weight:700;margin-left:6px;vertical-align:middle}
+  .au-b.failed{background:#fff3e0;color:#b26a00}.au-b.denied,.au-b.error{background:#ffebee;color:#c62828}
+  .au-role{display:inline-block;font-size:10px;color:var(--muted);margin-left:5px}
+  .bk-tile{background:#f7f9fc;border:1px solid var(--border);border-radius:8px;padding:10px 12px}.bk-tile .k{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}.bk-tile .v{font-size:16px;font-weight:700;color:var(--navy);margin-top:3px;word-break:break-word}
+  .bk-alert{border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;line-height:1.5}.bk-alert.red{background:#ffebee;border:1px solid #ef9a9a;color:#b71c1c}.bk-alert.amber{background:#fff8e1;border:1px solid #ffd54f;color:#7a5b00}.bk-alert.info{background:#e8f1fb;border:1px solid #bbdefb;color:#1a3a5c}
 </style>
 </head>
 <body>
@@ -301,6 +312,8 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
   <div id="nav-benefits" class="nav-item" onclick="goSec('benefits',this)"><span class="nav-icon">💳</span>Benefits Management</div>
   <div id="nav-location" class="nav-item" onclick="goSec('location',this)"><span class="nav-icon">📍</span>Location Policies</div>
   <div id="nav-setup" class="nav-item" onclick="goSec('setup',this)"><span class="nav-icon">⚙️</span>System Setup</div>
+  <div id="nav-audit" class="nav-item" onclick="goSec('audit',this)"><span class="nav-icon">🛡️</span>Audit Log</div>
+  <div id="nav-backups" class="nav-item" onclick="goSec('backups',this)"><span class="nav-icon">💾</span>Backups &amp; Health</div>
   <div class="sidebar-section" id="nav-mgmt-section" style="display:none">Management</div>
   <div id="nav-management" class="nav-item" style="display:none" onclick="goSec('management',this)"><span class="nav-icon">🏢</span>Management Console</div>
   <div class="sidebar-footer">HMB Management Consultant<br>v2.0 · Live Database</div>
@@ -1229,6 +1242,50 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
   </div>
 
   <!-- SETUP -->
+  <div id="sec-audit" class="sec">
+    <div class="page-title">Audit Log</div>
+    <div class="page-sub">Who changed what, when, and from where. Entries cannot be edited or deleted by anyone through the system.</div>
+    <div class="card">
+      <div class="row" style="align-items:flex-end">
+        <div class="f" style="max-width:155px"><label>From</label><input type="date" id="au-from" onchange="auLoad(0)"></div>
+        <div class="f" style="max-width:155px"><label>To</label><input type="date" id="au-to" onchange="auLoad(0)"></div>
+        <div class="f"><label>Who</label><select id="au-actor" onchange="auLoad(0)"><option value="">Everyone</option></select></div>
+        <div class="f"><label>Area</label><select id="au-cat" onchange="auLoad(0)"><option value="">All areas</option></select></div>
+        <div class="f" style="max-width:150px"><label>Outcome</label><select id="au-result" onchange="auLoad(0)"><option value="">All</option><option value="ok">Done</option><option value="failed">Failed</option><option value="denied">Refused</option><option value="error">Error</option></select></div>
+      </div>
+      <div class="row" style="align-items:flex-end">
+        <div class="f"><label>About employee</label><select id="au-emp" onchange="auLoad(0)"><option value="">Anyone</option></select></div>
+        <div class="f" style="flex:2"><label>Search</label><input id="au-q" placeholder="name, leave #, a field, an amount…" onkeydown="if(event.key==='Enter')auLoad(0)"></div>
+        <button class="btn" onclick="auLoad(0)">🔍 Search</button>
+        <button class="btn" onclick="auClear()">✕ Clear</button>
+        <button class="btn bg" onclick="auExport()">⬇ Export CSV</button>
+        <button class="btn bp" onclick="auVerify()">🔒 Verify integrity</button>
+      </div>
+      <div id="au-verify" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <div id="au-list"><div class="empty">Loading…</div></div>
+      <div id="au-pager" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:10px"></div>
+    </div>
+  </div>
+
+  <div id="sec-backups" class="sec">
+    <div class="page-title">Backups &amp; Health</div>
+    <div class="page-sub">Nightly database backups, system status and security checks.</div>
+    <div id="bk-alerts"></div>
+    <div class="card">
+      <div class="card-title">🩺 System status</div>
+      <div id="bk-health" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px"><div class="empty">Loading…</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">💾 Database backups</div>
+      <div id="bk-summary" style="margin-bottom:10px"></div>
+      <div style="margin-bottom:12px"><button id="bk-now" class="btn bp" onclick="bkNow()">💾 Back up now</button></div>
+      <div id="bk-list"></div>
+      <div class="infobox" style="margin-top:12px">A backup is a safe snapshot of the whole database, checked after it is made, so it can be restored. To restore one, follow the "Restore" steps in <strong>OPERATIONS.md</strong> (<code>./scripts/restore.sh</code>); it keeps the database it replaces.</div>
+    </div>
+  </div>
+
   <div id="sec-setup" class="sec">
     <div class="page-title">System Setup</div>
     <div class="page-sub">Configure company information and email settings</div>
@@ -2257,6 +2314,12 @@ async function saveLocPolicy(){
 
 // ==================== API HELPERS ==============
 async function api(method,url,body){
+  // A page left open across a deploy may be running OLD code against a NEWER server (version-check.js sets this flag). Saving
+  // from it is how newer data used to get overwritten — so ask once, and let the person refresh instead.
+  if(window.__hrisStale&&method!=='GET'&&!window.__hrisStaleAck&&!/\/api\/(login|logout)\b/.test(url)){
+    if(!confirm('This page is out of date: HMB HRIS was updated after you opened it.\n\nSaving from an old page can overwrite newer data. It is safer to press Cancel, refresh the page (Ctrl+Shift+R) and do this again.\n\nSave anyway?'))return {success:false,error:'Cancelled — please refresh the page (Ctrl+Shift+R) and try again.'};
+    window.__hrisStaleAck=true;
+  }
   var opts={method,headers:{'Content-Type':'application/json'}};
   if(body)opts.body=JSON.stringify(body);
   var r=await fetch(url,opts);
@@ -2418,6 +2481,8 @@ function goSec(name,el){
     populateTlEmpFilter();populateShiftSelects();renderHolidaysList();renderOffsetsList();
   }
   if(name==='users'){populateTlEmpFilter();loadUsers();}
+  if(name==='audit')auOpen();
+  if(name==='backups')bkOpen();
   if(name==='shifts'){renderShiftsList();renderShiftAssignList();populateShiftSelects();renderShiftDayOverrideList();}
   if(name==='location'){renderLocationTable();}
   if(name==='benefits'){loadBenefitTypes();}
@@ -7334,6 +7399,133 @@ function lcHint(){
 (function(){var f=window.refreshEmployeeBalance;if(typeof f==='function')window.refreshEmployeeBalance=async function(){var r=await f.apply(this,arguments);try{lcHint();}catch(e){}return r;};})();
 </script>
 <script>
+/* ════════════ SYSTEM: AUDIT LOG, BACKUPS & HEALTH ════════════ */
+var AU={page:0,size:50,total:0};
+var AU_CATS={leave:'Leave',payroll:'Payroll',employee:'Employees',accounts:'Accounts & sign-in',timelogs:'Time logs',settings:'Settings',recruitment:'Recruitment',announcements:'Announcements',records:'Records',system:'System',other:'Other'};
+function auEsc(s){return escHtml(s==null?'':String(s));}
+function auWhen(iso){var d=new Date(iso);return isNaN(d)?auEsc(iso):d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
+function auVal(x){if(x===null||x===undefined||x==='')return '<em style="color:var(--muted)">(blank / default)</em>';return auEsc(typeof x==='object'?JSON.stringify(x):x);}
+function auQS(extra){
+  var p=[];function add(k,val){if(val!==''&&val!=null)p.push(k+'='+encodeURIComponent(val));}
+  var f=v('au-from'),t=v('au-to');
+  if(f)add('from',new Date(f+'T00:00:00').toISOString());
+  if(t)add('to',new Date(t+'T23:59:59.999').toISOString());
+  add('actor',v('au-actor'));add('category',v('au-cat'));add('result',v('au-result'));add('q',(v('au-q')||'').trim());add('employee_id',v('au-emp'));
+  if(extra)Object.keys(extra).forEach(function(k){add(k,extra[k]);});
+  return p.join('&');
+}
+async function auOpen(){
+  var f=document.getElementById('au-from'),t=document.getElementById('au-to');
+  if(f&&!f.value){var d=new Date();d.setDate(d.getDate()-30);f.value=fmtISODate(d);t.value=fmtISODate(new Date());}
+  var es=document.getElementById('au-emp');
+  if(es&&es.options.length<=1)es.innerHTML='<option value="">Anyone</option>'+employees.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));}).map(function(e){return '<option value="'+e.id+'">'+auEsc(e.name)+'</option>';}).join('');
+  await auLoad(0);
+}
+function auClear(){['au-actor','au-cat','au-result','au-q','au-emp'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  var d=new Date();d.setDate(d.getDate()-30);document.getElementById('au-from').value=fmtISODate(d);document.getElementById('au-to').value=fmtISODate(new Date());auLoad(0);}
+async function auLoad(page){
+  AU.page=page;var box=document.getElementById('au-list');if(!box)return;
+  var r=await api('GET','/api/audit?'+auQS({limit:AU.size,offset:page*AU.size}));
+  if(!r||!r.rows){box.innerHTML='<div class="empty">Could not load the audit log.</div>';return;}
+  AU.total=r.total;
+  var as=document.getElementById('au-actor'),cs=document.getElementById('au-cat');
+  if(as&&as.options.length<=1&&r.facets){as.innerHTML='<option value="">Everyone</option>'+r.facets.actors.map(function(a){return '<option value="'+auEsc(a)+'">'+auEsc(a)+'</option>';}).join('');}
+  if(cs&&cs.options.length<=1&&r.facets){cs.innerHTML='<option value="">All areas</option>'+r.facets.categories.map(function(c){return '<option value="'+auEsc(c)+'">'+auEsc(AU_CATS[c]||c)+'</option>';}).join('');}
+  auRender(r.rows);
+  var from=r.total?page*AU.size+1:0,to=Math.min(r.total,(page+1)*AU.size),pg=document.getElementById('au-pager');
+  pg.innerHTML='<span style="font-size:12px;color:var(--muted)">'+(r.total?'Showing '+from+'–'+to+' of '+r.total.toLocaleString()+' entries':'')+'</span><span>'
+    +'<button class="btn" '+(page>0?'':'disabled')+' onclick="auLoad('+(page-1)+')">← Newer</button> '
+    +'<button class="btn" '+(to<r.total?'':'disabled')+' onclick="auLoad('+(page+1)+')">Older →</button></span>';
+}
+// A request and the detail entries it caused (e.g. "Leave filed" and "VL 2.95 → 0.95") are shown together.
+function auGroup(rows){
+  var out=[],i=0;
+  while(i<rows.length){
+    var r=rows[i],g=[r],j=i+1;
+    if(r.requestId){while(j<rows.length&&rows[j].requestId===r.requestId){g.push(rows[j]);j++;}}
+    var head=g.find(function(x){return x.method;})||g[0];
+    out.push({head:head,kids:g.filter(function(x){return x!==head;})});i=j;
+  }
+  return out;
+}
+function auDetailHtml(r){
+  var d=r.details,out='';
+  if(d&&typeof d==='object'){
+    if(d.changes&&!Array.isArray(d.changes)&&typeof d.changes==='object'){
+      out+='<table class="au-chg"><thead><tr><th>What</th><th>Before</th><th>After</th></tr></thead><tbody>'+Object.keys(d.changes).map(function(k){var c=d.changes[k]||[];return '<tr><td>'+auEsc(k)+'</td><td>'+auVal(c[0])+'</td><td>'+auVal(c[1])+'</td></tr>';}).join('')+'</tbody></table>';
+    }else if(Array.isArray(d.changes)){out+='<ul style="margin:2px 0 2px 16px">'+d.changes.map(function(x){return '<li>'+auEsc(x)+'</li>';}).join('')+'</ul>';}
+    var rest=Object.keys(d).filter(function(k){return k!=='changes';});
+    if(rest.length)out+='<div style="margin-top:6px;font-size:12px">'+rest.map(function(k){return '<div><strong>'+auEsc(k)+':</strong> '+auEsc(typeof d[k]==='object'?JSON.stringify(d[k]):d[k])+'</div>';}).join('')+'</div>';
+  }
+  if(!out)out='<span style="color:var(--muted);font-size:12px">No further detail was recorded for this entry.</span>';
+  out+='<div class="au-meta">Entry #'+r.id+' · '+auEsc(new Date(r.at).toLocaleString())+(r.ip?' · from '+auEsc(r.ip):'')+(r.method?' · '+auEsc(r.method+' '+(r.route||'')):'')+(r.status?' · HTTP '+r.status:'')+'</div>';
+  return out;
+}
+function auRowHtml(r,child){
+  var badge=r.result&&r.result!=='ok'?'<span class="au-b '+auEsc(r.result)+'">'+({failed:'Failed',denied:'Refused',error:'Error'}[r.result]||auEsc(r.result))+'</span>':'';
+  return '<tr class="au-row'+(child?' au-child':'')+'" onclick="auToggle('+r.id+')">'
+    +'<td style="white-space:nowrap">'+(child?'↳ ':'')+auWhen(r.at)+'</td>'
+    +'<td><strong>'+auEsc(r.actor||'—')+'</strong>'+(r.role?'<span class="au-role">'+auEsc(r.role)+'</span>':'')+'</td>'
+    +'<td>'+auEsc(r.action)+badge+'</td>'
+    +'<td>'+(r.employeeName?auEsc(r.employeeName):'<span style="color:var(--muted)">—</span>')+'</td>'
+    +'<td>'+auEsc(r.summary||'')+'</td></tr>'
+    +'<tr id="au-d-'+r.id+'" class="au-detail" style="display:none"><td colspan="5">'+auDetailHtml(r)+'</td></tr>';
+}
+function auRender(rows){
+  var box=document.getElementById('au-list');
+  if(!rows.length){box.innerHTML='<div class="empty">No entries match these filters.</div>';return;}
+  box.innerHTML='<div style="overflow-x:auto"><table class="au-table"><thead><tr><th>When</th><th>Who</th><th>What</th><th>About</th><th>Details</th></tr></thead><tbody>'
+    +auGroup(rows).map(function(g){return auRowHtml(g.head,false)+g.kids.map(function(k){return auRowHtml(k,true);}).join('');}).join('')+'</tbody></table></div>';
+}
+function auToggle(id){var el=document.getElementById('au-d-'+id);if(el)el.style.display=el.style.display==='none'?'':'none';}
+function auExport(){window.location.href='/api/audit/export.csv?'+auQS({});}
+async function auVerify(){
+  var el=document.getElementById('au-verify');el.innerHTML='<span style="color:var(--muted)">Checking every entry…</span>';
+  var r=await api('GET','/api/audit/verify');
+  if(r&&r.ok)el.innerHTML='<div class="bk-alert info" style="margin:0">✅ <strong>The log is intact.</strong> '+Number(r.checked).toLocaleString()+' entries checked'+(r.anchored?', and matched against '+r.anchored+' backup'+(r.anchored===1?'':'s')+' made at different times':'')+'. Nothing has been altered or removed.</div>';
+  else el.innerHTML='<div class="bk-alert red" style="margin:0">🔴 <strong>The log does not check out.</strong> '+auEsc((r&&r.reason)||'It could not be verified.')+' Someone may have changed the database directly. Keep this screen as it is and contact your IT administrator.</div>';
+}
+
+function bkBytes(n){if(n==null)return '?';var u=['B','KB','MB','GB'],i=0;while(n>=1024&&i<3){n/=1024;i++;}return (i?n.toFixed(1):n)+' '+u[i];}
+function bkAgo(iso){var m=Math.round((Date.now()-new Date(iso))/60000);if(m<2)return 'just now';if(m<90)return m+' minutes ago';var h=Math.round(m/60);if(h<48)return h+' hours ago';return Math.round(h/24)+' days ago';}
+function bkUptime(s){if(s<3600)return Math.max(1,Math.round(s/60))+' min';if(s<172800)return Math.round(s/3600)+' hours';return Math.round(s/86400)+' days';}
+async function bkOpen(){
+  var res=await Promise.all([api('GET','/api/health'),api('GET','/api/backups')]);
+  if(!res[0]||!res[0].version||!res[1]||!res[1].backups){document.getElementById('bk-health').innerHTML='<div class="empty">Could not load the system status.</div>';return;}
+  bkRender(res[0],res[1]);
+}
+function bkRender(h,b){
+  var al=[];
+  if(h.security.defaultAdminPassword)al.push('<div class="bk-alert red">🔴 <strong>The default admin password (admin123) is still in use.</strong> Anyone who knows it can sign in as the administrator. Change it now: <em>User Accounts</em> → reset the <strong>admin</strong> password.</div>');
+  if(b.lastError)al.push('<div class="bk-alert red">🔴 <strong>The last backup failed</strong> ('+auEsc(new Date(b.lastError.at).toLocaleString())+'): '+auEsc(b.lastError.message)+'</div>');
+  var last=b.backups[0];
+  if(b.nextScheduled&&(!last||(Date.now()-new Date(last.createdAt))/36e5>36))al.push('<div class="bk-alert amber">🟠 <strong>No backup in the last '+(last?Math.round((Date.now()-new Date(last.createdAt))/36e5)+' hours':'—none yet')+'.</strong> The nightly backup may not be running. Press “Back up now” and check the server log.</div>');
+  if(!h.security.sessionSecretFromEnv)al.push('<div class="bk-alert amber">🟠 Sign-ins are protected with the built-in default secret. Set <code>SESSION_SECRET</code> on the server (see OPERATIONS.md).</div>');
+  if(!b.webhookConfigured)al.push('<div class="bk-alert info">ℹ️ Alerts are not set up. Add <code>ALERT_WEBHOOK_URL</code> (a Teams or Slack incoming webhook) to be told when a backup fails or the system goes down.</div>');
+  document.getElementById('bk-alerts').innerHTML=al.join('');
+  var tile=function(k,val){return '<div class="bk-tile"><div class="k">'+k+'</div><div class="v">'+val+'</div></div>';};
+  document.getElementById('bk-health').innerHTML=tile('Version',auEsc(h.version))+tile('Running for',bkUptime(h.uptimeSec))+tile('Database size',bkBytes(h.dbBytes)+(h.walBytes?' <span style="font-size:11px;font-weight:400;color:var(--muted)">+'+bkBytes(h.walBytes)+' recent writes</span>':''))
+    +tile('Audit entries',Number(h.audit.rows).toLocaleString())+tile('Free disk (backups)',bkBytes(h.backups.diskFreeBytes))+tile('Server',auEsc(h.node)+' · '+h.memoryMb+' MB');
+  var sum='';
+  sum+=last?'Last backup: <strong>'+bkAgo(last.createdAt)+'</strong> ('+auEsc(new Date(last.createdAt).toLocaleString())+') '+(last.integrity==='ok'?'✅ checked':'⚠️ '+auEsc(last.integrity)):'<strong>No backup has been taken yet.</strong>';
+  sum+='<br>'+(b.nextScheduled?'Next automatic backup: <strong>'+auEsc(new Date(b.nextScheduled).toLocaleString())+'</strong>':'Automatic backups are switched off on this server.');
+  sum+='<br><span style="color:var(--muted);font-size:12px">Keeps the newest '+b.policy.recent+', plus one per week for '+b.policy.weeks+' weeks and one per month for '+b.policy.months+' months. Folder: '+auEsc(b.dir)+'</span>';
+  document.getElementById('bk-summary').innerHTML=sum;
+  var btn=document.getElementById('bk-now');if(btn)btn.style.display=b.canManage?'':'none';
+  document.getElementById('bk-list').innerHTML=b.backups.length?'<div style="overflow-x:auto"><table class="au-table"><thead><tr><th>Taken</th><th>Reason</th><th>Size</th><th>Check</th><th>Employees</th><th>Version</th><th></th></tr></thead><tbody>'
+    +b.backups.map(function(x){return '<tr><td style="white-space:nowrap">'+auEsc(new Date(x.createdAt).toLocaleString())+'</td><td>'+auEsc(x.reason)+'</td><td>'+bkBytes(x.sizeBytes)+'</td><td>'+(x.integrity==='ok'?'✅ ok':'⚠️ '+auEsc(x.integrity))+'</td><td>'+(x.tables&&x.tables.employees!=null?x.tables.employees:'—')+'</td><td>'+auEsc(x.version||'—')+'</td>'
+      +'<td>'+(b.canManage?'<a class="btn" style="text-decoration:none;padding:4px 10px;font-size:12px" href="/api/backups/'+encodeURIComponent(x.name)+'/download">⬇ Download</a>':'')+'</td></tr>';}).join('')+'</tbody></table></div>'
+    :'<div class="empty">No backups yet.</div>';
+}
+async function bkNow(){
+  var btn=document.getElementById('bk-now');if(btn){btn.disabled=true;btn.textContent='Backing up…';}
+  var r=await api('POST','/api/backups');
+  if(btn){btn.disabled=false;btn.textContent='💾 Back up now';}
+  if(!r||!r.success)alert('The backup failed: '+((r&&r.error)||'unknown error'));
+  await bkOpen();
+}
+</script>
+<script>
 /* ════════════ READ-ONLY ADMIN MODE ════════════
    For accounts with the "admin_readonly" role. The SERVER is what actually enforces this
    (every non-GET request from such an account is refused), so nothing here is a security
@@ -7343,7 +7535,7 @@ function lcHint(){
      • any write that still slipped through is stopped before it is sent, with a clear message.
    RO_WRITERS is generated by analysing this page's own code: every function that makes a
    POST/PUT/PATCH/DELETE request, plus every function that calls one. */
-var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "tmAddEmpSubmit", "tmCellChange", "tmColsSave", "tmCreate", "tmFlush", "tmImportApply", "tmPaste", "tmQueueSave", "tmRemoveRow", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
+var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "bkNow", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "tmAddEmpSubmit", "tmCellChange", "tmColsSave", "tmCreate", "tmFlush", "tmImportApply", "tmPaste", "tmQueueSave", "tmRemoveRow", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
 // Start an edit but don't write by themselves (they just load a form), or import a file:
 var RO_HIDE_EXTRA = new Set(['tmOpenCreate','tmOpenColumns','tmOpenAddEmp','tmImportFile','annEdit','annCancelEdit','editHoliday','cancelHolidayEdit','editLeave','cancelLeaveEdit','editOffset','cancelOffsetEdit','importPayrollExcel']);
 // Open a detail pop-up that is still worth viewing: kept, relabelled "View", fields locked.
@@ -7457,5 +7649,6 @@ function enableReadOnlyMode(){
   }).observe(document.body,{childList:true,subtree:true});
 }
 </script>
+<script src="/version-check.js" defer></script>
 </body>
 </html>
