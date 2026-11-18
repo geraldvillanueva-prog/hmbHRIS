@@ -15,13 +15,34 @@ Requires **Node 16 or newer** (the backup code uses `stream/promises`).
 | **"New version" notice** — open tabs are told to refresh after a deploy; an old page asks before saving. | All three portals |
 | **Public-file protection** — `server.js`, `.env`, `*.db`, backups, etc. are never served from `public/`. | automatic |
 
+## 1b. Leave balances — "deducted twice" (fixed) and how to correct people already affected
+
+**How the system treats leave days:** filing a paid VL/SL leave *holds* its days straight away (Pending and Approved both hold them; Denied returns them). Approving a Pending leave must therefore **not** deduct again. The old code did deduct again when a leave was approved from the **Supervisor portal**.
+
+**The fix is in `server.js`** (both approval routes use the same rule). It was proven with an 800-step random test that checks, after every step, that each balance = starting balance − days of leaves currently holding days (`tests/leave_matrix_test.js`); putting the old bug back makes that test fail within 57 steps.
+**`server.js` is now self-contained** (the audit and backup modules are inlined), so deploying the fix is **replacing that one file** — no `lib/` folder needed. Check what is live:
+
+```bash
+grep -c leaveHoldsBalance /var/www/html/server.js     # 0  = the OLD double-deducting code is running
+grep -c "require('./lib" /var/www/html/server.js      # must be 0 for the new self-contained file
+```
+
+**People already affected** cannot be found automatically (the database never recorded who approved a leave, or when). Use the read-only report to narrow it down:
+
+```bash
+cd /var/www/html
+node scripts/leave-reconcile.js --since 2026-10-01 --detail     # use a date when the old code was live; omit --since for all time
+```
+
+It lists, per employee, the Approved + With-Pay VL/SL leaves in that period and the **most** they could be owed (the true amount is usually less: only leaves approved from the Supervisor portal were double-charged). Check those leaves with the supervisors, then correct each balance in **Edit Employee** — the Audit Log records who changed it and from what to what. The report also saves a CSV in the (private) backups folder for HR.
+
 ## 2. Files and where they go (repo layout)
 
 ```
-server.js                 (repo root — replaces the old one)
+server.js                 (repo root — replaces the old one; self-contained, lib/ is NOT required to run it)
 lib/audit.js              NEW
 lib/backup.js             NEW
-scripts/backup.js         NEW   (+ deploy.sh, healthcheck.sh, restore.sh — make them executable)
+scripts/backup.js         NEW   (+ deploy.sh, healthcheck.sh, restore.sh, leave-reconcile.js — make the .sh files executable)
 public/admin.html  public/employee.html  public/supervisor.html
 public/version-check.js   NEW   (must be inside public/)
 OPERATIONS.md             (this file, repo root)
