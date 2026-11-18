@@ -917,6 +917,47 @@ if (userCount.c === 0) {
   console.log('✅ Default admin created: username=admin, password=admin123');
 }
 
+
+// ── ONE-TIME CHANGE OF LEAVE POLICY (days are now deducted on APPROVAL, not when a leave is filed) ─────────────────────────────────
+// Leaves that are still PENDING were already charged when they were filed. Under the new rule a Pending leave holds nothing, so those
+// days are given back ONCE — otherwise approving them would deduct a second time. A copy of the database is taken first, every change is
+// listed in schema_migrations.details and in the Audit Log, and the marker row makes sure this never runs twice.
+(function migrateLeaveDeductOnApproval() {
+  const NAME = 'leave_deduct_on_approval_v1';
+  db.exec("CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT, details TEXT)");
+  if (db.prepare('SELECT 1 FROM schema_migrations WHERE name = ?').get(NAME)) return;
+  const col = (t) => (t && (t.includes('VL') || t.includes('Vacation'))) ? 'vl_bal' : ((t && (t.includes('SL') || t.includes('Sick'))) ? 'sl_bal' : null);
+  const pending = db.prepare("SELECT * FROM leave_records WHERE status = 'Pending' AND pay = 'With Pay' ORDER BY id").all().filter(l => col(l.type) && (+l.days || 0) > 0);
+  let safetyCopy = null;
+  if (pending.length) {
+    try {
+      const dir = process.env.BACKUP_DIR || path.join(__dirname, 'backups');
+      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+      const d = new Date(), z = (n) => String(n).padStart(2, '0');
+      safetyCopy = path.join(dir, 'pre-leave-policy-change-' + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + '.db');
+      db.exec("VACUUM INTO '" + safetyCopy.replace(/'/g, "''") + "'");
+    } catch (e) { console.error('⚠️  Could not make the safety copy before the leave-policy change (' + e.message + ') — continuing.'); safetyCopy = null; }
+  }
+  const changes = [];
+  db.transaction(() => {
+    for (const l of pending) {
+      const c = col(l.type);
+      const before = (db.prepare('SELECT ' + c + ' AS b FROM employees WHERE id = ?').get(l.employee_id) || {}).b;
+      if (before === undefined) continue;                                       // employee no longer exists
+      db.prepare('UPDATE employees SET ' + c + ' = ROUND(COALESCE(' + c + ', 0) + ?, 2) WHERE id = ?').run(+l.days, l.employee_id);
+      const after = (db.prepare('SELECT ' + c + ' AS b FROM employees WHERE id = ?').get(l.employee_id) || {}).b;
+      changes.push({ leaveId: l.id, employeeId: l.employee_id, balance: c === 'vl_bal' ? 'VL' : 'SL', days: +l.days, before, after });
+    }
+    db.prepare('INSERT INTO schema_migrations (name, applied_at, details) VALUES (?,?,?)').run(NAME, new Date().toISOString(), JSON.stringify({ safetyCopy, returned: changes }));
+  })();
+  for (const c of changes) {
+    audit.event({ category: 'leave', action: 'Leave balance changed', employeeId: c.employeeId,
+      summary: c.balance + ' ' + c.before + ' → ' + c.after + ' (policy change: pending leave #' + c.leaveId + ' no longer holds days — returned ' + c.days + ' day' + (c.days == 1 ? '' : 's') + '; deducted again only if approved)',
+      details: { balance: c.balance, before: c.before, after: c.after, days: c.days, leaveId: c.leaveId, why: 'leave policy change: deduct on approval' } });
+  }
+  if (changes.length) console.log('♻️  Leave policy change: gave back the days of ' + changes.length + ' pending leave(s) (deducted only when approved from now on).' + (safetyCopy ? ' Safety copy: ' + safetyCopy : ''));
+})();
+
 // Seed default settings
 const settingCount = db.prepare('SELECT COUNT(*) as c FROM settings').get();
 if (settingCount.c === 0) {
@@ -1394,16 +1435,23 @@ app.get('/api/my/leaves', requireAdminOrSupervisor, (req, res) => {
   if (!empIds.length) return res.json([]);
   const placeholders = empIds.map(() => '?').join(',');
   const rows = db.prepare(`
-    SELECT l.*, e.name as emp_name, e.pos as emp_pos, e.dept as emp_dept
+    SELECT l.*, e.name as emp_name, e.pos as emp_pos, e.dept as emp_dept, e.vl_bal as emp_vl, e.sl_bal as emp_sl
     FROM leave_records l JOIN employees e ON l.employee_id=e.id
     WHERE l.employee_id IN (${placeholders})
     ORDER BY l.filed_at DESC
   `).all(...empIds);
-  res.json(rows.map(r => ({
-    id: r.id, empId: r.employee_id, empName: r.emp_name, empPos: r.emp_pos, empDept: r.emp_dept,
-    type: r.type, from: r.from_date, to: r.to_date, days: r.days,
-    reason: r.reason, status: r.status, pay: r.pay, halfDay: !!r.half_day, filedAt: r.filed_at
-  })));
+  // For a Pending, paid VL/SL leave the approver is told which balance it would draw on and how much is available, because
+  // approving is the moment the days come off. Nothing about balances is sent for leaves that are already decided or that use no balance.
+  const kindOf = (t) => (t && (t.includes('VL') || t.includes('Vacation'))) ? 'VL' : ((t && (t.includes('SL') || t.includes('Sick'))) ? 'SL' : null);
+  res.json(rows.map(r => {
+    const kind = kindOf(r.type), decides = r.status === 'Pending' && r.pay === 'With Pay' && kind;
+    return {
+      id: r.id, empId: r.employee_id, empName: r.emp_name, empPos: r.emp_pos, empDept: r.emp_dept,
+      type: r.type, from: r.from_date, to: r.to_date, days: r.days,
+      reason: r.reason, status: r.status, pay: r.pay, halfDay: !!r.half_day, filedAt: r.filed_at,
+      balKind: decides ? kind : null, availBal: decides ? Math.round(((kind === 'VL' ? r.emp_vl : r.emp_sl) || 0) * 100) / 100 : null
+    };
+  }));
 });
 
 // ─── SUPERVISOR: APPROVE / DENY LEAVE ─────────────────────────────────────────
@@ -1423,10 +1471,8 @@ app.put('/api/my/leaves/:id', requireAdminOrSupervisor, (req, res) => {
   const holdsBefore = rec.pay === 'With Pay' && leaveHoldsBalance(rec.status);
   db.prepare('UPDATE leave_records SET status=? WHERE id=?').run(status, req.params.id);
 
-  // A leave takes its days off the balance the moment it is FILED (Pending and Approved both "hold" them;
-  // Denied does not). So approving a Pending leave must NOT deduct a second time, and denying one gives the
-  // days back. The balance only moves when the leave changes between holding and not holding — the same
-  // rule PUT /api/leave/:id (the admin Leave Tracker) uses.
+  // Days come off the balance only when a leave is APPROVED (a Pending or Denied leave holds nothing). The balance moves only when
+  // the leave changes between holding and not holding — the same rule PUT /api/leave/:id (the admin Leave Tracker) uses.
   const holdsAfter = rec.pay === 'With Pay' && leaveHoldsBalance(status);
   audit.note({ employeeId: rec.employee_id, summary: 'Leave #' + rec.id + ' (' + rec.type + ', ' + rec.days + ' day' + (rec.days == 1 ? '' : 's') + '): ' + rec.status + ' → ' + status, details: { leaveId: rec.id, from: rec.status, to: status } });
   if (holdsBefore && !holdsAfter) adjustEmployeeLeaveBalance(rec.employee_id, rec.type, rec.days, 1, 'leave ' + status.toLowerCase() + ' by supervisor — days returned');
@@ -2191,11 +2237,8 @@ app.post('/api/leave/file', requireAuth, (req, res) => {
   const pay = (l.pay === 'Without Pay') ? 'Without Pay' : 'With Pay'; // default to With Pay for safety
   const halfDay = l.halfDay ? 1 : 0;
   const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay, half_day) VALUES (?,?,?,?,?,?,?,?,?)').run(empId, l.type, l.from, l.to, +l.days||0, l.reason||'', 'Pending', pay, halfDay);
-  // Filing deducts immediately (status starts Pending, which holds a
-  // deduction) — approval later doesn't deduct again, see PUT /api/leave/:id.
-  if (pay === 'With Pay') {
-    adjustEmployeeLeaveBalance(empId, l.type, +l.days||0, -1, 'leave filed by employee');
-  }
+  // Filing does NOT touch the balance: the leave starts Pending. Its days are deducted only when it is APPROVED
+  // (PUT /api/my/leaves/:id or PUT /api/leave/:id) and given back if an approved leave is later denied, edited or deleted.
   audit.note({ employeeId: empId, summary: 'Leave #' + r.lastInsertRowid + ' filed: ' + l.type + ', ' + l.from + ' to ' + l.to + ', ' + (+l.days||0) + ' day(s), ' + pay, details: { leaveId: r.lastInsertRowid } });
   res.json({ success: true, id: r.lastInsertRowid });
 });
@@ -2208,10 +2251,7 @@ app.delete('/api/leave/mine/:id', requireAuth, (req, res) => {
   if (!rec) return res.json({ success: false, error: 'Record not found' });
   if (rec.status !== 'Pending') return res.json({ success: false, error: 'Only pending leaves can be cancelled' });
   db.prepare('DELETE FROM leave_records WHERE id=?').run(req.params.id);
-  // Pending always holds a deduction, so cancelling always restores it.
-  if (rec.pay === 'With Pay') {
-    adjustEmployeeLeaveBalance(empId, rec.type, rec.days, 1, 'pending leave cancelled by employee');
-  }
+  // A Pending leave holds no days, so there is nothing to give back when it is cancelled.
   audit.note({ employeeId: empId, summary: 'Leave #' + rec.id + ' cancelled (' + rec.type + ', ' + rec.days + ' day(s))', details: { leaveId: rec.id } });
   res.json({ success: true });
 });
@@ -2339,9 +2379,8 @@ app.post('/api/leave', requireAdminOrHrIntern, (req, res) => {
   const halfDay = l.halfDay ? 1 : 0;
   const status = l.status || 'Pending';
   const r = db.prepare('INSERT INTO leave_records (employee_id, type, from_date, to_date, days, reason, status, pay, half_day) VALUES (?,?,?,?,?,?,?,?,?)').run(l.empId, l.type, l.from, l.to, +l.days||0, l.reason||'', status, l.pay||'With Pay', halfDay);
-  // Deducts immediately on filing (any non-Denied starting status), not just
-  // on approval — approval no longer double-deducts, since it's handled as
-  // a same-status-group transition in PUT /api/leave/:id below.
+  // A leave filed here as Pending holds no days; one filed straight as Approved deducts now (leaveHoldsBalance). Later status changes
+  // are handled in PUT /api/leave/:id, so nothing is ever deducted twice.
   if (l.pay === 'With Pay' && leaveHoldsBalance(status)) {
     adjustEmployeeLeaveBalance(l.empId, l.type, +l.days||0, -1, 'leave filed by admin/HR');
   }
@@ -2350,9 +2389,9 @@ app.post('/api/leave', requireAdminOrHrIntern, (req, res) => {
 });
 
 // Single source of truth for leave-balance changes. A leave record "holds" a
-// deduction in every status except Denied (Pending and Approved both hold —
-// filing deducts immediately, and approval is just a confirmation, not a
-// second deduction). delta: -1 to deduct, +1 to restore.
+// deduction ONLY while it is Approved (see leaveHoldsBalance): filing a leave
+// deducts nothing, approving it deducts once, and denying/editing/deleting an
+// approved one gives the days back. delta: -1 to deduct, +1 to restore.
 function adjustEmployeeLeaveBalance(employeeId, type, days, delta, why) {
   if (!days) return;
   const isVL = type && (type.includes('VL') || type.includes('Vacation'));
@@ -2362,13 +2401,18 @@ function adjustEmployeeLeaveBalance(employeeId, type, days, delta, why) {
   const before = (db.prepare(`SELECT ${col} AS b FROM employees WHERE id=?`).get(employeeId) || {}).b;
   db.prepare(`UPDATE employees SET ${col}=MAX(0,ROUND(COALESCE(${col},0)+?,2)) WHERE id=?`).run(delta * days, employeeId);
   const after = (db.prepare(`SELECT ${col} AS b FROM employees WHERE id=?`).get(employeeId) || {}).b;
+  // A balance never goes below zero. If an approval needed more days than were left, say so in the log rather than hide it.
+  const short = delta < 0 ? Math.round((days - ((before || 0) - (after || 0))) * 100) / 100 : 0;
   // Every movement of a leave balance is recorded: who, which leave, the balance before and after, and why.
   audit.event({ category: 'leave', action: 'Leave balance changed', employeeId,
-    summary: (isVL ? 'VL' : 'SL') + ' ' + before + ' → ' + after + ' (' + (why || (delta < 0 ? 'days deducted' : 'days returned')) + ': ' + days + ' day' + (days == 1 ? '' : 's') + ')',
-    details: { balance: isVL ? 'VL' : 'SL', before, after, days, change: Math.round(delta * days * 100) / 100, why: why || null } });
+    summary: (isVL ? 'VL' : 'SL') + ' ' + before + ' → ' + after + ' (' + (why || (delta < 0 ? 'days deducted' : 'days returned')) + ': ' + days + ' day' + (days == 1 ? '' : 's') + ')' + (short > 0.005 ? ' — BALANCE WAS SHORT by ' + short + ' day(s)' : ''),
+    details: { balance: isVL ? 'VL' : 'SL', before, after, days, change: Math.round(delta * days * 100) / 100, why: why || null, shortfall: short > 0.005 ? short : undefined } });
 }
 // Whether a given status currently "holds" a deduction against the balance.
-function leaveHoldsBalance(status) { return status !== 'Denied'; }
+// LEAVE POLICY: days come off the balance only when a leave is APPROVED. A Pending leave holds nothing; a Denied one holds nothing.
+// If an Approved leave is later denied, edited or deleted, its days are given back. Every route that changes a leave's status (supervisor
+// portal, admin Leave Tracker, management) uses this one rule, and the balance only moves when a leave goes between holding and not holding.
+function leaveHoldsBalance(status) { return status === 'Approved'; }
 
 app.put('/api/leave/:id', requireAdminOrManagement, (req, res) => {
   const rec = db.prepare('SELECT * FROM leave_records WHERE id=?').get(req.params.id);
