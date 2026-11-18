@@ -15,26 +15,39 @@ Requires **Node 16 or newer** (the backup code uses `stream/promises`).
 | **"New version" notice** — open tabs are told to refresh after a deploy; an old page asks before saving. | All three portals |
 | **Public-file protection** — `server.js`, `.env`, `*.db`, backups, etc. are never served from `public/`. | automatic |
 
-## 1b. Leave balances — "deducted twice" (fixed) and how to correct people already affected
+## 1b. Leave balances — days come off only when a leave is APPROVED
 
-**How the system treats leave days:** filing a paid VL/SL leave *holds* its days straight away (Pending and Approved both hold them; Denied returns them). Approving a Pending leave must therefore **not** deduct again. The old code did deduct again when a leave was approved from the **Supervisor portal**.
+**The rule (one rule, used by every screen):**
+* **Filing** a leave (employee portal, or HR/admin as Pending) → the balance does **not** change.
+* **Approving** it (Supervisor portal, admin Leave Tracker, management) → the days are deducted **once**.
+* **Denying, un-approving (back to Pending), shortening or deleting an approved leave** → the days are given back.
+* Cancelling a Pending leave → nothing to give back (nothing was taken). Without-pay leaves and leave types other than VL/SL never touch a balance.
+* A balance never goes below 0. If an approval needs more days than are left, the Audit Log says **"BALANCE WAS SHORT by n day(s)"** instead of hiding it.
 
-**The fix is in `server.js`** (both approval routes use the same rule). It was proven with an 800-step random test that checks, after every step, that each balance = starting balance − days of leaves currently holding days (`tests/leave_matrix_test.js`); putting the old bug back makes that test fail within 57 steps.
-**`server.js` is now self-contained** (the audit and backup modules are inlined), so deploying the fix is **replacing that one file** — no `lib/` folder needed. Check what is live:
+**For supervisors (Leave Requests screen):** each pending paid VL/SL request now shows the staff member's balance and what it will be after approval (green), or a red warning when the leave needs more days than are left. The confirm prompt states exactly what will be deducted ("This takes 2 days off RENZ's VL balance (2.95 → 0.95)"). Unpaid leaves and leave types other than VL/SL say that no balance is used. Supervisors can approve only their own staff's leaves (anything else is refused), and approving the same leave twice — e.g. a double click — deducts once.
+
+**Known limitation — approving beyond the balance.** If a paid leave needs more days than are left, approving it takes only what is left (the balance stops at 0, and the Audit Log says "BALANCE WAS SHORT by n day(s)"). If that leave is later denied or deleted, the **full** days are given back, so the balance can end higher than it started (e.g. 1 day left, approve 3 → 0, deny → 3). Until this is changed, avoid reversing leaves that were approved short; HR can correct the balance in Edit Employee.
+
+**One-time change on the first start of this `server.js`.** Under the old rule, leaves that are *still Pending* were already charged when filed. The new server gives those days back **once** (otherwise approving them would deduct a second time). Before it does, it saves a copy of the database as `backups/pre-leave-policy-change-<date>.db` (keep it for a few weeks; it is not shown on the Backups screen). Every change appears in the Audit Log (by `system`: "policy change: pending leave #12 no longer holds days — returned 2 days") and in the table `schema_migrations`. It cannot run twice. Check after the first start: `pm2 logs hmbHRIS --lines 20 --nostream | grep "Leave policy change"`.
+Employees will see their balance go **up** by their pending days at that moment — tell them why. If a Pending leave was filed when the balance was already too low, its refund can be slightly more than what was actually taken: review with the safety copy if a balance looks too high.
+
+**`server.js` is self-contained** (the audit and backup modules are inlined), so deploying is **replacing that one file**. Check what is live:
 
 ```bash
-grep -c leaveHoldsBalance /var/www/html/server.js     # 0  = the OLD double-deducting code is running
-grep -c "require('./lib" /var/www/html/server.js      # must be 0 for the new self-contained file
+grep -c leaveHoldsBalance /var/www/html/server.js     # 0 = the OLD code is running (deducts at filing and again at approval)
+grep -c "require('./lib" /var/www/html/server.js      # must be 0 for the self-contained file
 ```
 
-**People already affected** cannot be found automatically (the database never recorded who approved a leave, or when). Use the read-only report to narrow it down:
+**People already affected by the old "deducted twice on approval" bug** cannot be found automatically (the database never recorded who approved a leave, or when). Use the read-only report to narrow it down:
 
 ```bash
 cd /var/www/html
 node scripts/leave-reconcile.js --since 2026-10-01 --detail     # use a date when the old code was live; omit --since for all time
 ```
 
-It lists, per employee, the Approved + With-Pay VL/SL leaves in that period and the **most** they could be owed (the true amount is usually less: only leaves approved from the Supervisor portal were double-charged). Check those leaves with the supervisors, then correct each balance in **Edit Employee** — the Audit Log records who changed it and from what to what. The report also saves a CSV in the (private) backups folder for HR.
+It lists, per employee, the Approved + With-Pay VL/SL leaves in that period and the **most** they could be owed (the true amount is usually less: only leaves approved from the Supervisor portal were double-charged). Check those with the supervisors, then correct each balance in **Edit Employee** — the Audit Log records who changed it and from what to what. It also saves a CSV in the (private) backups folder.
+
+**Tests:** `tests/leave_matrix_test.js` runs 800 random operations and checks after every step that each balance = starting balance − days of currently Approved leaves; `tests/leave_policy_migration_test.js` checks the one-time change.
 
 ## 2. Files and where they go (repo layout)
 

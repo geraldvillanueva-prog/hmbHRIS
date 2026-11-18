@@ -3005,7 +3005,7 @@ async function saveLeaveForm(){
   if(r.success){
     rec.id=r.id;rec.filedAt=new Date().toISOString();
     leaveRecords.push(rec);
-    await refreshEmployeeBalance(empId); // server deducts immediately on filing now
+    await refreshEmployeeBalance(empId); // refresh from the server (a leave filed as Pending changes nothing; Approved deducts)
     document.getElementById('lv-to').disabled=false;
     flash('lv-ok');renderLeaveTracker();renderDashboard();showSaveIndicator();
   }

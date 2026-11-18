@@ -1892,7 +1892,7 @@ async function fileLeave(){
     document.getElementById('lv-to').value=today;
     computeDays();
     await loadMyLeaves();
-    await loadBalance(); // server deducts the balance immediately on filing now — reflect that right away
+    await loadBalance(); // refresh the balance from the server (filing a leave does not change it; approval does)
   }else{showLeaveMsg('❌ '+(data.error||'Failed to submit.'),false);}
 }
 async function cancelLeave(id){
