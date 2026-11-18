@@ -3,85 +3,153 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HMB HRIS – Login</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<title>HMB HRIS – Sign in</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --navy:#0a1628;--blue:#1565c0;--accent:#00b4d8;
-  --bg:#eef2f7;--border:#d3dbe6;--text:#1a2332;
+  --navy:#1b2f6e;--navy-dark:#13245a;--blue:#3b6fd8;
+  --bg:#f1f4f9;--border:#d9e0ee;--field:#f5f8fe;--text:#1a2332;
   --muted:#6b7c93;--green:#2e7d32;--red:#c62828;
 }
+html{min-height:100%}
 body{
-  font-family:'IBM Plex Sans',sans-serif;
-  min-height:100vh;display:flex;align-items:center;justify-content:center;
-  padding:1rem;background:var(--bg);color:var(--text);
+  font-family:'Poppins','Segoe UI',system-ui,-apple-system,sans-serif;color:var(--text);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);
 }
 
-.login-wrap{width:100%;max-width:400px;position:relative;z-index:10}
-
-.login-logo{text-align:center;margin-bottom:1.6rem}
-.logo-box{width:54px;height:54px;background:var(--navy);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}
-.logo-text{font-size:17px;font-weight:700;color:#fff;letter-spacing:1px}
-.brand-name{font-size:22px;font-weight:700;color:var(--navy)}
-.brand-sub{font-size:10px;color:#475569;letter-spacing:3px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-top:3px}
-
-.card{
-  background:#fff;
-  border:1px solid var(--border);
-  border-radius:12px;padding:1.8rem;
-  box-shadow:0 1px 3px rgba(10,22,40,0.06),0 8px 24px rgba(10,22,40,0.06);
+/* a white card with a rounded colour panel inset on the right (a seasonal picture, when there is one, shows behind the card) */
+.login-wrap{width:100%;max-width:980px;position:relative;z-index:10}
+.shell{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;
+  min-height:560px;background:#fff;border:1px solid #e4e9f2;border-radius:18px;padding:16px;
+  box-shadow:0 2px 6px rgba(20,35,90,.05),0 24px 60px -12px rgba(20,35,90,.25);
 }
-.card-title{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:3px}
-.card-sub{font-size:12.5px;color:var(--muted);margin-bottom:1.3rem}
-.f{margin-bottom:.95rem}
-.f label{display:block;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
-input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:'IBM Plex Sans',sans-serif;color:var(--text);background:#fff}
-input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(21,101,192,.12)}
-.btn{width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;margin-top:.4rem}
-.btn:hover{background:#0d47a1}
-.btn:disabled{opacity:0.65;cursor:not-allowed}
-.err{background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:8px;padding:9px 13px;font-size:13px;margin-bottom:.95rem;display:none}
-/* Dark seasonal pictures: switch the logo text to light so it stays readable */
-.bg-dark .brand-name{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.55)}
-.bg-dark .brand-sub{color:rgba(255,255,255,.85);text-shadow:0 1px 6px rgba(0,0,0,.55)}
-.bg-dark .logo-box{box-shadow:0 0 0 2px rgba(255,255,255,.28)}
-.success{background:#e8f5e9;color:var(--green);border:1px solid #a5d6a7;border-radius:8px;padding:9px 13px;font-size:13px;margin-bottom:.95rem;display:none}
+
+/* left: the form, centred */
+.form-side{padding:26px 34px 18px;display:flex;flex-direction:column;align-items:stretch;text-align:center}
+.brand{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:22px}
+.logo-box{width:34px;height:34px;background:var(--navy);border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none}
+.logo-text{font-size:11px;font-weight:700;color:#fff;letter-spacing:.8px}
+.brand-name{font-size:21px;font-weight:700;color:var(--navy);letter-spacing:-.02em}
+h1{font-size:23px;line-height:1.2;font-weight:700;color:#0f1a3a;margin-bottom:8px}
+.lead{font-size:12px;line-height:1.6;color:var(--muted);margin:0 auto 22px;max-width:300px}
+.f{text-align:left;margin-bottom:14px}
+.f label{display:block;font-size:11.5px;font-weight:500;color:#394761;margin-bottom:6px}
+.field{position:relative}
+input{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;color:var(--text);background:var(--field);transition:border-color .15s,box-shadow .15s,background .15s}
+input::placeholder{color:#9cabc0}
+input:focus{outline:none;border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(59,111,216,.15)}
+#password{padding-right:58px}
+.show{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--blue);font:500 11.5px 'Poppins',sans-serif;cursor:pointer;padding:6px 8px;border-radius:6px}
+.show:hover{background:#e9f0fc}
+.forgot-row{text-align:right;margin:-4px 0 16px}
+.forgot{background:none;border:0;color:var(--blue);font:500 11.5px 'Poppins',sans-serif;cursor:pointer;padding:2px 0}
+.forgot:hover{text-decoration:underline}
+.note{display:none;text-align:left;background:#eef4ff;border:1px solid #c9dafb;color:#27407a;border-radius:8px;padding:9px 12px;font-size:12px;line-height:1.5;margin:-6px 0 14px}
+.btn{width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:7px;font-size:13.5px;font-weight:500;font-family:inherit;cursor:pointer;transition:background .15s,transform .05s}
+.btn:hover{background:var(--navy-dark)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.65;cursor:not-allowed}
+.signup{margin-top:20px;font-size:11.5px;color:var(--muted)}
+.signup strong{color:var(--navy);font-weight:600}
+.err{background:#ffebee;color:var(--red);border:1px solid #ef9a9a;border-radius:8px;padding:9px 13px;font-size:12.5px;margin-bottom:14px;display:none;text-align:left}
+.success{background:#e8f5e9;color:var(--green);border:1px solid #a5d6a7;border-radius:8px;padding:9px 13px;font-size:12.5px;margin-bottom:14px;display:none;text-align:left}
+.foot{margin-top:auto;padding-top:22px;font-size:10px;color:#a3afc0}
+
+/* right: the office photo in a rounded panel, caption on a dark gradient (the navy behind it is also the fallback if the photo cannot load) */
+.art-side{position:relative;overflow:hidden;border-radius:20px;background:#14286a;display:flex;flex-direction:column;justify-content:flex-end;min-height:300px;isolation:isolate}
+.photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:58% 38%;z-index:-2}
+.art-side::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:linear-gradient(180deg,rgba(12,26,72,0) 38%,rgba(12,26,72,.55) 68%,rgba(10,22,64,.92) 100%)}
+.art-copy{padding:0 30px 30px;text-align:left;color:#fff}
+.art-title{font-size:22px;font-weight:600;line-height:1.25;letter-spacing:-.01em;text-shadow:0 1px 12px rgba(5,12,45,.45)}
+.art-text{font-size:12px;line-height:1.6;color:rgba(255,255,255,.88);margin-top:8px;max-width:360px}
+.art-text b{display:block;margin-top:8px;color:#fff;font-weight:600}
+
+/* narrow screens: the panel moves below the form and shrinks */
+@media (max-width:820px){
+  body{padding:14px;align-items:flex-start}
+  .shell{grid-template-columns:1fr;min-height:0;padding:12px;gap:14px;margin-top:2vh}
+  .form-side{padding:22px 16px 14px}
+  .art-side{min-height:330px}
+  .photo{object-position:57% 22%}
+  .art-copy{padding:0 20px 20px}
+  .art-title{font-size:19px}
+  .art-text{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 
 <div class="login-wrap">
-  <div class="login-logo">
-    <div class="logo-box"><span class="logo-text">HMB</span></div>
-    <div class="brand-name">HMB Management</div>
-    <div class="brand-sub">HRIS Platform</div>
-  </div>
+  <div class="shell">
 
-  <div class="card">
-    <div class="card-title">Welcome back</div>
-    <div class="card-sub">Sign in to your account</div>
-    <div class="err" id="err-msg"></div>
-    <div class="success" id="success-msg"></div>
-    <div class="f">
-      <label for="username">Username</label>
-      <input type="text" id="username" placeholder="Enter username" autocomplete="username"
-             onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
-    <div class="f">
-      <label for="password">Password</label>
-      <input type="password" id="password" placeholder="Enter password" autocomplete="current-password"
-             onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
-    <button class="btn" onclick="doLogin()" id="login-btn">Sign In</button>
+    <main class="form-side">
+      <div class="brand"><div class="logo-box"><span class="logo-text">HMB</span></div><span class="brand-name">HMB HRIS</span></div>
+      <h1>Welcome Back</h1>
+      <p class="lead">Today is a new day. It&rsquo;s your day. Sign in to see your time logs, leave and pay.</p>
+
+      <div class="err" id="err-msg" role="alert"></div>
+      <div class="success" id="success-msg" role="status"></div>
+
+      <div class="f">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter your username" autocomplete="username" autofocus
+               onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="f">
+        <label for="password">Password</label>
+        <div class="field">
+          <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password"
+                 onkeydown="if(event.key==='Enter')doLogin()">
+          <button type="button" class="show" id="show-pw" aria-label="Show password" aria-pressed="false" onclick="togglePw()">Show</button>
+        </div>
+      </div>
+      <div class="forgot-row"><button type="button" class="forgot" id="forgot-btn" aria-expanded="false" aria-controls="forgot-note" onclick="toggleForgot()">Forgot Password?</button></div>
+      <div class="note" id="forgot-note" role="note"><strong>Forgot your password?</strong> Ask HR or IT to reset it for you.</div>
+      <button class="btn" onclick="doLogin()" id="login-btn">Sign in</button>
+
+      <p class="signup">Don&rsquo;t have an account? <strong>Contact your administrator.</strong></p>
+      <div class="foot">&copy; <span id="yr">2026</span> HMB Management Consultant. All rights reserved.</div>
+    </main>
+
+    <aside class="art-side" aria-hidden="true">
+      <img class="photo" src="/hmb-office.jpg" alt="" width="1600" height="1067" decoding="async">
+      <div class="art-copy">
+        <div class="art-title">Your work life, all in one place</div>
+        <div class="art-text">Check your time logs, file leave and view your payslips in one secure portal.<b>Built for the HMB team.</b></div>
+      </div>
+    </aside>
+
   </div>
 </div>
 
 <script>
+document.getElementById('yr').textContent=new Date().getFullYear();
+
 function redirect(role){
   if(role==='admin'||role==='admin_readonly'||role==='management')window.location.href='/admin.html';
   else if(role==='supervisor')window.location.href='/supervisor.html';
   else window.location.href='/employee.html';
+}
+
+function togglePw(){
+  const p=document.getElementById('password'),b=document.getElementById('show-pw');
+  const show=p.type==='password';
+  p.type=show?'text':'password';
+  b.textContent=show?'Hide':'Show';
+  b.setAttribute('aria-label',show?'Hide password':'Show password');
+  b.setAttribute('aria-pressed',show?'true':'false');
+  p.focus();
+}
+
+function toggleForgot(){
+  const n=document.getElementById('forgot-note'),b=document.getElementById('forgot-btn');
+  const open=n.style.display!=='block';
+  n.style.display=open?'block':'none';
+  b.setAttribute('aria-expanded',open?'true':'false');
 }
 
 async function doLogin(){
@@ -101,11 +169,11 @@ async function doLogin(){
       setTimeout(()=>redirect(data.role),400);
     } else {
       showErr(data.error||'Invalid username or password.');
-      btn.textContent='Sign In';btn.disabled=false;
+      btn.textContent='Sign in';btn.disabled=false;
     }
   } catch(e){
     showErr('Connection error. Please try again.');
-    btn.textContent='Sign In';btn.disabled=false;
+    btn.textContent='Sign in';btn.disabled=false;
   }
 }
 
