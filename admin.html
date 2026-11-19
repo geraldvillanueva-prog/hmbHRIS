@@ -4788,6 +4788,25 @@ function calcUndertimeMinutes(timeOut, shiftEnd, shiftStart){
   if(diff<=0)return 0;
   return endMin>=LUNCH_START_MIN+LUNCH_LEN_MIN?Math.max(0,diff-overlapMin(toMin,endMin,LUNCH_START_MIN,LUNCH_START_MIN+LUNCH_LEN_MIN)):diff;
 }
+// HALF-DAY LEAVE: the person is only expected for ONE half of the shift, so full-day late/undertime would be wrong (an afternoon off would read as
+// hours of undertime). The leave record says "half day" but NOT which half, so it is read from the punches:
+//   punched in at/after the break starts  -> worked the AFTERNOON (morning off): late counts from the END of the break (e.g. 1:00 PM);
+//   clocked out by the end of the break   -> worked the MORNING (afternoon off): undertime counts from the START of the break (e.g. 12:00 PM).
+// Anything else (e.g. the whole shift was worked) is measured as a normal full day. Returns {late, under, half:'AM'|'PM'|null}.
+function calcLateUnderForDay(timeIn,timeOut,shift,halfDay){
+  var late=calcLateMinutes(timeIn,shift.start,shift.end),under=calcUndertimeMinutes(timeOut,shift.end,shift.start),half=null;
+  if(!halfDay)return{late:late,under:under,half:half};
+  var s=parseTimeStrToMinutes(shift.start),e=parseTimeStrToMinutes(shift.end),ti=parseTimeStrToMinutes(timeIn),to=parseTimeStrToMinutes(timeOut);
+  if(s==null||e==null)return{late:late,under:under,half:half};
+  var dur=(e-s+1440)%1440||1440,lw=shiftLunchWindow(s,dur);
+  var bs=lw?lw[0]-s:Math.round(dur/2),be=lw?lw[1]-s:Math.round(dur/2);        // the break, in minutes after the shift starts
+  var tiEl=ti==null?null:(ti-s+1440)%1440;
+  if(tiEl!=null&&tiEl>720)tiEl-=1440;                                            // far "after" the start = really early (same rule as calcLateMinutes)
+  var toEl=to==null?null:(to-s+1440)%1440;
+  if(tiEl!=null&&tiEl>=bs){half='PM';late=Math.max(0,tiEl-be);}
+  else if(toEl!=null&&toEl<=be&&(tiEl==null||toEl>=tiEl)){half='AM';under=Math.max(0,bs-toEl);}
+  return{late:late,under:under,half:half};
+}
 function fmtLate(mins){
   if(!mins||mins<=0)return'<span style="color:var(--green);font-weight:700;font-family:\'IBM Plex Mono\',monospace">On time</span>';
   var h=Math.floor(mins/60),m=mins%60;
@@ -4875,8 +4894,9 @@ async function loadTimeLogs(){
     var r=item.r;
     if(item.status!=='present')return{r,shift:null,lateMin:null,underMin:null,status:item.status};
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id,r.log_date);
-    var lateMin=calcLateMinutes(r.time_in,shift.start,shift.end);
-    var underMin=calcUndertimeMinutes(r.time_out,shift.end,shift.start);
+    var lu=calcLateUnderForDay(r.time_in,r.time_out,shift,!!r._halfDayLeave);
+    var lateMin=lu.late;
+    var underMin=lu.under;
     var offsetMin=getOffsetMinutesFor(r.employee_id||r.emp_id,r.log_date);
     var offsetApplied=0;
     if(offsetMin>0){
@@ -4885,7 +4905,7 @@ async function loadTimeLogs(){
       var fromUnder=Math.min(underMin,offsetMin);
       underMin-=fromUnder;offsetMin-=fromUnder;offsetApplied+=fromUnder;
     }
-    return{r,shift,lateMin,underMin,offsetApplied,status:'present'};
+    return{r,shift,lateMin,underMin,offsetApplied,half:lu.half,status:'present'};
   });
   w.innerHTML='<div style="overflow-x:auto"><table style="min-width:800px"><thead><tr>'
     +'<th>Employee</th><th>Date</th><th>Shift</th><th>Time In</th><th>Lunch Out</th><th>Lunch In</th><th>Merienda Out</th><th>Merienda In</th><th>Time Out</th>'
@@ -4893,7 +4913,7 @@ async function loadTimeLogs(){
     +'<th>Route</th>'
     +'<th>Action</th>'
     +'</tr></thead><tbody>'
-  +tableRows.map(function({r,shift,lateMin,underMin,offsetApplied,status},rowIdx){
+  +tableRows.map(function({r,shift,lateMin,underMin,offsetApplied,half,status},rowIdx){
     if(status==='halfday-leave'){
       window._tlRows=window._tlRows||[];window._tlRows[rowIdx]=r;
       return'<tr style="background:#fff8e1">'
@@ -4961,7 +4981,7 @@ async function loadTimeLogs(){
     +tlMerInCell(r)
     +tlCell(r.time_out,'var(--muted)')
     +(r._halfDayLeave
-        ?'<td style="text-align:center"><span class="badge badge-orange" style="font-size:10px">🌓 Half Day</span>'+leavePayTag(r._leavePay)+(offsetApplied>0?'<br><span class="badge badge-purple" style="font-size:9px">⏱ -'+fmtDuration(offsetApplied)+' offset</span>':'')+'</td>'
+        ?'<td style="text-align:center"><span class="badge badge-orange" style="font-size:10px">🌓 Half Day</span>'+leavePayTag(r._leavePay)+(half?'<div style="font-size:9px;color:var(--muted);margin-top:2px">'+(half==='PM'?'afternoon worked':'morning worked')+'</div>':'')+'<div style="margin-top:3px">'+fmtLateUndertime(lateMin,underMin)+'</div>'+(offsetApplied>0?'<br><span class="badge badge-purple" style="font-size:9px">⏱ -'+fmtDuration(offsetApplied)+' offset</span>':'')+'</td>'
         :'<td style="text-align:center">'+fmtLateUndertime(lateMin,underMin)+(offsetApplied>0?'<br><span class="badge badge-purple" style="font-size:9px">⏱ -'+fmtDuration(offsetApplied)+' offset</span>':'')+'</td>')
     +mapBtn
     +editBtn
@@ -5123,8 +5143,9 @@ function exportTimeLogsCSV(){
       return;
     }
     var shift=overrideShift||getEmpShift(r.employee_id||r.emp_id,r.log_date);
-    var lateMin=calcLateMinutes(r.time_in,shift.start,shift.end);
-    var underMin=calcUndertimeMinutes(r.time_out,shift.end,shift.start);
+    var lu=calcLateUnderForDay(r.time_in,r.time_out,shift,!!r._halfDayLeave);
+    var lateMin=lu.late;
+    var underMin=lu.under;
     var offsetMin=getOffsetMinutesFor(r.employee_id||r.emp_id,r.log_date);
     var offsetApplied=0;
     if(offsetMin>0){
@@ -5330,9 +5351,9 @@ async function checkOffsetBalance(){
     var totalExcess=dedupedRows.reduce((sum,r)=>sum+calcExcessMinutesForDay(r.time_in,r.time_out,threshold),0);
     var totalLateUndertime=dedupedRows.reduce((sum,r)=>{
       var shift=getEmpShift(parseInt(empId),r.log_date);
-      var late=calcLateMinutes(r.time_in,shift.start,shift.end);
-      var under=calcUndertimeMinutes(r.time_out,shift.end,shift.start);
-      return sum+late+under;
+      var hl=getApprovedLeaveOn(parseInt(empId),r.log_date);
+      var lu=calcLateUnderForDay(r.time_in,r.time_out,shift,!!(hl&&hl.halfDay));
+      return sum+lu.late+lu.under;
     },0);
     var totalFiled=offsetRecords.filter(o=>{
       if(o.empId!=empId)return false;
