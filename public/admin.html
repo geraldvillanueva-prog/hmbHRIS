@@ -4888,7 +4888,13 @@ async function loadTimeLogs(){
   var empScope=empId?employees.filter(e=>e.id==empId):employees.slice();
   var combined=(from&&to&&empScope.length)
     ?buildTimeLogRowsWithStatus(empScope,from,to,allTimeLogs)
-    :allTimeLogs.map(r=>({r,status:'present'}));
+    :allTimeLogs.map(r=>{
+      // No date range: this is a plain list of punches (no On Leave / Holiday / Absent rows). A half-day leave must STILL be recognised here,
+      // otherwise the day is measured as a full day (late AND a huge undertime for someone who only worked one half).
+      var lr=r.time_in?getApprovedLeaveOn(r.employee_id||r.emp_id,r.log_date):null;
+      if(lr&&lr.halfDay){r._halfDayLeave=true;r._leaveType=lr.type;r._leavePay=lr.pay;}
+      return{r,status:'present'};
+    });
   combined.sort((a,b)=>{
     var n=empId?0:(a.r.emp_name||'').localeCompare(b.r.emp_name||'');
     return n!==0?n:(a.r.log_date||'').localeCompare(b.r.log_date||'');
