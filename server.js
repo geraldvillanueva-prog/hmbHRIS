@@ -1089,13 +1089,15 @@ function requireAdminOrHrIntern(req, res, next) {
 
 // Layer 1: keep an admin session's role in step with the database.
 function refreshAdminRole(req, res, next) {
+  // Runs for EVERY signed-in person (admin, supervisor, employee, …), so a role change or a deleted account takes effect on the very next
+  // request, not when their session expires hours later (a demoted supervisor must not keep approving leave).
   const u = req.session && req.session.user;
-  if (u && isAdminRole(u.role)) {
+  if (u) {
     const row = db.prepare('SELECT role FROM users WHERE id = ?').get(u.id);
     if (!row) { // account was deleted while signed in
       return req.session.destroy(() => res.status(401).json({ error: 'Not authenticated' }));
     }
-    if (row.role !== u.role) u.role = row.role; // permission changed by a full admin
+    if (row.role !== u.role) u.role = row.role; // role changed by a full admin
   }
   next();
 }
@@ -1359,23 +1361,42 @@ app.delete('/api/users/:id', requireAdmin, (req, res) => {
 // Set another admin account to read-only, or give it editing rights back.
 // Only a full admin can reach this (requireAdmin turns a read-only admin away), and a
 // full admin cannot change their own account or remove the last admin who can edit.
+const TEAM_ROLES = ['employee', 'supervisor'];
+// What turning a supervisor into an employee leaves behind. Their team list is KEPT (it comes back if they are made a supervisor again),
+// but staff whose only supervisor was this person lose their approver, and their pending leaves then need an admin.
+function roleImpact(userId) {
+  const staffAssigned = db.prepare('SELECT COUNT(*) AS n FROM supervisor_subordinates WHERE supervisor_user_id = ?').get(userId).n;
+  const orphans = db.prepare(`SELECT s.employee_id AS id FROM supervisor_subordinates s WHERE s.supervisor_user_id = ? AND NOT EXISTS (
+      SELECT 1 FROM supervisor_subordinates s2 JOIN users u2 ON u2.id = s2.supervisor_user_id
+      WHERE s2.employee_id = s.employee_id AND s2.supervisor_user_id <> s.supervisor_user_id AND u2.role = 'supervisor')`).all(userId).map(r => r.id);
+  let pendingLeaves = 0;
+  if (orphans.length) pendingLeaves = db.prepare(`SELECT COUNT(*) AS n FROM leave_records WHERE status = 'Pending' AND employee_id IN (${orphans.map(() => '?').join(',')})`).get(...orphans).n;
+  return { staffAssigned, unsupervisedStaff: orphans.length, pendingLeaves };
+}
+app.get('/api/users/:id/role-impact', requireAdmin, (req, res) => {
+  const t = db.prepare('SELECT id, role FROM users WHERE id = ?').get(req.params.id);
+  if (!t) return res.status(404).json({ success: false, error: 'User not found.' });
+  res.json({ role: t.role, ...roleImpact(t.id) });
+});
 app.put('/api/users/:id/role', requireAdmin, (req, res) => {
   const newRole = req.body && req.body.role;
-  if (![ROLE_ADMIN, ROLE_ADMIN_RO].includes(newRole)) {
-    return res.json({ success: false, error: 'Role must be admin or admin_readonly.' });
-  }
   const target = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(req.params.id);
   if (!target) return res.json({ success: false, error: 'User not found.' });
-  if (!isAdminRole(target.role)) return res.json({ success: false, error: 'Only admin accounts can be switched between editing and read-only.' });
+  const adminSide = isAdminRole(target.role), teamSide = TEAM_ROLES.includes(target.role);
+  if (!adminSide && !teamSide) return res.json({ success: false, error: 'Only admin, supervisor and employee accounts can be switched here.' });
+  if (adminSide && ![ROLE_ADMIN, ROLE_ADMIN_RO].includes(newRole)) return res.json({ success: false, error: 'Role must be admin or admin_readonly.' });
+  if (teamSide && !TEAM_ROLES.includes(newRole)) return res.json({ success: false, error: 'This account can only be switched between employee and supervisor.' });
   if (target.id === req.session.user.id) return res.json({ success: false, error: 'You cannot change your own permission.' });
   if (target.role === newRole) return res.json({ success: true, role: newRole, unchanged: true });
-  if (newRole === ROLE_ADMIN_RO) {
+  if (adminSide && newRole === ROLE_ADMIN_RO) {
     const fullAdmins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n;
     if (fullAdmins <= 1) return res.json({ success: false, error: 'At least one admin must keep editing rights.' });
   }
-  audit.note({ summary: '"' + target.username + '": ' + target.role + ' → ' + newRole, details: { user: target.username, from: target.role, to: newRole } });
+  const impact = (teamSide && target.role === 'supervisor') ? roleImpact(target.id) : null;
+  audit.note({ summary: '"' + target.username + '": ' + target.role + ' → ' + newRole + (impact && impact.staffAssigned ? ' (' + impact.staffAssigned + ' staff assigned, ' + impact.unsupervisedStaff + ' left with no supervisor, ' + impact.pendingLeaves + ' pending leave(s) now need an admin)' : ''),
+               details: Object.assign({ user: target.username, from: target.role, to: newRole }, impact || {}) });
   db.prepare('UPDATE users SET role = ? WHERE id = ?').run(newRole, target.id);
-  res.json({ success: true, role: newRole });
+  res.json(Object.assign({ success: true, role: newRole }, impact || {}));
 });
 
 // ─── SUPERVISOR: SUBORDINATE MANAGEMENT (Admin assigns) ───────────────────────

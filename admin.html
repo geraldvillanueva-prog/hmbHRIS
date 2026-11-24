@@ -264,6 +264,35 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
   .au-role{display:inline-block;font-size:10px;color:var(--muted);margin-left:5px}
   .bk-tile{background:#f7f9fc;border:1px solid var(--border);border-radius:8px;padding:10px 12px}.bk-tile .k{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}.bk-tile .v{font-size:16px;font-weight:700;color:var(--navy);margin-top:3px;word-break:break-word}
   .bk-alert{border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;line-height:1.5}.bk-alert.red{background:#ffebee;border:1px solid #ef9a9a;color:#b71c1c}.bk-alert.amber{background:#fff8e1;border:1px solid #ffd54f;color:#7a5b00}.bk-alert.info{background:#e8f1fb;border:1px solid #bbdefb;color:#1a3a5c}
+  /* ── Org chart: a real tree with connecting lines ── */
+  .oc-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .oc-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff}
+  .oc-seg button,.oc-solo{background:#fff;border:0;padding:6px 12px;font:600 12px 'IBM Plex Sans',sans-serif;color:var(--navy);cursor:pointer}
+  .oc-seg button+button{border-left:1px solid var(--border)}.oc-seg button:hover,.oc-solo:hover{background:#eef4ff}.oc-seg button.on{background:var(--navy);color:#fff}
+  .oc-solo{border:1px solid var(--border);border-radius:8px}.oc-zl{display:inline-flex;align-items:center;padding:0 8px;font-size:12px;color:var(--muted);min-width:46px;justify-content:center}.oc-count{margin-left:auto;font-size:12px;color:var(--muted)}
+  /* width:0 + min-width:100% = fill the available width but do NOT widen the page when the chart is wider: the chart scrolls inside this box */
+  .oc-scroll{overflow:auto;border:1px solid var(--border);border-radius:10px;padding:20px;background:#fafbfd;max-height:72vh;box-sizing:border-box;width:0;min-width:100%}
+  .oc-forest{display:flex;gap:44px;align-items:flex-start;justify-content:center;min-width:max-content}
+  .oc-tree ul{display:flex;justify-content:center;padding-top:22px;position:relative;margin:0;list-style:none;padding-left:0}
+  .oc-tree>ul{padding-top:0}
+  .oc-tree li{position:relative;padding:22px 8px 0;list-style:none;display:flex;flex-direction:column;align-items:center}
+  .oc-tree>ul>li{padding-top:0}
+  .oc-tree li::before,.oc-tree li::after{content:'';position:absolute;top:0;right:50%;border-top:2px solid #b8c4d6;width:50%;height:22px}
+  .oc-tree li::after{right:auto;left:50%;border-left:2px solid #b8c4d6}
+  .oc-tree>ul>li::before,.oc-tree>ul>li::after,.oc-tree li:only-child::before,.oc-tree li:only-child::after{display:none}
+  .oc-tree li:only-child{padding-top:22px}.oc-tree>ul>li:only-child{padding-top:0}
+  .oc-tree li:first-child::before,.oc-tree li:last-child::after{border:0 none}
+  .oc-tree li:last-child::before{border-right:2px solid #b8c4d6;border-radius:0 6px 0 0}.oc-tree li:first-child::after{border-radius:6px 0 0 0}
+  .oc-tree ul ul::before{content:'';position:absolute;top:0;left:50%;border-left:2px solid #b8c4d6;height:22px}
+  .oc-collapsed>ul{display:none}
+  .oc-node{background:#fff;border:1px solid #cdd7e6;border-radius:10px;padding:9px 12px;min-width:150px;max-width:210px;text-align:center;box-shadow:0 1px 3px rgba(20,35,90,.08)}
+  .oc-top{background:var(--navy);border-color:var(--navy)}.oc-top .oc-name,.oc-top .oc-pos,.oc-top .oc-dept{color:#fff}.oc-top .oc-tog{background:#fff;color:var(--navy)}
+  .oc-l1{background:#e8f1fb;border-color:#bcd3ee}
+  .oc-name{font-size:12.5px;font-weight:700;color:var(--navy);line-height:1.25;word-break:break-word}.oc-pos{font-size:11px;color:#4a5b75;margin-top:2px;line-height:1.25}.oc-dept{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+  .oc-tog{margin-top:6px;border:0;background:#e3ebf7;color:var(--navy);border-radius:999px;padding:2px 10px;font:600 10px 'IBM Plex Sans',sans-serif;cursor:pointer}.oc-collapsed>.oc-node .oc-tog{background:#ffe9b8;color:#7a5200}
+  .oc-lone{margin-top:26px;border-top:1px dashed var(--border);padding-top:14px}.oc-lone-t{font-size:13px;font-weight:700;color:var(--navy)}.oc-lone-h{font-size:12px;color:var(--muted);margin:4px 0 10px;max-width:760px;line-height:1.5}
+  .oc-lone-g{display:flex;gap:12px;flex-wrap:wrap}.oc-solo-card{min-width:170px;text-align:left}.oc-warn{font-size:10.5px;color:#b26a00;margin-top:5px;line-height:1.3}
+  @media print{body.oc-printing *{visibility:hidden!important}body.oc-printing #orgchart-wrap,body.oc-printing #orgchart-wrap *{visibility:visible!important}body.oc-printing #orgchart-wrap{position:absolute;left:0;top:0;width:100%}body.oc-printing .oc-bar{display:none!important}body.oc-printing .oc-scroll{overflow:visible;max-height:none;border:0}}
 </style>
 </head>
 <body>
@@ -1531,7 +1560,7 @@ body.ro-mode input:disabled,body.ro-mode select:disabled,body.ro-mode textarea:d
 
   <div id="sec-orgchart" class="sec">
     <div class="card-title" style="margin-bottom:10px">🗂️ Org Chart</div>
-    <div class="hint" style="margin-bottom:10px">Built from each employee's "Immediate Superior" field on their 201 file. Employees whose superior doesn't match anyone's name in the system appear as top-level.</div>
+    <div class="hint" style="margin-bottom:10px">Built from each employee's "Immediate Superior" field on their 201 file (it must match the superior's name exactly). Employees who have no team and no matching superior are listed under "Not placed under anyone" so the gap can be fixed.</div>
     <div id="orgchart-wrap"><div class="empty">Loading…</div></div>
   </div>
 
@@ -5613,14 +5642,37 @@ async function setAdminPermission(id,newRole,username){
   if(!r||!r.success){alert((r&&r.error)||'Could not change this permission.');return;}
   loadUsers();
 }
+// Switch a supervisor account to an employee account, or an employee to a supervisor. Takes effect immediately (the server re-checks the role on
+// every request). A supervisor's team list is kept, so making them a supervisor again brings it back.
+async function switchTeamRole(id,newRole){
+  var u=usersCache.find(function(x){return x.id==id;})||{},name=u.username||('#'+id),msg;
+  if(newRole==='employee'){
+    var imp=await api('GET','/api/users/'+id+'/role-impact')||{};
+    msg='Turn supervisor "'+name+'" into an EMPLOYEE?\n\nThey will no longer be able to approve or deny leave or see their team, and the Supervisor portal becomes the Employee portal. This takes effect immediately, even if they are signed in.';
+    if(imp.staffAssigned){
+      msg+='\n\n• '+imp.staffAssigned+' staff member'+(imp.staffAssigned===1?' is':'s are')+' assigned to them'+(imp.unsupervisedStaff?' ('+imp.unsupervisedStaff+' would be left with no other supervisor)':'')+'.';
+      if(imp.pendingLeaves)msg+='\n• '+imp.pendingLeaves+' pending leave request'+(imp.pendingLeaves===1?'':'s')+' from those staff will then need an admin to approve.';
+      msg+='\n• Their team list is kept: if you make them a supervisor again, their team comes back.';
+    }
+  }else{
+    msg='Turn employee "'+name+'" into a SUPERVISOR?\n\nThey will be able to approve or deny leave for the staff assigned to them and will use the Supervisor portal. This takes effect immediately, even if they are signed in.\n\nNext, assign their team with the "Subordinates" panel (it opens after this).';
+  }
+  if(!confirm(msg))return;
+  var r=await api('PUT','/api/users/'+id+'/role',{role:newRole});
+  if(!r||!r.success){alert((r&&r.error)||'Could not change this account.');return;}
+  await loadUsers();
+  if(newRole==='supervisor')showSubPanel(id,name);
+}
 async function resetPassword(id){
   var pw=prompt('Enter new password (min 6 chars):');
   if(!pw||pw.length<6){alert('Password too short.');return;}
   await api('PUT','/api/users/'+id+'/password',{password:pw});
   alert('Password updated.');
 }
+var usersCache=[];
 async function loadUsers(){
   var users=await api('GET','/api/users');
+  usersCache=users||[];
   var w=document.getElementById('users-wrap');
   if(!users||!users.length){w.innerHTML='<div class="empty">No users found.</div>';return;}
   var roleColors={'admin':'badge-blue','admin_readonly':'badge-gray','supervisor':'badge-orange','employee':'badge-green','management':'badge-purple','hr_intern':'badge-accent'};
@@ -5629,16 +5681,21 @@ async function loadUsers(){
   +users.map(u=>{
     var emp=u.employee_id?employees.find(e=>e.id==u.employee_id):null;
     var rc=roleColors[u.role]||'badge-gray';
-    return'<tr><td><strong>'+u.username+'</strong></td>'
+    return'<tr><td><strong>'+escHtml(u.username)+'</strong></td>'
     +'<td><span class="badge '+rc+'">'+(roleNames[u.role]||u.role)+'</span></td>'
-    +'<td>'+(emp?emp.name:'<span style="color:var(--muted)">—</span>')+'</td>'
+    +'<td>'+(emp?escHtml(emp.name):'<span style="color:var(--muted)">—</span>')+'</td>'
     +'<td style="font-size:11px">'+fmtDate(u.created_at)+'</td>'
     +'<td style="display:flex;gap:4px;flex-wrap:wrap">'
-    +(u.role==='supervisor'?'<button class="btn bs ba" onclick="showSubPanel('+u.id+',\''+u.username+'\')">👥 Subordinates</button>':'')
+    +(u.role==='supervisor'?'<button class="btn bs ba" onclick="showSubPanel('+u.id+')">👥 Subordinates</button>':'')
     +((currentUserRole==='admin'&&u.id!==currentUserId&&(u.role==='admin'||u.role==='admin_readonly'))
       ?(u.role==='admin'
         ?'<button class="btn bs" onclick="setAdminPermission('+u.id+',\'admin_readonly\',\''+u.username+'\')" style="color:#6a1b9a">🔒 Make read-only</button>'
         :'<button class="btn bs" onclick="setAdminPermission('+u.id+',\'admin\',\''+u.username+'\')" style="color:var(--green)">✏️ Allow editing</button>')
+      :'')
+    +((currentUserRole==='admin'&&u.id!==currentUserId&&(u.role==='supervisor'||u.role==='employee'))
+      ?(u.role==='supervisor'
+        ?'<button class="btn bs" onclick="switchTeamRole('+u.id+',\'employee\')" style="color:#e65100">⬇ Make employee</button>'
+        :'<button class="btn bs" onclick="switchTeamRole('+u.id+',\'supervisor\')" style="color:var(--green)">⬆ Make supervisor</button>')
       :'')
     +'<button class="btn bs" onclick="resetPassword('+u.id+')" style="color:var(--blue)">🔑 Reset PW</button>'
     +'<button class="btn bs br" onclick="deleteUser('+u.id+')">🗑</button></td></tr>';
@@ -5648,6 +5705,7 @@ async function loadUsers(){
 
 // ── SUBORDINATE MANAGEMENT ────────────────────────────────────────────────────
 async function showSubPanel(userId, username){
+  username = username || ((usersCache.find(function(x){return x.id==userId;})||{}).username) || '';
   currentSubSupervisorId = userId;
   document.getElementById('sub-panel').style.display='';
   document.getElementById('sub-panel-name').textContent = username;
@@ -6528,38 +6586,75 @@ async function deleteChecklistForEmployee(kind, empId, empName){
   loadChecklist(kind);
 }
 // ── ORG CHART ─────────────────────────────────────────────────────────────
-function renderOrgChart(){
-  var w = document.getElementById('orgchart-wrap');
-  var active = employees.filter(e=>e.active!==0);
-  if(!active.length){ w.innerHTML='<div class="empty">No active employees to show.</div>'; return; }
-  // Build a lookup by lowercased, trimmed name
-  var byName = {};
-  active.forEach(e=>{ byName[(e.name||'').trim().toLowerCase()] = e; });
-  var childrenOf = {}; // empId -> [employees]
-  var roots = [];
-  active.forEach(e=>{
-    var sup = (e.immediateSuperior||'').trim();
-    var supEmp = sup ? byName[sup.toLowerCase()] : null;
-    if(supEmp && supEmp.id !== e.id){
-      childrenOf[supEmp.id] = childrenOf[supEmp.id] || [];
-      childrenOf[supEmp.id].push(e);
-    } else {
-      roots.push(e);
-    }
+// ───────── ORG CHART: a real chart (boxes + connecting lines) and the original list, both built from "Immediate Superior" on the 201 file ─────────
+var ocView='chart',ocZoom=1;
+function ocBuild(){
+  var active=employees.filter(function(e){return e.active!==0;});
+  var byName={};active.forEach(function(e){byName[(e.name||'').trim().toLowerCase()]=e;});
+  var kids={},hasSup={},notes={};
+  active.forEach(function(e){
+    var sup=(e.immediateSuperior||'').trim(),se=sup?byName[sup.toLowerCase()]:null;
+    if(se&&se.id!==e.id){(kids[se.id]=kids[se.id]||[]).push(e);hasSup[e.id]=true;}
+    else if(se&&se.id===e.id)notes[e.id]='lists themselves as their superior';
+    else if(sup)notes[e.id]='superior "'+sup+'" is not an active employee in the system';
+    else notes[e.id]='no immediate superior set';
   });
-  function nodeHtml(e, depth){
-    var kids = childrenOf[e.id] || [];
-    var html = '<div style="margin-left:'+(depth*28)+'px;padding:8px 12px;margin-bottom:4px;background:'+(depth===0?'#eef4ff':'#fff')+';border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:10px">'
-      +'<span style="font-weight:600">'+e.name+'</span>'
-      +(e.pos?'<span style="font-size:12px;color:var(--muted)">'+e.pos+'</span>':'')
-      +(kids.length?'<span style="font-size:11px;color:var(--muted);margin-left:auto">'+kids.length+' direct report'+(kids.length>1?'s':'')+'</span>':'')
-      +'</div>';
-    kids.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-    kids.forEach(k=>{ html += nodeHtml(k, depth+1); });
-    return html;
+  var byNm=function(a,b){return (a.name||'').localeCompare(b.name||'');};
+  Object.keys(kids).forEach(function(k){kids[k].sort(byNm);});
+  var roots=active.filter(function(e){return !hasSup[e.id];}).sort(byNm);
+  // Anyone not reachable from a root is in a reporting loop (A reports to B, B reports to A). Show one member of each loop as a root so nobody disappears.
+  var seen={};function walk(e){if(seen[e.id])return;seen[e.id]=true;(kids[e.id]||[]).forEach(walk);}
+  roots.forEach(walk);
+  var loops=[];active.slice().sort(byNm).forEach(function(e){if(!seen[e.id]){loops.push(e);notes[e.id]='is in a reporting loop (each of them reports to the other)';roots.push(e);walk(e);}});
+  return {active:active,kids:kids,roots:roots,notes:notes,loops:loops};
+}
+function ocSetView(v){ocView=v;renderOrgChart();}
+function ocApplyZoom(){var z=document.getElementById('oc-zoom'),l=document.getElementById('oc-zoom-label');if(z)z.style.zoom=ocZoom;if(l)l.textContent=Math.round(ocZoom*100)+'%';}
+function ocZoomBy(d){ocZoom=Math.max(0.3,Math.min(1.6,Math.round((ocZoom+d)*20)/20));ocApplyZoom();}
+function ocFit(){var z=document.getElementById('oc-zoom'),s=document.getElementById('oc-scroll');if(!z||!s)return;z.style.zoom=1;var need=z.scrollWidth,have=s.clientWidth-40;ocZoom=Math.max(0.3,Math.min(1,Math.floor((have/need)*20)/20));ocApplyZoom();}
+function ocToggle(id){var li=document.getElementById('oc-li-'+id);if(li)li.classList.toggle('oc-collapsed');}
+function ocAll(open){document.querySelectorAll('#orgchart-wrap li.oc-has-kids').forEach(function(li){li.classList.toggle('oc-collapsed',!open);});}
+function ocPrint(){document.body.classList.add('oc-printing');window.addEventListener('afterprint',function(){document.body.classList.remove('oc-printing');},{once:true});window.print();}
+function renderOrgChart(){
+  var w=document.getElementById('orgchart-wrap');
+  var d=ocBuild();
+  if(!d.active.length){w.innerHTML='<div class="empty">No active employees to show.</div>';return;}
+  var tools='<div class="oc-bar"><div class="oc-seg"><button type="button" class="'+(ocView==='chart'?'on':'')+'" onclick="ocSetView(\'chart\')">🌳 Chart</button><button type="button" class="'+(ocView==='list'?'on':'')+'" onclick="ocSetView(\'list\')">📋 List</button></div>';
+  if(ocView==='chart')tools+='<div class="oc-seg"><button type="button" onclick="ocZoomBy(-0.1)" title="Zoom out" aria-label="Zoom out">−</button><span id="oc-zoom-label" class="oc-zl">100%</span><button type="button" onclick="ocZoomBy(0.1)" title="Zoom in" aria-label="Zoom in">+</button><button type="button" onclick="ocFit()" title="Fit the chart to the screen width">Fit</button></div>'
+    +'<div class="oc-seg"><button type="button" onclick="ocAll(true)">Expand all</button><button type="button" onclick="ocAll(false)">Collapse all</button></div><button type="button" class="oc-solo" onclick="ocPrint()">🖨 Print</button>';
+  tools+='<span class="oc-count">'+d.active.length+' active employee'+(d.active.length===1?'':'s')+'</span></div>';
+  if(ocView==='list'){
+    var drawnL={};
+    function rowL(e,depth){
+      if(drawnL[e.id])return '';drawnL[e.id]=true;var k=d.kids[e.id]||[];
+      var html='<div style="margin-left:'+(depth*28)+'px;padding:8px 12px;margin-bottom:4px;background:'+(depth===0?'#eef4ff':'#fff')+';border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+        +'<span style="font-weight:600">'+escHtml(e.name||'')+'</span>'
+        +(e.pos?'<span style="font-size:12px;color:var(--muted)">'+escHtml(e.pos)+'</span>':'')
+        +(k.length?'<span style="font-size:11px;color:var(--muted);margin-left:auto">'+k.length+' direct report'+(k.length>1?'s':'')+'</span>':'')+'</div>';
+      k.forEach(function(c){html+=rowL(c,depth+1);});return html;
+    }
+    w.innerHTML=tools+d.roots.map(function(r){return rowL(r,0);}).join('');return;
   }
-  roots.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  w.innerHTML = roots.map(r=>nodeHtml(r,0)).join('');
+  var drawn={};
+  function node(e,depth){
+    if(drawn[e.id])return '';drawn[e.id]=true;
+    var k=d.kids[e.id]||[],inner=k.map(function(c){return node(c,depth+1);}).join('');
+    return '<li id="oc-li-'+e.id+'"'+(inner?' class="oc-has-kids"':'')+'><div class="oc-node'+(depth===0?' oc-top':(depth===1?' oc-l1':''))+'">'
+      +'<div class="oc-name">'+escHtml(e.name||'')+'</div>'+(e.pos?'<div class="oc-pos">'+escHtml(e.pos)+'</div>':'')+(e.dept?'<div class="oc-dept">'+escHtml(e.dept)+'</div>':'')
+      +(inner?'<button type="button" class="oc-tog" onclick="ocToggle('+e.id+')" title="Show or hide this team" aria-label="Show or hide this team">'+k.length+' report'+(k.length===1?'':'s')+' ▾</button>':'')+'</div>'
+      +(inner?'<ul>'+inner+'</ul>':'')+'</li>';
+  }
+  var trees=[],lone=[];
+  d.roots.forEach(function(r){if((d.kids[r.id]||[]).length)trees.push(r);else lone.push(r);});
+  var html='<div class="oc-scroll" id="oc-scroll"><div id="oc-zoom" style="zoom:'+ocZoom+'"><div class="oc-forest">'
+    +trees.map(function(r){return '<div class="oc-tree"><ul>'+node(r,0)+'</ul></div>';}).join('')+'</div>';
+  if(lone.length){
+    html+='<div class="oc-lone"><div class="oc-lone-t">Not placed under anyone ('+lone.length+')</div><div class="oc-lone-h">These employees have no team and no matching superior, so they cannot be drawn in the chart. Fix the "Immediate Superior" on their 201 file (it must match the superior\'s name exactly).</div><div class="oc-lone-g">'
+      +lone.map(function(e){drawn[e.id]=true;return '<div class="oc-node oc-solo-card"><div class="oc-name">'+escHtml(e.name||'')+'</div>'+(e.pos?'<div class="oc-pos">'+escHtml(e.pos)+'</div>':'')+'<div class="oc-warn">⚠ '+escHtml(d.notes[e.id]||'')+'</div></div>';}).join('')+'</div></div>';
+  }
+  if(d.loops.length)html+='<div class="oc-lone"><div class="oc-lone-t" style="color:#b71c1c">⚠ Reporting loop</div><div class="oc-lone-h">'+d.loops.map(function(e){return escHtml(e.name||'');}).join(', ')+' — people in this group report to each other, so there is no top. Only one of them is drawn as the top of the group; correct their "Immediate Superior" fields.</div></div>';
+  w.innerHTML=tools+html+'</div></div>';
+  ocApplyZoom();
 }
 function applPopulatePosFilter(){
   var sel = document.getElementById('appl-filter-pos');
@@ -7571,7 +7666,7 @@ async function bkNow(){
      • any write that still slipped through is stopped before it is sent, with a clear message.
    RO_WRITERS is generated by analysing this page's own code: every function that makes a
    POST/PUT/PATCH/DELETE request, plus every function that calls one. */
-var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "bkNow", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "tmAddEmpSubmit", "tmCellChange", "tmColsSave", "tmCreate", "tmFlush", "tmImportApply", "tmPaste", "tmQueueSave", "tmRemoveRow", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
+var RO_WRITERS = new Set(["addDisc", "addEmp", "addPerf", "addShift", "addSubordinate", "annDelete", "annDeleteAtt", "annSave", "annToggleVisibility", "applChangeStatus", "applDeleteRow", "applSupabaseDelete", "applSupabasePatch", "applyImportedPayroll", "approveEvr", "assignShift", "assignShiftDayOverride", "bkNow", "clearSig", "createUser", "deactivateEmp", "deleteChecklistForEmployee", "deleteDisc", "deleteEvrSubmission", "deleteHoliday", "deleteLeave", "deleteOffset", "deletePayrollEmp", "deletePayrollPeriod", "deletePerf", "deleteShift", "deleteUser", "doLogout", "genBirthdays", "genEarlyBird", "importCommissionExcel", "importData", "loadSigFile", "mgmtApproveAllSlips", "mgmtApproveOnly", "mgmtSendCommission", "mgmtSendOne", "mgmtUpdateLeave", "reactivateEmp", "rejectEvr", "removeEmp", "removeShiftAssign", "removeShiftDayOverride", "removeSubordinate", "resetPassword", "resolveDisc", "saveBenefitType", "saveCommissionWeek", "saveCommissions", "saveEditEmp", "saveEditTimeLog", "saveEmail", "saveHolidayForm", "saveHolidays", "saveLeaveForm", "saveLocPolicy", "saveOfficeLocation", "saveOffsetForm", "saveOffsets", "savePayrollAtt", "saveSetup", "sendAll", "sendAllWeeklyCommissions", "sendCommission", "sendOne", "sendWeeklyCommission", "setAdminPermission", "startChecklist", "switchTeamRole", "tmAddEmpSubmit", "tmCellChange", "tmColsSave", "tmCreate", "tmFlush", "tmImportApply", "tmPaste", "tmQueueSave", "tmRemoveRow", "toggleBenefitTypeStatus", "toggleChecklistItem", "updateLeaveStatus"]);
 // Start an edit but don't write by themselves (they just load a form), or import a file:
 var RO_HIDE_EXTRA = new Set(['tmOpenCreate','tmOpenColumns','tmOpenAddEmp','tmImportFile','annEdit','annCancelEdit','editHoliday','cancelHolidayEdit','editLeave','cancelLeaveEdit','editOffset','cancelOffsetEdit','importPayrollExcel']);
 // Open a detail pop-up that is still worth viewing: kept, relabelled "View", fields locked.
