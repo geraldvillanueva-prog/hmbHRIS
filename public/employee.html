@@ -1234,6 +1234,7 @@ async function init(){
     var data=await res.json();
     if(!data||!data.id){window.location.href='/';return;}
     if(data.role==='admin'||data.role==='admin_readonly'||data.role==='hr_intern'){window.location.href='/admin.html';return;}
+    if(data.role==='supervisor'){window.location.href='/supervisor.html';return;}   // e.g. just promoted from employee
     user=data;
     document.getElementById('emp-name-display').textContent=data.username;
     document.getElementById('emp-initials').textContent=data.username.slice(0,2).toUpperCase();
